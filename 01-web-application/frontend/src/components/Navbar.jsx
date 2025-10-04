@@ -763,12 +763,9 @@ const Navbar = () => {
               <StyledNavLink to="/location" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>LOCATION</StyledNavLink>
               <StyledNavLink to="/contactus" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>CONTACT US</StyledNavLink>
               <MobileAppIcon 
-                href="#" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowMobileAppModal(true);
-                }}
-                title="Download Mobile App"
+                href="/Nomu Mobile Application.apk" 
+                download="Nomu Mobile Application.apk"
+                title="Download Mobile App APK"
               >
                 <FaMobileAlt />
               </MobileAppIcon>
@@ -909,14 +906,11 @@ const Navbar = () => {
         <SidebarNavLink to="/location" onClick={() => setIsMobileSidebarOpen(false)}>LOCATION</SidebarNavLink>
         <SidebarNavLink to="/contactus" onClick={() => setIsMobileSidebarOpen(false)}>CONTACT US</SidebarNavLink>
         <MobileAppIcon 
-          href="#" 
-          onClick={(e) => {
-            e.preventDefault();
-            setIsMobileSidebarOpen(false);
-            setShowMobileAppModal(true);
-          }}
-          title="Download Mobile App"
+          href="/Nomu Mobile Application.apk" 
+          download="Nomu Mobile Application.apk"
+          title="Download Mobile App APK"
           style={{ margin: '8px 16px', width: 'auto', height: 'auto', padding: '12px 16px', borderRadius: '8px' }}
+          onClick={() => setIsMobileSidebarOpen(false)}
         >
           <FaMobileAlt style={{ marginRight: '8px' }} />
           Download Mobile App

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import NavbarandFooterImg from '../../utils/Images/ForNavbarandFooter.jpg';
-import { Lock, BarChart3, Users, Coffee, Gift, Star, MessageSquare, X, LogOut, Package } from 'lucide-react';
+import { Lock, BarChart3, Users, Coffee, Gift, Star, MessageSquare, X, LogOut, Package, Smartphone } from 'lucide-react';
 import { useModalContext } from '../context/ModalContext';
 
 const Page = styled.div`
@@ -83,6 +83,28 @@ const NavItem = styled(NavLink)`
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+`;
+
+const DownloadButton = styled.a`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  
+  &:hover { 
+    background: rgba(255,255,255,0.2); 
+    transform: translateX(4px);
+    border-color: rgba(255, 255, 255, 0.4);
   }
 `;
 
@@ -403,6 +425,18 @@ const AdminLayout = ({ children }) => {
                 )}
               </NavItemContainer>
             ))}
+            
+            {/* Mobile Barista Application Download Button */}
+            <DownloadButton 
+              href="/Mobile Barista Application.apk" 
+              download="Mobile Barista Application.apk"
+              title="Download Mobile Barista Application"
+            >
+              <NavIcon>
+                <Smartphone size={20} />
+              </NavIcon>
+              Download Mobile
+            </DownloadButton>
           </nav>
           <div style={{marginTop: 'auto'}}>
             <LogoutButton onClick={() => setShowLogoutConfirm(true)}>
