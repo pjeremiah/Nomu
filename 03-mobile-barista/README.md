@@ -1,172 +1,367 @@
-# 📱 Mobile Barista App
+# 👨‍💼 Nomu Cafe Mobile Barista
 
-Flutter mobile application for Nomu Cafe baristas and admin staff.
+Flutter mobile application for baristas and staff with order management, inventory tracking, and QR code scanning.
 
-## 📁 Project Structure
+## 📁 Structure
 
 ```
 03-mobile-barista/
-├── mobile-barista-backend/     # Node.js backend for mobile barista app
-│   ├── server.js               # Main server file
-│   ├── package.json            # Backend dependencies
-│   ├── services/               # Backend services
-│   └── uploads/                # Mobile barista-specific uploads
-├── mobile-barista-frontend/    # Flutter mobile application
-│   ├── lib/                    # Dart source code
-│   ├── assets/                 # Images, fonts, videos
-│   ├── android/                # Android-specific files
-│   ├── ios/                    # iOS-specific files
-│   ├── web/                    # Web platform files
-│   ├── windows/                # Windows platform files
-│   ├── linux/                  # Linux platform files
-│   └── pubspec.yaml            # Flutter dependencies
-├── SETUP_INSTRUCTIONS.md       # Setup guide
-└── README.md                   # This file
+├── mobile-barista-frontend/  # Flutter barista app
+├── mobile-barista-backend/   # Optional Node.js backend
+└── README.md                # This file
 ```
 
-## 🚀 Features
+## 🛠️ Technology Stack
 
-### 🔐 Authentication
-- **OTP-based Login** for baristas and admin staff
-- **Role-based Access Control** (Super Admin, Manager, Staff)
-- **Secure Session Management**
-
-### 📱 Core Features
-- **QR Code Scanner** for customer loyalty cards
-- **Inventory Management** with real-time updates
-- **Menu Management** with image uploads
-- **Order Processing** and transaction tracking
-- **Real-time Notifications** via WebSocket
-
-### 🛠️ Admin Tools
-- **Staff Management** and role assignment
-- **Analytics Dashboard** with sales insights
-- **Customer Support** tools
-- **System Configuration** and settings
-
-## 🏗️ Installation
-
-### Prerequisites
-- **Flutter SDK** (3.0.0 or higher)
-- **Node.js** (16.0.0 or higher)
-- **MongoDB** (4.4 or higher)
-- **Android Studio** or **Xcode** (for mobile development)
-
-### Mobile Frontend (Flutter App)
-```bash
-# Navigate to mobile frontend directory
-cd 03-mobile-barista/mobile-barista-frontend
-
-# Install Flutter dependencies
-flutter pub get
-
-# Run the app
-flutter run
-```
+### Mobile Frontend
+- **Flutter** (v3.9.0+)
+- **Dart** - Programming language
+- **Provider** - State management
+- **HTTP** - API communication
+- **Mobile Scanner** - QR code scanning
+- **Socket.io** - Real-time updates
+- **Shared Preferences** - Local storage
 
 ### Mobile Backend (Optional)
+- **Node.js** (v16.0+)
+- **Express.js** - Web framework
+- **MongoDB** - Database
+- **Socket.io** - Real-time communication
+- **JWT** - Authentication
+- **Nodemailer** - Email services
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Flutter SDK (v3.9.0 or higher)
+- Dart SDK (included with Flutter)
+- Android Studio / VS Code with Flutter extensions
+- Android device/emulator or iOS device/simulator
+- Camera access for QR scanning
+
+### Mobile Frontend Setup
+
+1. **Navigate to mobile barista frontend directory**
+   ```bash
+   cd 03-mobile-barista/mobile-barista-frontend
+   ```
+
+2. **Get Flutter dependencies**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Configure environment**
+   ```bash
+   # Create .env file
+   touch .env
+   
+   # Add your configuration
+   echo "API_BASE_URL=http://localhost:5000/api" >> .env
+   echo "SOCKET_URL=http://localhost:5000" >> .env
+   ```
+
+4. **Run the application**
+   ```bash
+   # Run on connected device/emulator
+   flutter run
+   
+   # For specific platform:
+   flutter run -d android    # Android
+   flutter run -d ios        # iOS
+   flutter run -d web        # Web
+   ```
+
+### Mobile Backend Setup (Optional)
+
+1. **Navigate to mobile barista backend directory**
+   ```bash
+   cd 03-mobile-barista/mobile-barista-backend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Configuration**
+   ```bash
+   # Create .env file
+   touch .env
+   
+   # Add your configuration
+   echo "MONGO_URI=mongodb://localhost:27017/nomu_cafe_barista" >> .env
+   echo "JWT_SECRET=your_32_character_secret_key" >> .env
+   echo "PORT=5000" >> .env
+   echo "NODE_ENV=development" >> .env
+   ```
+
+4. **Start the server**
+   ```bash
+   npm start
+   ```
+
+   Server will run on `http://localhost:5000`
+
+## 📋 Available Scripts
+
+### Flutter Commands
 ```bash
-# Navigate to mobile backend directory
-cd 03-mobile-barista/mobile-barista-backend
+flutter pub get        # Install dependencies
+flutter run            # Run on connected device
+flutter build apk      # Build Android APK
+flutter build ios      # Build iOS app
+flutter build web      # Build web app
+flutter clean          # Clean build files
+flutter doctor         # Check Flutter installation
+```
 
-# Install Node.js dependencies
-npm install
+### Backend Scripts
+```bash
+npm start              # Start production server
+npm run dev            # Start development server
+```
 
-# Start the backend server
-npm start
+## 🔧 Environment Configuration
+
+### Mobile Frontend (.env)
+```env
+# API Configuration
+API_BASE_URL=http://localhost:5000/api
+SOCKET_URL=http://localhost:5000
+
+# App Configuration
+APP_NAME=Nomu Barista
+APP_VERSION=1.0.0
+DEBUG_MODE=true
+```
+
+### Mobile Backend (.env)
+```env
+# Database
+MONGO_URI=mongodb://localhost:27017/nomu_cafe_barista
+
+# Authentication
+JWT_SECRET=your_32_character_secret_key
+
+# Email Configuration
+EMAIL_USER=your_gmail@gmail.com
+EMAIL_PASS=your_gmail_app_password
+
+# Server
+PORT=5000
+NODE_ENV=development
+```
+
+## 📱 Features
+
+### Barista Features
+- **Order Management** - View and process incoming orders
+- **QR Code Scanning** - Scan customer QR codes for verification
+- **Inventory Tracking** - Update stock levels and track movements
+- **Order Status Updates** - Mark orders as prepared, ready, or completed
+- **Real-time Notifications** - Receive instant order updates
+- **Customer Service** - Handle customer inquiries and issues
+- **Analytics Dashboard** - View sales and performance metrics
+- **Staff Management** - Manage barista accounts and permissions
+
+### Technical Features
+- **Real-time Updates** - Socket.io integration for live data
+- **Offline Support** - Basic functionality without internet
+- **Camera Integration** - QR code scanning capabilities
+- **Push Notifications** - Order alerts and updates
+- **Responsive Design** - Works on tablets and phones
+- **Secure Authentication** - JWT-based staff authentication
+
+## 🗂️ Project Structure
+
+```
+mobile-barista-frontend/lib/
+├── main.dart                 # App entry point
+├── models/                   # Data models
+├── providers/                # State management
+├── screens/                  # UI screens
+│   ├── login/               # Authentication screens
+│   ├── orders/              # Order management screens
+│   ├── inventory/           # Inventory screens
+│   ├── scanner/             # QR scanner screens
+│   └── analytics/           # Analytics screens
+├── widgets/                  # Reusable widgets
+├── services/                 # API services
+├── utils/                    # Utility functions
+└── assets/                   # Images, fonts, icons
+```
+
+## 🔐 Security Features
+
+- JWT token authentication for staff
+- Role-based access control
+- Secure API communication
+- Input validation and sanitization
+- Secure local storage
+- Session management
+
+## 📊 API Integration
+
+### Authentication Endpoints
+- `POST /api/auth/barista-login` - Barista login
+- `POST /api/auth/verify-token` - Token verification
+- `POST /api/auth/refresh` - Token refresh
+
+### Order Management Endpoints
+- `GET /api/orders/pending` - Get pending orders
+- `GET /api/orders/active` - Get active orders
+- `PUT /api/orders/:id/status` - Update order status
+- `GET /api/orders/:id` - Get specific order details
+
+### Inventory Endpoints
+- `GET /api/inventory` - Get inventory items
+- `PUT /api/inventory/:id/stock` - Update stock levels
+- `POST /api/inventory/movement` - Record stock movement
+- `GET /api/inventory/low-stock` - Get low stock items
+
+### Scanner Endpoints
+- `POST /api/scanner/verify-qr` - Verify QR code
+- `GET /api/scanner/order/:qr` - Get order by QR code
+- `POST /api/scanner/complete` - Mark order as completed
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **Camera Permission Issues**
+   - Android: Check camera permission in app settings
+   - iOS: Check camera permission in Settings > Privacy
+   - Ensure camera is not being used by another app
+
+2. **QR Scanner Not Working**
+   - Check camera permissions
+   - Ensure good lighting conditions
+   - Verify QR code is valid and not damaged
+   - Test with different QR code formats
+
+3. **API Connection Issues**
+   - Check API_BASE_URL in .env
+   - Verify backend server is running
+   - Check network connectivity
+   - Verify JWT token is valid
+
+4. **Build Errors**
+   ```bash
+   flutter clean
+   flutter pub get
+   flutter run
+   ```
+
+5. **Platform-specific Issues**
+   - Android: Check minSdkVersion and camera permissions
+   - iOS: Check camera usage description in Info.plist
+   - Web: Camera access requires HTTPS in production
+
+## 📱 Platform Support
+
+- **Android** - API level 21+ (Android 5.0+)
+- **iOS** - iOS 11.0+
+- **Web** - Modern browsers with camera support
+
+## 🧪 Testing
+
+```bash
+# Run unit tests
+flutter test
+
+# Run integration tests
+flutter drive --target=test_driver/app.dart
+
+# Run specific test files
+flutter test test/scanner_test.dart
+flutter test test/order_management_test.dart
+```
+
+## 📦 Building for Production
+
+### Android APK
+```bash
+flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
+```
+
+### Android App Bundle (Recommended)
+```bash
+flutter build appbundle --release
+# Output: build/app/outputs/bundle/release/app-release.aab
+```
+
+### iOS App
+```bash
+flutter build ios --release
+# Requires Xcode for final build and App Store submission
+```
+
+### Web App
+```bash
+flutter build web --release
+# Output: build/web/
 ```
 
 ## 🔧 Configuration
 
-### Environment Variables
-The app uses smart configuration with fallbacks:
-- **Default IP**: `192.168.100.3:5001`
-- **Main Backend**: Connects to `192.168.100.3:5000` for core functionality
-- **Mobile Backend**: Optional dedicated backend on port `5001`
+### QR Code Scanner Settings
+```dart
+// Configure scanner settings
+const scannerConfig = {
+  'enableTorch': true,
+  'enableVibration': true,
+  'enableSound': true,
+  'scanTimeout': 30000, // 30 seconds
+};
+```
 
-### API Endpoints
-- **Main Backend**: `http://192.168.100.3:5000/api`
-- **Mobile Backend**: `http://192.168.100.3:5001/api`
-- **Health Check**: `http://192.168.100.3:5001/api/health`
+### Order Status Configuration
+```dart
+// Order status flow
+const orderStatuses = [
+  'pending',      // Order received
+  'confirmed',    // Order confirmed
+  'preparing',    // Being prepared
+  'ready',        // Ready for pickup
+  'completed',    // Order completed
+  'cancelled'     // Order cancelled
+];
+```
 
-## 📱 Platform Support
+## 📊 Analytics & Reporting
 
-- **Android**: ✅ APK builds successfully
-- **iOS**: ✅ Ready for iOS devices
-- **Web**: ✅ Web build works
-- **Windows**: ✅ Desktop app ready
-- **Linux**: ✅ Linux app ready
-- **macOS**: ✅ macOS app ready
+### Available Metrics
+- Orders processed per hour/day
+- Average order preparation time
+- Inventory turnover rates
+- Staff performance metrics
+- Customer satisfaction scores
+- Revenue tracking
 
-## 🔐 Security Features
-
-- **JWT Token Authentication**
-- **Role-based Access Control**
-- **Secure API Communication**
-- **Input Validation and Sanitization**
-- **Rate Limiting and CORS Protection**
-
-## 🚀 Getting Started
-
-1. **Start the main web backend** (required):
-   ```bash
-   cd 01-web-application/backend
-   npm start
-   ```
-
-2. **Run the mobile barista app**:
-   ```bash
-   cd 03-mobile-barista/mobile-barista-frontend
-   flutter run
-   ```
-
-3. **Login with admin credentials**:
-   - Use existing admin account from web application
-   - Or create new admin account via web interface
+### Real-time Dashboard
+- Live order queue
+- Current inventory levels
+- Staff activity status
+- System health monitoring
 
 ## 📚 Documentation
 
-- **API Documentation**: See `01-web-application/backend/docs/`
-- **Setup Instructions**: See `SETUP_INSTRUCTIONS.md`
-- **Troubleshooting**: Check Flutter and backend logs
+- [Flutter Documentation](https://flutter.dev/docs)
+- [Mobile Scanner Package](https://pub.dev/packages/mobile_scanner)
+- [Socket.io Client](https://pub.dev/packages/socket_io_client)
+- [API Documentation](../01-web-application/backend/docs/)
 
-## 🛠️ Development
+## 🤝 Contributing
 
-### Code Structure
-- **`lib/`**: Main Flutter application code
-- **`lib/api/`**: API service layer
-- **`lib/services/`**: Business logic services
-- **`lib/widgets/`**: Reusable UI components
-- **`lib/models/`**: Data models and DTOs
-
-### Key Services
-- **`ApiService`**: HTTP API communication
-- **`SocketService`**: Real-time WebSocket communication
-- **`InventoryService`**: Inventory management
-- **`MenuService`**: Menu item management
-- **`NotificationService`**: Push notifications
-
-## 🐛 Troubleshooting
-
-### Common Issues
-1. **Connection Errors**: Check if main backend is running
-2. **Build Errors**: Run `flutter clean && flutter pub get`
-3. **Permission Issues**: Check camera and storage permissions
-4. **API Errors**: Verify backend endpoints and authentication
-
-### Debug Mode
-Enable debug logging by setting `kDebugMode = true` in the app configuration.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test on multiple platforms
+5. Test QR scanning functionality
+6. Submit a pull request
 
 ## 📄 License
 
-This project is part of the Nomu Cafe Capstone Project.
-
-## 👥 Team
-
-- **Development**: Capstone Team
-- **Supervisor**: [Supervisor Name]
-- **Institution**: [Institution Name]
-
----
-
-**Note**: This mobile barista app is designed to work alongside the main web application and mobile client app. Ensure all three applications are properly configured and running for full functionality.
+This project is proprietary software for Nomu Cafe.
