@@ -1,0 +1,60 @@
+# Nomu Cafe Web Application Backend Environment Variables
+# Copy this file to .env and update with your actual values
+
+# ===========================================
+# REQUIRED VARIABLES
+# ===========================================
+
+# Database Configuration
+MONGO_URI=mongodb://localhost:27017/nomu_cafe_web
+
+# JWT Configuration (32+ characters recommended)
+JWT_SECRET=dev_jwt_secret_32_characters_minimum_for_web_backend
+
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+
+# Email Configuration (for OTP and notifications)
+EMAIL_USER=your_gmail_address@gmail.com
+EMAIL_PASS=your_gmail_app_password
+
+# ===========================================
+# SECURITY CONFIGURATION
+# ===========================================
+
+# Password Hashing (10-12 for dev, 12-14 for production)
+BCRYPT_ROUNDS=12
+
+# Rate Limiting (requests per 15 minutes)
+RATE_LIMIT_MAX_REQUESTS=100
+
+# File Upload Limits (in bytes)
+MAX_FILE_SIZE=5242880
+
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# ===========================================
+# OPTIONAL VARIABLES
+# ===========================================
+
+# Super Admin Account (auto-created on first run)
+SUPER_ADMIN_EMAIL=admin@yourdomain.com
+SUPER_ADMIN_PASSWORD=your_secure_password
+SUPER_ADMIN_USERNAME=superadmin
+SUPER_ADMIN_FULLNAME=Super Admin
+
+# Advanced Security
+TRUST_PROXY=false
+CORS_CREDENTIALS=true
+
+# Logging Configuration
+LOG_LEVEL=info
+LOG_FORMAT=combined
+ENABLE_REQUEST_LOGGING=true
+
+# Error Tracking
+ENABLE_ERROR_TRACKING=false
+ERROR_TRACKING_SERVICE=sentry
+ERROR_TRACKING_DSN=your_sentry_dsn
