@@ -255,7 +255,7 @@ This project is proprietary software for Nomu Cafe.
 
 ---
 
-**Developed by**: Jeremiah Pagarigan  
-**Institution**: [Your University]  
-**Course**: Capstone Project  
-**Year**: 2024-2025
+Developed by: DIATA Group
+Institution: National University of Manila  
+Course: Capstone Project  
+Year: 2025-2026
