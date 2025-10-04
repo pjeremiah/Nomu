@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
 
+// Function to mask email address for security
+const maskEmail = (email) => {
+  if (!email || !email.includes('@')) return email;
+  
+  const [localPart, domain] = email.split('@');
+  const maskedLocal = localPart.charAt(0) + '*'.repeat(Math.max(1, localPart.length - 1));
+  
+  return `${maskedLocal}@${domain}`;
+};
+
 const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
   const [formData, setFormData] = useState({
     email: '',
@@ -456,7 +466,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
             {otpSent && (
               <div className="form-success">
                 <strong>📧 OTP Sent!</strong><br />
-                A 6-digit verification code has been sent to <strong>{formData.email}</strong>
+                A 6-digit verification code has been sent to <strong>{maskEmail(formData.email)}</strong>
                 {otpExpiresAt && (
                   <div className="expiry-time">
                     Code expires at: {new Date(otpExpiresAt).toLocaleTimeString()}
