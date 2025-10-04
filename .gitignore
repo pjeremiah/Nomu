@@ -99,8 +99,8 @@ temp/
 ehthumbs.db
 Thumbs.db
 
-# Uploads directory (if you want to exclude uploaded files)
-# server/uploads/
+# Uploads directory (exclude uploaded files)
+01-web-application/backend/uploads/
 
 # Database files
 *.db
