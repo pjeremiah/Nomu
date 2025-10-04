@@ -35,7 +35,6 @@ class ActivityService {
       });
 
       await activity.save();
-      console.log(`✅ [ACTIVITY] Logged: ${action} by ${adminName}`);
       
       // Clean up old activities to maintain 20 activity limit
       await this.cleanupOldActivities();
@@ -106,7 +105,6 @@ class ActivityService {
             _id: { $in: oldestActivities.map(activity => activity._id) }
           });
           
-          console.log(`🧹 [ACTIVITY] Cleaned up ${deleteResult.deletedCount} old activities. Total activities now: ${totalActivities - deleteResult.deletedCount}`);
         }
       }
     } catch (error) {

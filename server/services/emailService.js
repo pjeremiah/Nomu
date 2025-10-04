@@ -18,7 +18,7 @@ class emailService {
     try {
       // Check if email credentials are configured
       if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.log(`📧 OTP for ${email}: ${otpCode} (Email not configured - using console log)`);
+        // Email not configured - OTP would be: ${otpCode}
         return { success: true, messageId: 'console-log' };
       }
 
@@ -179,7 +179,7 @@ class emailService {
     try {
       // Check if email credentials are configured
       if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.log(`📧 Congrats email for ${email}: ${type} (Email not configured - using console log)`);
+        // Email not configured - congrats email would be sent
         return { success: true, messageId: 'console-log' };
       }
 

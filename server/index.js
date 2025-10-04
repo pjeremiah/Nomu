@@ -86,7 +86,7 @@ if (process.env.NODE_ENV === 'production') {
     stream: {
       write: (message) => {
         // Log to console in production (you can redirect to file)
-        console.log(message.trim());
+        // Log to console in production
       }
     }
   }));
@@ -145,7 +145,6 @@ app.use('/uploads', (req, res, next) => {
 // Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
-  console.log('✅ MongoDB Atlas connected');
   
   // Initialize GridFS buckets for image serving
   const db = mongoose.connection.db;
@@ -156,7 +155,6 @@ mongoose.connect(process.env.MONGO_URI)
 })
 .catch(err => {
   console.error('❌ MongoDB connection error:', err);
-  console.log('⚠️  Server will continue running without database connection');
   // Don't exit - let server run for testing
 });
 
@@ -334,20 +332,16 @@ app.get('/api/images/profile/:id', async (req, res) => {
   const fileId = req.params.id;
   
   try {
-    console.log('🔍 Looking for profile image:', fileId);
     
     // Use async/await instead of callback
     const files = await gfs.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
-    console.log('📊 Profile image query result:', { filesCount: files.length });
     
     if (!files || files.length === 0) {
-      console.log('❌ Profile image not found');
       return res.status(404).json({ message: 'Image not found' });
     }
     
     const file = files[0];
     const contentType = file.metadata?.contentType || file.contentType || 'image/jpeg';
-    console.log('📋 File details:', { contentType, length: file.length });
     
     // Set proper headers
     res.set({
@@ -359,7 +353,6 @@ app.get('/api/images/profile/:id', async (req, res) => {
       'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
     });
     
-    console.log('🔍 Starting download stream...');
     const downloadStream = gfs.openDownloadStream(new mongoose.Types.ObjectId(fileId));
     
     downloadStream.on('error', (err) => {
@@ -370,7 +363,6 @@ app.get('/api/images/profile/:id', async (req, res) => {
     });
     
     downloadStream.on('end', () => {
-      console.log('✅ Download stream completed');
     });
     
     downloadStream.pipe(res);
@@ -452,7 +444,6 @@ app.use('*', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
 // Seed super admin on startup if missing
@@ -483,7 +474,6 @@ app.listen(PORT, () => {
         existing.role = 'superadmin';
         existing.status = 'active';
         await existing.save();
-        console.log('✅ Existing admin promoted to superadmin');
       }
       // Write note file
       const note = `Super Admin Credentials\nEmail: ${superAdminEmail}\nPassword: ${superAdminPassword}\n\nStored via environment variables. Keep this file secure.`;
@@ -499,7 +489,6 @@ app.listen(PORT, () => {
       password: hashed,
       status: 'active'
     });
-    console.log('✅ Super admin account created');
     const note = `Super Admin Credentials\nEmail: ${superAdminEmail}\nPassword: ${superAdminPassword}\n\nStored via environment variables. Keep this file secure.`;
     fs.writeFileSync(path.join(__dirname, 'SUPER_ADMIN_NOTE.txt'), note);
   } catch (err) {

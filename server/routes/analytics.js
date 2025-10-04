@@ -14,7 +14,6 @@ const calculateAge = (birthday) => {
   
   // Handle future dates - if birthday is in the future, return 0
   if (birthDate > today) {
-    console.log('⚠️ [ANALYTICS] Future birthday detected:', birthday, 'for user');
     return 0;
   }
   
@@ -88,7 +87,6 @@ router.get('/age-ranges', authMiddleware, async (req, res) => {
     }
 
     const users = await User.find({ role: 'Customer' });
-    console.log('🔍 [ANALYTICS] Found users:', users.length);
     
     const ageRanges = {
       '1-17': 0,
@@ -99,18 +97,14 @@ router.get('/age-ranges', authMiddleware, async (req, res) => {
     };
 
     users.forEach(user => {
-      console.log('🔍 [ANALYTICS] User birthday:', user.birthday, 'for user:', user.fullName);
       if (user.birthday) {
         const age = calculateAge(user.birthday);
         const range = categorizeAge(age);
-        console.log('🔍 [ANALYTICS] Calculated age:', age, 'Range:', range);
         if (ageRanges[range] !== undefined) {
           ageRanges[range]++;
         }
       }
     });
-    
-    console.log('🔍 [ANALYTICS] Final age ranges:', ageRanges);
 
     const ageStats = Object.entries(ageRanges).map(([range, count]) => ({
       _id: range,
@@ -148,15 +142,11 @@ router.get('/signup-growth', authMiddleware, async (req, res) => {
       groupBy = { $dateToString: { format: "%Y-%m", date: "$createdAt" } };
     }
 
-    console.log('🔍 [ANALYTICS] Signup growth query - period:', period, 'groupBy:', groupBy);
-    
     const signupStats = await User.aggregate([
       { $match: { role: 'Customer' } },
       { $group: { _id: groupBy, count: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ]);
-
-    console.log('🔍 [ANALYTICS] Signup growth result:', signupStats);
     res.json(signupStats);
   } catch (error) {
     console.error('❌ [ANALYTICS] Signup Growth API Error:', error);
@@ -375,7 +365,6 @@ router.get('/best-sellers', authMiddleware, async (req, res) => {
       dateFilter = { 'pastOrders.date': { $gte: startDate } };
     }
 
-    console.log('🔍 [ANALYTICS] Best sellers query - period:', period, 'dateFilter:', dateFilter);
 
     // Aggregate past orders to get best sellers
     const bestSellers = await User.aggregate([
@@ -403,7 +392,6 @@ router.get('/best-sellers', authMiddleware, async (req, res) => {
       { $limit: parseInt(limit) }
     ]);
 
-    console.log('🔍 [ANALYTICS] Best sellers result:', bestSellers);
 
     // Get additional statistics
     const totalOrders = bestSellers.reduce((sum, item) => sum + item.totalOrders, 0);
@@ -468,7 +456,6 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
       dateFilter = { 'pastOrders.date': { $gte: startDate } };
     }
 
-    console.log('🔍 [ANALYTICS] Best sellers by category query - period:', period);
 
     // Get all menu items to map drink names to categories
     const menuItems = await MenuItem.find({ status: 'active' });
@@ -596,7 +583,6 @@ router.get('/sales-trends', authMiddleware, async (req, res) => {
       groupBy = { $dateToString: { format: "%Y-%m", date: "$pastOrders.date" } };
     }
 
-    console.log('🔍 [ANALYTICS] Sales trends query - period:', period, 'itemName:', itemName);
 
     const matchStage = { role: 'Customer' };
     if (itemName) {
@@ -626,7 +612,6 @@ router.get('/sales-trends', authMiddleware, async (req, res) => {
       { $sort: { period: 1 } }
     ]);
 
-    console.log('🔍 [ANALYTICS] Sales trends result:', salesTrends);
 
     res.json({
       trends: salesTrends,

@@ -110,3 +110,9 @@ Thumbs.db
 # Backup files
 *.bak
 *.backup
+
+# Test files
+*test*.js
+*Test*.js
+*debug*.js
+*Debug*.js

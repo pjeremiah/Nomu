@@ -279,8 +279,6 @@ const EnhancedDropdown = ({
       e.preventDefault();
       e.stopPropagation();
       
-      console.log('Dropdown toggle clicked, current isOpen:', isOpen);
-      console.log('Options available:', options);
       
       if (!isOpen) {
         // Check if we're inside a modal
@@ -301,12 +299,10 @@ const EnhancedDropdown = ({
         checkPosition();
         setIsOpening(true);
         setIsOpen(true);
-        console.log('Opening dropdown, isInModal:', isInModal, 'usePortal:', isInModal);
         // Reset opening state after a short delay
         setTimeout(() => setIsOpening(false), 100);
       } else {
         setIsOpen(false);
-        console.log('Closing dropdown...');
       }
     }
   };
@@ -314,10 +310,8 @@ const EnhancedDropdown = ({
   const handleSelect = (option, e) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Option selected:', option.value, 'onChange function:', onChange);
     onChange(option.value);
     setIsOpen(false);
-    console.log('Dropdown closed after selection');
   };
 
   const handleClickOutside = useCallback((event) => {
@@ -405,7 +399,6 @@ const EnhancedDropdown = ({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {console.log('Rendering portal dropdown menu, isOpen:', isOpen, 'options count:', options.length)}
           {menuItems}
         </PortalDropdownMenu>,
         document.body
@@ -418,7 +411,6 @@ const EnhancedDropdown = ({
         position: 'absolute',
         zIndex: 10001
       }}>
-        {console.log('Rendering regular dropdown menu, isOpen:', isOpen, 'options count:', options.length)}
         {menuItems}
       </DropdownMenu>
     );

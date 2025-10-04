@@ -75,9 +75,6 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
     }
 
-    console.log('=== REWARD CREATION REQUEST ===');
-    console.log('Request body:', req.body);
-    console.log('Request headers:', req.headers);
     
     const {
       title,
@@ -90,25 +87,13 @@ router.post('/', authMiddleware, async (req, res) => {
       status
     } = req.body;
 
-    console.log('Extracted fields:', {
-      title,
-      description,
-      rewardType,
-      pointsRequired,
-      startDate,
-      endDate,
-      usageLimit,
-      status
-    });
 
     // Validate required fields (check for empty strings too)
     if (!title || !description || !rewardType || !startDate || !endDate || !usageLimit || 
         title.trim() === '' || description.trim() === '' || usageLimit.toString().trim() === '') {
-      console.log('❌ VALIDATION FAILED - Missing required fields');
       return res.status(400).json({ message: 'Missing required fields' });
     }
     
-    console.log('✅ VALIDATION PASSED - All fields present');
 
     // Validate dates
     const start = new Date(startDate);
