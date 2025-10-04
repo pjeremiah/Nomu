@@ -1,155 +1,172 @@
-# 👨‍💼 Mobile Barista App
+# 📱 Mobile Barista App
 
-Flutter mobile application for Nomu Cafe baristas and administrators.
+Flutter mobile application for Nomu Cafe baristas and admin staff.
 
-## 📋 Features
+## 📁 Project Structure
 
-### Barista Features
-- Order processing and management
-- Inventory tracking and updates
-- Customer service tools
-- Real-time notifications
-- Order status updates
-- Quick menu access
+```
+03-mobile-barista/
+├── mobile-barista-backend/     # Node.js backend for mobile barista app
+│   ├── server.js               # Main server file
+│   ├── package.json            # Backend dependencies
+│   ├── services/               # Backend services
+│   └── uploads/                # Mobile barista-specific uploads
+├── mobile-barista-frontend/    # Flutter mobile application
+│   ├── lib/                    # Dart source code
+│   ├── assets/                 # Images, fonts, videos
+│   ├── android/                # Android-specific files
+│   ├── ios/                    # iOS-specific files
+│   ├── web/                    # Web platform files
+│   ├── windows/                # Windows platform files
+│   ├── linux/                  # Linux platform files
+│   └── pubspec.yaml            # Flutter dependencies
+├── SETUP_INSTRUCTIONS.md       # Setup guide
+└── README.md                   # This file
+```
 
-### Admin Features
-- Staff management
-- Analytics dashboard
-- Inventory management
-- Promotional campaigns
-- Customer feedback review
-- Performance metrics
+## 🚀 Features
 
-### User Interface
-- Clean, professional design
-- Real-time order updates
-- Quick action buttons
-- Status indicators
-- Notification system
+### 🔐 Authentication
+- **OTP-based Login** for baristas and admin staff
+- **Role-based Access Control** (Super Admin, Manager, Staff)
+- **Secure Session Management**
 
-## 🛠️ Technology Stack
+### 📱 Core Features
+- **QR Code Scanner** for customer loyalty cards
+- **Inventory Management** with real-time updates
+- **Menu Management** with image uploads
+- **Order Processing** and transaction tracking
+- **Real-time Notifications** via WebSocket
 
-- **Framework**: Flutter
-- **Language**: Dart
-- **State Management**: Provider/Riverpod
-- **Backend Integration**: RESTful API
-- **Authentication**: JWT with role-based access
-- **Real-time**: WebSocket connections
+### 🛠️ Admin Tools
+- **Staff Management** and role assignment
+- **Analytics Dashboard** with sales insights
+- **Customer Support** tools
+- **System Configuration** and settings
 
-## 🚀 Setup Instructions
+## 🏗️ Installation
 
 ### Prerequisites
-- Flutter SDK (latest stable version)
-- Android Studio / VS Code with Flutter extension
-- Android device or emulator
+- **Flutter SDK** (3.0.0 or higher)
+- **Node.js** (16.0.0 or higher)
+- **MongoDB** (4.4 or higher)
+- **Android Studio** or **Xcode** (for mobile development)
 
-### Installation
+### Mobile Frontend (Flutter App)
 ```bash
-# Clone the repository
-git clone [repository-url]
-cd 03-mobile-barista
+# Navigate to mobile frontend directory
+cd 03-mobile-barista/mobile-barista-frontend
 
-# Install dependencies
+# Install Flutter dependencies
 flutter pub get
 
 # Run the app
 flutter run
 ```
 
-### Configuration
-1. Update API endpoints in `lib/config/api_config.dart`
-2. Configure role-based access
-3. Set up push notifications
-4. Configure real-time updates
+### Mobile Backend (Optional)
+```bash
+# Navigate to mobile backend directory
+cd 03-mobile-barista/mobile-barista-backend
 
-## 📱 App Screens
+# Install Node.js dependencies
+npm install
 
-### Authentication
-- Staff login
-- OTP verification
-- Role selection
+# Start the backend server
+npm start
+```
 
-### Barista Dashboard
-- Active orders
-- Order processing
-- Inventory status
-- Quick actions
+## 🔧 Configuration
 
-### Admin Dashboard
-- Staff management
-- Analytics overview
-- Inventory management
-- Customer feedback
-- Promotional campaigns
+### Environment Variables
+The app uses smart configuration with fallbacks:
+- **Default IP**: `192.168.100.3:5001`
+- **Main Backend**: Connects to `192.168.100.3:5000` for core functionality
+- **Mobile Backend**: Optional dedicated backend on port `5001`
 
-### Order Management
-- Order queue
-- Order details
-- Status updates
-- Customer information
+### API Endpoints
+- **Main Backend**: `http://192.168.100.3:5000/api`
+- **Mobile Backend**: `http://192.168.100.3:5001/api`
+- **Health Check**: `http://192.168.100.3:5001/api/health`
+
+## 📱 Platform Support
+
+- **Android**: ✅ APK builds successfully
+- **iOS**: ✅ Ready for iOS devices
+- **Web**: ✅ Web build works
+- **Windows**: ✅ Desktop app ready
+- **Linux**: ✅ Linux app ready
+- **macOS**: ✅ macOS app ready
 
 ## 🔐 Security Features
 
-- Role-based authentication
-- JWT token management
-- Secure API communication
-- Biometric authentication
-- Session management
+- **JWT Token Authentication**
+- **Role-based Access Control**
+- **Secure API Communication**
+- **Input Validation and Sanitization**
+- **Rate Limiting and CORS Protection**
 
-## 📊 Analytics Integration
+## 🚀 Getting Started
 
-- Real-time order tracking
-- Performance metrics
-- Staff productivity
-- Inventory analytics
-- Customer insights
+1. **Start the main web backend** (required):
+   ```bash
+   cd 01-web-application/backend
+   npm start
+   ```
 
-## 🚀 Deployment
+2. **Run the mobile barista app**:
+   ```bash
+   cd 03-mobile-barista/mobile-barista-frontend
+   flutter run
+   ```
 
-### Android
-```bash
-flutter build apk --release
-flutter build appbundle --release
-```
+3. **Login with admin credentials**:
+   - Use existing admin account from web application
+   - Or create new admin account via web interface
 
-### iOS
-```bash
-flutter build ios --release
-```
+## 📚 Documentation
 
-## 🔧 API Integration
+- **API Documentation**: See `01-web-application/backend/docs/`
+- **Setup Instructions**: See `SETUP_INSTRUCTIONS.md`
+- **Troubleshooting**: Check Flutter and backend logs
 
-The app integrates with the web application's backend API:
-- Authentication and authorization
-- Order management
-- Inventory tracking
-- Staff management
-- Analytics and reporting
+## 🛠️ Development
 
-## 📝 Development Notes
+### Code Structure
+- **`lib/`**: Main Flutter application code
+- **`lib/api/`**: API service layer
+- **`lib/services/`**: Business logic services
+- **`lib/widgets/`**: Reusable UI components
+- **`lib/models/`**: Data models and DTOs
 
-- Implement proper role-based access control
-- Use real-time updates for order status
-- Optimize for quick order processing
-- Add comprehensive error handling
-- Implement offline capability for critical functions
+### Key Services
+- **`ApiService`**: HTTP API communication
+- **`SocketService`**: Real-time WebSocket communication
+- **`InventoryService`**: Inventory management
+- **`MenuService`**: Menu item management
+- **`NotificationService`**: Push notifications
 
-## 🎯 Key Features
+## 🐛 Troubleshooting
 
-### Order Processing
-- Real-time order notifications
-- Quick order status updates
-- Customer communication
-- Order history tracking
+### Common Issues
+1. **Connection Errors**: Check if main backend is running
+2. **Build Errors**: Run `flutter clean && flutter pub get`
+3. **Permission Issues**: Check camera and storage permissions
+4. **API Errors**: Verify backend endpoints and authentication
 
-### Inventory Management
-- Stock level monitoring
-- Quick inventory updates
-- Low stock alerts
-- Product availability
+### Debug Mode
+Enable debug logging by setting `kDebugMode = true` in the app configuration.
 
-### Analytics
-- Daily sales reports
-- Popular items tracking
-- Staff performance metrics
-- Customer insights
+## 📄 License
+
+This project is part of the Nomu Cafe Capstone Project.
+
+## 👥 Team
+
+- **Development**: Capstone Team
+- **Supervisor**: [Supervisor Name]
+- **Institution**: [Institution Name]
+
+---
+
+**Note**: This mobile barista app is designed to work alongside the main web application and mobile client app. Ensure all three applications are properly configured and running for full functionality.

@@ -13,14 +13,18 @@ Complete web-based cafe management system
 
 ### 📱 [02-mobile-client](./02-mobile-client/)
 Flutter mobile application for customers
+- **Mobile Frontend**: Flutter app for customer ordering and loyalty
+- **Mobile Backend**: Optional Node.js backend for mobile-specific features
 - Customer ordering and loyalty system
 - Menu browsing and promotions
 - Account management and feedback
 
 ### 👨‍💼 [03-mobile-barista](./03-mobile-barista/)
 Flutter mobile application for baristas and admins
+- **Mobile Frontend**: Flutter app for barista operations
+- **Mobile Backend**: Optional Node.js backend for mobile-specific features
 - Order management and processing
-- Inventory tracking
+- Inventory tracking and QR code scanning
 - Analytics and reporting
 
 ### 📚 [04-documentation](./04-documentation/)

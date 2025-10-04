@@ -2,58 +2,101 @@
 
 Flutter mobile application for Nomu Cafe customers.
 
+## 📁 Project Structure
+
+```
+02-mobile-client/
+├── mobile-backend/        # Node.js backend for mobile app
+│   ├── server.js          # Main server file
+│   ├── package.json       # Backend dependencies
+│   ├── services/          # Backend services
+│   └── uploads/           # Mobile-specific uploads
+├── mobile-frontend/       # Flutter mobile application
+│   ├── lib/               # Dart source code
+│   ├── assets/            # Images, fonts, videos
+│   ├── android/           # Android-specific files
+│   ├── ios/               # iOS-specific files
+│   ├── web/               # Web platform files
+│   ├── windows/           # Windows platform files
+│   ├── linux/             # Linux platform files
+│   ├── macos/             # macOS platform files
+│   └── pubspec.yaml       # Flutter dependencies
+├── SETUP_INSTRUCTIONS.md  # Setup guide
+└── README.md              # This file
+```
+
 ## 📋 Features
 
 ### Customer Features
 - User registration and authentication
 - Menu browsing with categories
-- Order placement and tracking
-- Loyalty points system
+- Loyalty points system with QR scanning
+- Reward redemption system
 - Feedback and reviews
 - Promotional offers
-- Order history
-- Profile management
+- Profile management with photo uploads
+- Location services with maps
 
 ### User Interface
-- Modern, intuitive design
+- Modern Material Design interface
+- Dark/Light theme support
 - Category-based menu navigation
-- Real-time order updates
-- Push notifications
+- Real-time notifications via WebSocket
+- Smooth animations and transitions
 - Offline capability for menu browsing
 
 ## 🛠️ Technology Stack
 
-- **Framework**: Flutter
+- **Framework**: Flutter 3.7.2+
 - **Language**: Dart
-- **State Management**: Provider/Riverpod
-- **Backend Integration**: RESTful API
+- **State Management**: Provider
+- **Backend Integration**: RESTful API + WebSocket
 - **Authentication**: JWT with OTP
-- **Local Storage**: SQLite/Hive
+- **Local Storage**: SharedPreferences + SQLite
+- **Image Processing**: Custom image optimization
+- **Maps**: Google Maps integration
 
 ## 🚀 Setup Instructions
 
 ### Prerequisites
-- Flutter SDK (latest stable version)
+- Flutter SDK (3.7.2 or higher)
 - Android Studio / VS Code with Flutter extension
 - Android device or emulator
+- Node.js (for backend scripts)
 
 ### Installation
-```bash
-# Clone the repository
-git clone [repository-url]
-cd 02-mobile-client
 
-# Install dependencies
+#### Mobile Frontend (Flutter App)
+```bash
+# Navigate to mobile frontend directory
+cd 02-mobile-client/mobile-frontend
+
+# Install Flutter dependencies
 flutter pub get
 
 # Run the app
 flutter run
 ```
 
+#### Mobile Backend (Optional)
+```bash
+# Navigate to mobile backend directory
+cd 02-mobile-client/mobile-backend
+
+# Install Node.js dependencies
+npm install
+
+# Start the backend server
+npm start
+```
+
 ### Configuration
-1. Update API endpoints in `lib/config/api_config.dart`
-2. Configure Firebase (if using push notifications)
-3. Set up app icons and splash screens
+The app automatically configures API endpoints:
+- **Development**: `http://localhost:5000/api`
+- **Android Device**: Uses your computer's IP address
+- **Production**: Configure via environment variables
+
+No manual configuration needed - the app detects the backend automatically!
 
 ## 📱 App Screens
 

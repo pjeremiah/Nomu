@@ -116,3 +116,22 @@ Thumbs.db
 *Test*.js
 *debug*.js
 *Debug*.js
+
+# Gradle cache and build files
+.gradle/
+**/build/
+**/.gradle/
+**/gradle-wrapper.jar
+**/gradle.properties
+**/local.properties
+
+# Flutter/Dart build files
+**/android/app/build/
+**/ios/build/
+**/web/build/
+**/windows/build/
+**/linux/build/
+**/macos/build/
+**/.dart_tool/
+**/.packages
+**/pubspec.lock
