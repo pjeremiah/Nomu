@@ -246,20 +246,12 @@ const MobileAppModal = ({ isOpen, onContinue }) => {
         <Message>Get the Nomu Cafe mobile apps for the best experience!</Message>
         <DownloadButtons>
           <DownloadButton 
-            href="/Nomu Mobile Application.apk" 
-            download="Nomu Mobile Application.apk"
-            title="Download Customer App"
+            href="/download-apk.html" 
+            target="_blank"
+            title="Download Mobile Apps"
           >
             <FaMobileAlt style={{ marginRight: '8px' }} />
-            Customer App
-          </DownloadButton>
-          <DownloadButton 
-            href="/Mobile Barista Application.apk" 
-            download="Mobile Barista Application.apk"
-            title="Download Barista App"
-          >
-            <FaUserTie style={{ marginRight: '8px' }} />
-            Barista App
+            Download Mobile Apps
           </DownloadButton>
         </DownloadButtons>
         <ContinueButton onClick={onContinue}>
