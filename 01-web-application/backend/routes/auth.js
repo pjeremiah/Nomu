@@ -526,6 +526,125 @@ router.post('/admin/request-otp',
   }
 );
 
+// POST /admin/send-login-otp - Alias for /admin/request-otp (mobile compatibility)
+router.post('/admin/send-login-otp',
+  authRateLimiter,
+  checkFailedAttempts,
+  sanitizeInput,
+  [
+    body('email')
+      .isEmail()
+      .withMessage('Please provide a valid email address')
+      .normalizeEmail()
+  ],
+  validateInput,
+  async (req, res) => {
+    const { email } = req.body;
+    
+    try {
+      // Check if admin exists
+      const admin = await Admin.findOne({ email: email.toLowerCase() });
+      if (!admin) {
+        return res.status(400).json({ message: 'Admin not found' });
+      }
+
+      // Generate and send OTP
+      const otpResult = await otpService.createAndSendOTP(email, 'admin_login', true);
+      
+      if (!otpResult.success) {
+        return res.status(500).json({ 
+          message: 'Failed to send OTP', 
+          error: otpResult.error 
+        });
+      }
+
+      res.status(200).json({
+        message: 'OTP sent to your email address',
+        expiresAt: otpResult.expiresAt
+      });
+
+    } catch (err) {
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  }
+);
+
+// POST /admin/verify-login-otp - Alias for /admin/verify-otp (mobile compatibility)
+router.post('/admin/verify-login-otp',
+  checkFailedAttempts,
+  sanitizeInput,
+  [
+    body('email')
+      .isEmail()
+      .withMessage('Please provide a valid email address')
+      .normalizeEmail(),
+    
+    body('otp')
+      .isLength({ min: 6, max: 6 })
+      .withMessage('OTP must be 6 digits')
+      .isNumeric()
+      .withMessage('OTP must contain only numbers')
+  ],
+  validateInput,
+  async (req, res) => {
+    const { email, otp } = req.body;
+    
+    try {
+      // Verify OTP
+      const otpResult = await otpService.verifyOTP(email, otp, 'admin_login');
+      
+      if (!otpResult.success) {
+        req.shouldRecordFailedAttempt = true;
+        await recordFailedAttempt(req, res, () => {});
+        await otpService.incrementFailedAttempt(email, otp, 'admin_login');
+        return res.status(400).json({ message: otpResult.message });
+      }
+
+      // Get admin details
+      const admin = await Admin.findOne({ email: email.toLowerCase() });
+      if (!admin) {
+        return res.status(400).json({ message: 'Admin not found' });
+      }
+
+      // Update admin status and last login
+      await Admin.findByIdAndUpdate(admin._id, { 
+        status: 'active',
+        lastLoginAt: new Date(),
+        firstLoginCompleted: true
+      });
+
+      const role = admin.role || 'staff';
+      
+      // Clear failed attempts on successful login
+      req.shouldClearFailedAttempts = true;
+      await clearFailedAttempts(req, res, () => {});
+
+      const token = jwt.sign({ 
+        userId: admin._id, 
+        email: admin.email, 
+        role: role, 
+        principalType: 'admin' 
+      }, JWT_SECRET, { expiresIn: '1d' });
+      
+      res.status(200).json({
+        message: 'Admin login successful',
+        token,
+        user: {
+          id: admin._id,
+          email: admin.email,
+          fullName: admin.fullName,
+          role: role,
+          status: 'active',
+          isFirstLogin: true
+        }
+      });
+
+    } catch (err) {
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  }
+);
+
 // POST /admin/verify-otp - Verify OTP and complete admin login
 router.post('/admin/verify-otp',
   checkFailedAttempts,
@@ -1207,6 +1326,210 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
+// ==================== MOBILE ADMIN ENDPOINTS ====================
+
+// POST /mobile/admin/login - Mobile admin login (email + password)
+router.post('/mobile/admin/login',
+  authRateLimiter,
+  checkFailedAttempts,
+  sanitizeInput,
+  [
+    body('email')
+      .isEmail()
+      .withMessage('Please provide a valid email address')
+      .normalizeEmail(),
+    
+    body('password')
+      .notEmpty()
+      .withMessage('Password is required')
+  ],
+  validateInput,
+  async (req, res) => {
+    const { email, password } = req.body;
+    
+    try {
+      // Check if this is an admin login
+      const admin = await Admin.findOne({ email: email.toLowerCase() });
+      if (!admin) {
+        req.shouldRecordFailedAttempt = true;
+        await recordFailedAttempt(req, res, () => {});
+        return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      // Verify admin password
+      const isMatch = await bcrypt.compare(password, admin.password);
+      if (!isMatch) {
+        req.shouldRecordFailedAttempt = true;
+        await recordFailedAttempt(req, res, () => {});
+        return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      // Check if admin has valid rememberUntil date (skip OTP if still valid)
+      if (admin.rememberUntil && new Date() < admin.rememberUntil) {
+        // Update last login time and set status to active
+        await Admin.findByIdAndUpdate(admin._id, { 
+          lastLoginAt: new Date(),
+          status: 'active'
+        });
+        
+        // Clear failed attempts on successful login
+        req.shouldClearFailedAttempts = true;
+        await clearFailedAttempts(req, res, () => {});
+        
+        const role = admin.role || 'staff';
+        const token = jwt.sign({ 
+          userId: admin._id, 
+          email: admin.email, 
+          role: role, 
+          principalType: 'admin' 
+        }, JWT_SECRET, { expiresIn: '30d' });
+        
+        return res.status(200).json({
+          message: 'Admin login successful',
+          token,
+          user: {
+            id: admin._id,
+            email: admin.email,
+            fullName: admin.fullName,
+            role: role,
+            status: 'active',
+            isFirstLogin: false
+          }
+        });
+      }
+      
+      // Admin credentials are correct, proceed to OTP flow
+      return res.status(200).json({
+        message: 'Admin login requires OTP verification',
+        requiresOTP: true,
+        userType: 'admin'
+      });
+
+    } catch (err) {
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  }
+);
+
+// POST /mobile/admin/verify-otp - Mobile admin OTP verification
+router.post('/mobile/admin/verify-otp',
+  checkFailedAttempts,
+  sanitizeInput,
+  [
+    body('email')
+      .isEmail()
+      .withMessage('Please provide a valid email address')
+      .normalizeEmail(),
+    
+    body('otp')
+      .isLength({ min: 6, max: 6 })
+      .withMessage('OTP must be 6 digits')
+      .isNumeric()
+      .withMessage('OTP must contain only numbers')
+  ],
+  validateInput,
+  async (req, res) => {
+    const { email, otp } = req.body;
+    
+    try {
+      // Verify OTP
+      const otpResult = await otpService.verifyOTP(email, otp, 'admin_login');
+      
+      if (!otpResult.success) {
+        req.shouldRecordFailedAttempt = true;
+        await recordFailedAttempt(req, res, () => {});
+        await otpService.incrementFailedAttempt(email, otp, 'admin_login');
+        return res.status(400).json({ message: otpResult.message });
+      }
+
+      // Get admin details
+      const admin = await Admin.findOne({ email: email.toLowerCase() });
+      if (!admin) {
+        return res.status(400).json({ message: 'Admin not found' });
+      }
+
+      // Update admin status and last login
+      await Admin.findByIdAndUpdate(admin._id, { 
+        status: 'active',
+        lastLoginAt: new Date(),
+        firstLoginCompleted: true
+      });
+
+      const role = admin.role || 'staff';
+      
+      // Clear failed attempts on successful login
+      req.shouldClearFailedAttempts = true;
+      await clearFailedAttempts(req, res, () => {});
+
+      const token = jwt.sign({ 
+        userId: admin._id, 
+        email: admin.email, 
+        role: role, 
+        principalType: 'admin' 
+      }, JWT_SECRET, { expiresIn: '1d' });
+      
+      res.status(200).json({
+        message: 'Admin login successful',
+        token,
+        user: {
+          id: admin._id,
+          email: admin.email,
+          fullName: admin.fullName,
+          role: role,
+          status: 'active',
+          isFirstLogin: true
+        }
+      });
+
+    } catch (err) {
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  }
+);
+
+// POST /mobile/admin/resend-otp - Mobile admin resend OTP
+router.post('/mobile/admin/resend-otp',
+  authRateLimiter,
+  checkFailedAttempts,
+  sanitizeInput,
+  [
+    body('email')
+      .isEmail()
+      .withMessage('Please provide a valid email address')
+      .normalizeEmail()
+  ],
+  validateInput,
+  async (req, res) => {
+    const { email } = req.body;
+    
+    try {
+      // Check if admin exists
+      const admin = await Admin.findOne({ email: email.toLowerCase() });
+      if (!admin) {
+        return res.status(400).json({ message: 'Admin not found' });
+      }
+
+      // Generate and send OTP
+      const otpResult = await otpService.createAndSendOTP(email, 'admin_login', true);
+      
+      if (!otpResult.success) {
+        return res.status(500).json({ 
+          message: 'Failed to send OTP', 
+          error: otpResult.error 
+        });
+      }
+
+      res.status(200).json({
+        message: 'OTP sent to your email address',
+        expiresAt: otpResult.expiresAt
+      });
+
+    } catch (err) {
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  }
+);
 
 // Import GridFS storage for profile pictures
 const { profileUpload } = require('../config/gridfs');

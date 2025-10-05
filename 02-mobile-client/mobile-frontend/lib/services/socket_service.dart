@@ -95,7 +95,10 @@ class SocketService {
       }
       
       // Use the same host as the API URL for proper network connectivity
-      final socketUrl = 'http://${uri.host}:${uri.port}';
+      // Use HTTPS for production backend, HTTP for local development
+      final socketUrl = uri.scheme == 'https' 
+          ? 'https://${uri.host}' 
+          : 'http://${uri.host}:${uri.port}';
       
       LoggingService.instance.socket('Connecting to: $socketUrl');
       

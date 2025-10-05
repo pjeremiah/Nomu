@@ -1,6 +1,3 @@
-# Mobile Backend Environment Variables
-# Copy this file to .env and update with your actual values
-
 # MongoDB Connection
 MONGO_URI=mongodb://localhost:27017/nomu_cafe_mobile
 

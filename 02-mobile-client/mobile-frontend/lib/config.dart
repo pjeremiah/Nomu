@@ -82,8 +82,12 @@ class Config {
         return 'https://$host:$port/api';
       }
     } else {
-      // For mobile, always use HTTP
-      return 'http://$host:$port/api';
+      // For mobile, use HTTPS for production backend
+      if (host == 'nomu-backend.onrender.com') {
+        return 'https://$host/api';
+      } else {
+        return 'http://$host:$port/api';
+      }
     }
   }
 
@@ -138,12 +142,11 @@ class Config {
       return host;
     }
     
-    // DITO MO ILAGAY YUNG IP ADDRESS NG ANDROID
+    // Production backend for mobile app
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // For physical Android devices, use your computer's IP address
-      // This will be overridden by .env file with actual IP
-      LoggingService.instance.info('Android detected - using development IP: 192.168.100.3');
-      return '192.168.100.3'; // Replace with your computer's actual IP address
+      // For production, use the deployed backend
+      LoggingService.instance.info('Android detected - using production backend: nomu-backend.onrender.com');
+      return 'nomu-backend.onrender.com';
     }
     
     LoggingService.instance.info('Fallback to localhost');
@@ -159,6 +162,12 @@ class Config {
     
     // Check .env file first
     if (_envPort.isNotEmpty) return _envPort;
+    
+    // For production backend, use HTTPS (no port needed)
+    final host = await _resolveHost();
+    if (host == 'nomu-backend.onrender.com') {
+      return '443'; // HTTPS port
+    }
     
     return _definedPort.isNotEmpty ? _definedPort : '5000';
   }

@@ -5,12 +5,12 @@ import 'constants/app_constants.dart';
 import 'utils/logger.dart';
 
 class Config {
-  // Admin Scanner API Endpoints (Updated for multi-role support)
-  static Future<String> get adminSendOTPUrl async => '${await dynamicApiBaseUrl}/admin/send-login-otp';
-  static Future<String> get adminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/admin/verify-login-otp';
-  static Future<String> get mobileAdminLoginUrl async => 'http://${await _resolveHost()}:${AppConstants.mobileAdminPort}/api/mobile/admin/login';
-  static Future<String> get mobileAdminVerifyOTPUrl async => 'http://${await _resolveHost()}:${AppConstants.mobileAdminPort}/api/mobile/admin/verify-otp';
-  static Future<String> get mobileAdminResendOTPUrl async => 'http://${await _resolveHost()}:${AppConstants.mobileAdminPort}/api/mobile/admin/resend-otp';
+  // Admin Scanner API Endpoints (Updated to use web backend endpoints)
+  static Future<String> get adminSendOTPUrl async => '${await dynamicApiBaseUrl}/admin/request-otp';
+  static Future<String> get adminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/admin/verify-otp';
+  static Future<String> get mobileAdminLoginUrl async => '${await dynamicApiBaseUrl}/login';
+  static Future<String> get mobileAdminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/admin/verify-otp';
+  static Future<String> get mobileAdminResendOTPUrl async => '${await dynamicApiBaseUrl}/admin/request-otp';
   static Future<String> get apiBaseUrl async => await dynamicApiBaseUrl;
   
   // Health check endpoint
@@ -114,11 +114,15 @@ class Config {
 
   // Public API: precedence = in-app override > .env > dart-define > auto-discovery > default
   static Future<String> get dynamicApiBaseUrl async {
-    final String scheme = 'http';
-    final String port = await _resolvePort();
     final String host = await _resolveHost();
+    final String port = await _resolvePort();
     
-    return '$scheme://$host:$port/api';
+    // Use HTTPS for production backend
+    if (host == 'nomu-backend.onrender.com') {
+      return 'https://$host/api';
+    } else {
+      return 'http://$host:$port/api';
+    }
   }
 
   // Runtime override controls

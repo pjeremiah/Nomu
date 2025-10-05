@@ -13,8 +13,8 @@ void main() async {
     
     // Always initialize dotenv with default values first
     await dotenv.load(fileName: ".env", mergeWith: {
-      'SERVER_HOST': '192.168.100.131',
-      'SERVER_PORT': '5001',
+      'SERVER_HOST': 'nomu-backend.onrender.com',
+      'SERVER_PORT': '443',
     });
     Logger.success('Default environment variables initialized', 'MAIN');
     
@@ -27,8 +27,8 @@ void main() async {
     }
     
     // Log server configuration
-    final host = dotenv.env['SERVER_HOST'] ?? '192.168.100.131';
-    final port = dotenv.env['SERVER_PORT'] ?? '5001';
+    final host = dotenv.env['SERVER_HOST'] ?? 'nomu-backend.onrender.com';
+    final port = dotenv.env['SERVER_PORT'] ?? '443';
     Logger.api('Server configuration:');
     Logger.api('   - HOST: $host');
     Logger.api('   - PORT: $port');
