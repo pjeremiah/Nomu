@@ -11,10 +11,14 @@ services:
         value: production
       - key: PORT
         value: 5000
+      - key: SERVER_HOST
+        value: 0.0.0.0
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: JWT_EXPIRES_IN
+        value: 1d
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS
@@ -23,20 +27,30 @@ services:
         sync: false
       - key: SUPER_ADMIN_PASSWORD
         sync: false
-      - key: SUPER_ADMIN_USERNAME
-        value: superadmin
       - key: SUPER_ADMIN_FULLNAME
-        value: Super Admin
+        value: Dexter Tan
       - key: BCRYPT_ROUNDS
         value: "14"
+      - key: SESSION_SECRET
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
       - key: RATE_LIMIT_MAX_REQUESTS
         value: "100"
       - key: MAX_FILE_SIZE
         value: "5242880"
       - key: ALLOWED_ORIGINS
-        value: https://nomu-frontend.onrender.com
+        value: https://nomu.cafe,https://www.nomu.cafe,https://nomucafe.onrender.com
       - key: TRUST_PROXY
-        value: "1"
+        value: "true"
+      - key: CORS_CREDENTIALS
+        value: "true"
+      - key: LOG_LEVEL
+        value: warn
+      - key: LOG_FORMAT
+        value: combined
+      - key: ENABLE_REQUEST_LOGGING
+        value: "true"
     healthCheckPath: /api/health
     autoDeploy: true
 
