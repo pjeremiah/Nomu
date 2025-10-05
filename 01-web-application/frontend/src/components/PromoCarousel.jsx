@@ -106,16 +106,12 @@ const CarouselWrapper = styled.div`
   margin: 0 auto;
   padding: 0 6rem;
   
-  @media (max-width: 1024px) {
-    padding: 0 3rem;
-  }
-  
   @media (max-width: 768px) {
-    padding: 0 1.5rem;
+    padding: 0 1rem;
   }
   
   @media (max-width: 480px) {
-    padding: 0 1rem;
+    padding: 0 0.5rem;
   }
 `;
 
@@ -155,17 +151,7 @@ const CarouselBtn = styled.button`
     left: -25px;
     
     @media (max-width: 768px) {
-      left: -10px;
-      width: 40px;
-      height: 40px;
-      font-size: 1rem;
-    }
-    
-    @media (max-width: 480px) {
-      left: -5px;
-      width: 36px;
-      height: 36px;
-      font-size: 0.9rem;
+      left: -15px;
     }
   }
 
@@ -173,17 +159,7 @@ const CarouselBtn = styled.button`
     right: -25px;
     
     @media (max-width: 768px) {
-      right: -10px;
-      width: 40px;
-      height: 40px;
-      font-size: 1rem;
-    }
-    
-    @media (max-width: 480px) {
-      right: -5px;
-      width: 36px;
-      height: 36px;
-      font-size: 0.9rem;
+      right: -15px;
     }
   }
 `;
@@ -211,70 +187,22 @@ const CarouselSlides = styled.div`
 const SlideContainer = styled.div`
   display: flex;
   transition: ${props => props.$isTransitioning ? 'transform 0.5s ease' : 'none'};
-  transform: translateX(calc(50% - 350px - ${props => {
+  transform: translateX(calc(50% - 400px - ${props => {
     if (props.$currentIndex === -1) {
       // Duplicate last card at beginning
       return 0;
     } else if (props.$currentIndex === props.$totalPromos) {
       // Duplicate first card at end
-      return (props.$totalPromos + 1) * 724;
+      return (props.$totalPromos + 1) * 824;
     } else {
       // Normal cards
-      return (props.$currentIndex + 1) * 724;
+      return (props.$currentIndex + 1) * 824;
     }
   }}px));
   height: 100%;
   align-items: center;
   gap: 1.5rem;
   width: max-content;
-  
-  @media (max-width: 1200px) {
-    transform: translateX(calc(50% - 32.5vw - ${props => {
-      if (props.$currentIndex === -1) {
-        return 0;
-      } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 450;
-      } else {
-        return (props.$currentIndex + 1) * 450;
-      }
-    }}px));
-  }
-  
-  @media (max-width: 1024px) {
-    transform: translateX(calc(50% - 35vw - ${props => {
-      if (props.$currentIndex === -1) {
-        return 0;
-      } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 400;
-      } else {
-        return (props.$currentIndex + 1) * 400;
-      }
-    }}px));
-  }
-  
-  @media (max-width: 768px) {
-    transform: translateX(calc(50% - 27.5vw - ${props => {
-      if (props.$currentIndex === -1) {
-        return 0;
-      } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 350;
-      } else {
-        return (props.$currentIndex + 1) * 350;
-      }
-    }}px));
-  }
-  
-  @media (max-width: 480px) {
-    transform: translateX(calc(50% - 30vw - ${props => {
-      if (props.$currentIndex === -1) {
-        return 0;
-      } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 300;
-      } else {
-        return (props.$currentIndex + 1) * 300;
-      }
-    }}px));
-  }
 `;
 
 const SlideWrapper = styled.div`
@@ -308,32 +236,22 @@ const PromoCard = styled.div`
   border: 2px solid #b08d57;
   transition: all 0.3s ease;
   position: relative;
-  width: 700px;
+  width: 800px;
   margin: 0 auto;
-  
-  @media (max-width: 1200px) {
-    width: 65vw;
-    max-width: 65vw;
-  }
-  
-  @media (max-width: 1024px) {
-    width: 70vw;
-    max-width: 70vw;
-  }
   
   @media (max-width: 768px) {
     flex-direction: column;
     height: auto;
-    width: 55vw;
-    max-width: 55vw;
+    width: 90vw;
+    max-width: 90vw;
     min-height: 400px;
     margin: 0 auto;
     margin-bottom: 20px;
   }
   
   @media (max-width: 480px) {
-    width: 60vw;
-    max-width: 60vw;
+    width: 95vw;
+    max-width: 95vw;
     min-height: 350px;
     margin-bottom: 15px;
   }
