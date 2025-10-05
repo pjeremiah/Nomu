@@ -6,7 +6,6 @@ services:
     plan: starter
     buildCommand: cd 01-web-application/backend && npm install
     startCommand: cd 01-web-application/backend && npm start
-    rootDirectory: 01-web-application/backend
     envVars:
       - key: NODE_ENV
         value: production
