@@ -203,6 +203,12 @@ app.get('/api/images/promo/:id', async (req, res) => {
   const fileId = req.params.id;
   console.log('🔍 Requesting promo image:', fileId);
   
+  // Validate ObjectId format
+  if (!mongoose.Types.ObjectId.isValid(fileId)) {
+    console.log('❌ Invalid ObjectId format:', fileId);
+    return res.status(400).json({ message: 'Invalid image ID format' });
+  }
+  
   try {
     const files = await gfs.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
     console.log('📁 Found files:', files.length);
@@ -252,6 +258,11 @@ app.get('/api/images/menu/:id', async (req, res) => {
   
   const fileId = req.params.id;
   
+  // Validate ObjectId format
+  if (!mongoose.Types.ObjectId.isValid(fileId)) {
+    return res.status(400).json({ message: 'Invalid image ID format' });
+  }
+  
   try {
     const files = await gfs.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
     
@@ -299,6 +310,11 @@ app.get('/api/images/inventory/:id', async (req, res) => {
   
   const fileId = req.params.id;
   
+  // Validate ObjectId format
+  if (!mongoose.Types.ObjectId.isValid(fileId)) {
+    return res.status(400).json({ message: 'Invalid image ID format' });
+  }
+  
   try {
     const files = await gfs.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
     
@@ -345,6 +361,11 @@ app.get('/api/images/profile/:id', async (req, res) => {
   }
   
   const fileId = req.params.id;
+  
+  // Validate ObjectId format
+  if (!mongoose.Types.ObjectId.isValid(fileId)) {
+    return res.status(400).json({ message: 'Invalid image ID format' });
+  }
   
   try {
     
