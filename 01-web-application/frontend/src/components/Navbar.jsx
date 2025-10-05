@@ -763,9 +763,9 @@ const Navbar = () => {
               <StyledNavLink to="/location" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>LOCATION</StyledNavLink>
               <StyledNavLink to="/contactus" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>CONTACT US</StyledNavLink>
               <MobileAppIcon 
-                href="/download-apk.html" 
+                href="https://drive.google.com/drive/folders/1XJyZEK_KEOs-Ew8n_mjpR_T-fW_ro2T1?usp=sharing" 
                 target="_blank"
-                title="Download Mobile Apps"
+                title="Download Customer App"
               >
                 <FaMobileAlt />
               </MobileAppIcon>
@@ -906,14 +906,14 @@ const Navbar = () => {
         <SidebarNavLink to="/location" onClick={() => setIsMobileSidebarOpen(false)}>LOCATION</SidebarNavLink>
         <SidebarNavLink to="/contactus" onClick={() => setIsMobileSidebarOpen(false)}>CONTACT US</SidebarNavLink>
         <MobileAppIcon 
-          href="/download-apk.html" 
+          href="https://drive.google.com/drive/folders/1XJyZEK_KEOs-Ew8n_mjpR_T-fW_ro2T1?usp=sharing" 
           target="_blank"
-          title="Download Mobile Apps"
+          title="Download Customer App"
           style={{ margin: '8px 16px', width: 'auto', height: 'auto', padding: '12px 16px', borderRadius: '8px' }}
           onClick={() => setIsMobileSidebarOpen(false)}
         >
           <FaMobileAlt style={{ marginRight: '8px' }} />
-          Download Mobile Apps
+          Download Customer App
         </MobileAppIcon>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
