@@ -229,19 +229,19 @@ const SlideContainer = styled.div`
   width: max-content;
   
   @media (max-width: 1024px) {
-    transform: translateX(calc(50% - 30vw - ${props => {
+    transform: translateX(calc(50% - 37.5vw - ${props => {
       if (props.$currentIndex === -1) {
         return 0;
       } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 400;
+        return (props.$totalPromos + 1) * 500;
       } else {
-        return (props.$currentIndex + 1) * 400;
+        return (props.$currentIndex + 1) * 500;
       }
     }}px));
   }
   
   @media (max-width: 768px) {
-    transform: translateX(calc(50% - 30vw - ${props => {
+    transform: translateX(calc(50% - 27.5vw - ${props => {
       if (props.$currentIndex === -1) {
         return 0;
       } else if (props.$currentIndex === props.$totalPromos) {
@@ -253,7 +253,7 @@ const SlideContainer = styled.div`
   }
   
   @media (max-width: 480px) {
-    transform: translateX(calc(50% - 32.5vw - ${props => {
+    transform: translateX(calc(50% - 30vw - ${props => {
       if (props.$currentIndex === -1) {
         return 0;
       } else if (props.$currentIndex === props.$totalPromos) {
@@ -300,23 +300,23 @@ const PromoCard = styled.div`
   margin: 0 auto;
   
   @media (max-width: 1024px) {
-    width: 60vw;
-    max-width: 60vw;
+    width: 75vw;
+    max-width: 75vw;
   }
   
   @media (max-width: 768px) {
     flex-direction: column;
     height: auto;
-    width: 60vw;
-    max-width: 60vw;
+    width: 55vw;
+    max-width: 55vw;
     min-height: 400px;
     margin: 0 auto;
     margin-bottom: 20px;
   }
   
   @media (max-width: 480px) {
-    width: 65vw;
-    max-width: 65vw;
+    width: 60vw;
+    max-width: 60vw;
     min-height: 350px;
     margin-bottom: 15px;
   }
