@@ -225,19 +225,7 @@ const SlideContainer = styled.div`
   width: max-content;
   
   @media (max-width: 1024px) {
-    transform: translateX(calc(50% - 37.5vw - ${props => {
-      if (props.$currentIndex === -1) {
-        return 0;
-      } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 600;
-      } else {
-        return (props.$currentIndex + 1) * 600;
-      }
-    }}px));
-  }
-  
-  @media (max-width: 768px) {
-    transform: translateX(calc(50% - 40vw - ${props => {
+    transform: translateX(calc(50% - 35vw - ${props => {
       if (props.$currentIndex === -1) {
         return 0;
       } else if (props.$currentIndex === props.$totalPromos) {
@@ -248,8 +236,20 @@ const SlideContainer = styled.div`
     }}px));
   }
   
+  @media (max-width: 768px) {
+    transform: translateX(calc(50% - 35vw - ${props => {
+      if (props.$currentIndex === -1) {
+        return 0;
+      } else if (props.$currentIndex === props.$totalPromos) {
+        return (props.$totalPromos + 1) * 450;
+      } else {
+        return (props.$currentIndex + 1) * 450;
+      }
+    }}px));
+  }
+  
   @media (max-width: 480px) {
-    transform: translateX(calc(50% - 42.5vw - ${props => {
+    transform: translateX(calc(50% - 37.5vw - ${props => {
       if (props.$currentIndex === -1) {
         return 0;
       } else if (props.$currentIndex === props.$totalPromos) {
@@ -296,23 +296,23 @@ const PromoCard = styled.div`
   margin: 0 auto;
   
   @media (max-width: 1024px) {
-    width: 75vw;
-    max-width: 75vw;
+    width: 70vw;
+    max-width: 70vw;
   }
   
   @media (max-width: 768px) {
     flex-direction: column;
     height: auto;
-    width: 80vw;
-    max-width: 80vw;
+    width: 70vw;
+    max-width: 70vw;
     min-height: 400px;
     margin: 0 auto;
     margin-bottom: 20px;
   }
   
   @media (max-width: 480px) {
-    width: 85vw;
-    max-width: 85vw;
+    width: 75vw;
+    max-width: 75vw;
     min-height: 350px;
     margin-bottom: 15px;
   }

@@ -404,9 +404,9 @@ class _PromoCarouselState extends State<PromoCarousel> {
                 itemBuilder: (context, index) {
                   final promo = widget.promos[index];
                   return Container(
-                    width: screenSize.width * 0.75, // Reduced to 75% of screen width for better mobile fit
+                    width: screenSize.width * 0.70, // Further reduced to 70% of screen width for better mobile fit
                     margin: EdgeInsets.symmetric(
-                      horizontal: isSmallScreen ? 8.0 : (isMediumScreen ? 12.0 : 16.0),
+                      horizontal: isSmallScreen ? 12.0 : (isMediumScreen ? 16.0 : 20.0),
                     ),
                     child: PromoCard(
                       promo: promo,
