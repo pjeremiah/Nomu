@@ -7,7 +7,7 @@ import axios from 'axios';
 import ForHomePageLocationImage from '../utils/Images/Home/ForHomePageLocation.jpg';
 import Navbar from '../components/Navbar';
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
   const categories = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
   const itemsPerPage = 12;
 

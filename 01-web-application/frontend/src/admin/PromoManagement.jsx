@@ -5,7 +5,7 @@ import { BsGift } from "react-icons/bs";
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
 
 const PROMO_TYPES = ["Percentage Discount", "Fixed Amount Discount", "Buy One Get One", "Free Item", "Loyalty Points Bonus"];
 const PROMO_STATUS = ["Active", "Inactive"];

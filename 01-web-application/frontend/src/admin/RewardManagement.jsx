@@ -6,7 +6,7 @@ import { Search } from "lucide-react";
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
 
 const REWARD_TYPES = ["Loyalty Bonus"];
 const REWARD_STATUS = ["Active", "Inactive", "Scheduled", "Expired"];

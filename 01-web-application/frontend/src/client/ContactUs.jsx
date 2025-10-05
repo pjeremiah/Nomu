@@ -299,7 +299,7 @@ const ContactUs = () => {
   // Function to fetch complete user data from server
   const fetchCompleteUserData = async (token) => {
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
       const response = await fetch(`${API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -477,7 +477,7 @@ const ContactUs = () => {
     }
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
       const response = await fetch(`${API_URL}/api/feedback`, {
         method: 'POST',
         headers: {

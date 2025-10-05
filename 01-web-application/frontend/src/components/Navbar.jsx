@@ -562,7 +562,7 @@ const Navbar = () => {
   const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
   
   // API URL configuration
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
   
   const [avatarUrl, setAvatarUrl] = useState(() => {
     try {
@@ -672,7 +672,7 @@ const Navbar = () => {
       
       // If admin, call logout API to set status to inactive
       if (token && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
         await fetch(`${API_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {

@@ -312,7 +312,7 @@ const AccountSettings = () => {
   const [selectedFile, setSelectedFile] = useState(null);
 
   // API URL configuration
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
 
   const token = useMemo(() => localStorage.getItem('token') || sessionStorage.getItem('token'), []);
 

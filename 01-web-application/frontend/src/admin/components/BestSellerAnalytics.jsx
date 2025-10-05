@@ -24,7 +24,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
         throw new Error('No authentication token found');
       }
       
-      const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
       
       // Test authentication first
       try {

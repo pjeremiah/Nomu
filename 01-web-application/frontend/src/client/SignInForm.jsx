@@ -84,7 +84,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
       }
       
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
         const response = await fetch(`${API_URL}/api/auth/signin`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -159,7 +159,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
       }
       
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
         const response = await fetch(`${API_URL}/api/auth/admin/verify-otp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -215,7 +215,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
     setError('');
     
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
       const response = await fetch(`${API_URL}/api/auth/admin/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

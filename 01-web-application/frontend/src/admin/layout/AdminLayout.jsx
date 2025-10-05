@@ -221,7 +221,7 @@ const AdminLayout = ({ children }) => {
         // Check both localStorage and sessionStorage for token
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (token) {
-          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+          const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
           const response = await fetch(`${API_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -262,7 +262,7 @@ const AdminLayout = ({ children }) => {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (token) {
-          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+          const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
           const response = await fetch(`${API_URL}/api/auth/heartbeat`, {
             method: 'POST',
             headers: {
@@ -301,7 +301,7 @@ const AdminLayout = ({ children }) => {
       // Check both localStorage and sessionStorage for token
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (token) {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
         await fetch(`${API_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {
