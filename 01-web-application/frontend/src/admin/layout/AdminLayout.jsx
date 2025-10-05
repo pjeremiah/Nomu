@@ -428,14 +428,14 @@ const AdminLayout = ({ children }) => {
             
             {/* Mobile Barista Application Download Button */}
             <DownloadButton 
-              href="/Mobile Barista Application.apk" 
-              download="Mobile Barista Application.apk"
-              title="Download Mobile Barista Application"
+              href="/download-apk.html" 
+              target="_blank"
+              title="Download Mobile Apps"
             >
               <NavIcon>
                 <Smartphone size={20} />
               </NavIcon>
-              Download Mobile
+              Download Mobile Apps
             </DownloadButton>
           </nav>
           <div style={{marginTop: 'auto'}}>
