@@ -57,16 +57,13 @@ services:
   # Frontend Web Service
   - type: web
     name: nomu-frontend
-    env: static
+    env: node
+    plan: starter
     buildCommand: cd 01-web-application/frontend && npm install && npm run build
-    staticPublishPath: 01-web-application/frontend/build
+    startCommand: cd 01-web-application/frontend && npx serve -s build -l $PORT
     envVars:
       - key: REACT_APP_API_URL
         value: https://nomu-backend.onrender.com
       - key: GENERATE_SOURCEMAP
         value: "false"
     autoDeploy: true
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
