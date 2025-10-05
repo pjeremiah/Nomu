@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { FaMobileAlt, FaTimes } from 'react-icons/fa';
+import { FaMobileAlt, FaTimes, FaUserTie } from 'react-icons/fa';
 
 // Use the same styled components as the sign-in modal for consistency
 const ModalBackdrop = styled.div`
@@ -153,6 +153,39 @@ const ContinueButton = styled.button`
   }
 `;
 
+const DownloadButtons = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+  width: 100%;
+`;
+
+const DownloadButton = styled.a`
+  background: linear-gradient(135deg, #b08d57, #c49d67);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  &:hover {
+    background: linear-gradient(135deg, #9a7a4a, #b08d57);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3);
+    color: white;
+    text-decoration: none;
+  }
+`;
+
 const MobileAppModal = ({ isOpen, onContinue }) => {
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -209,8 +242,26 @@ const MobileAppModal = ({ isOpen, onContinue }) => {
         <MobileIcon>
           <FaMobileAlt />
         </MobileIcon>
-        <Title>Mobile App Download</Title>
-        <Message>Mobile app download coming soon!</Message>
+        <Title>Download Mobile Apps</Title>
+        <Message>Get the Nomu Cafe mobile apps for the best experience!</Message>
+        <DownloadButtons>
+          <DownloadButton 
+            href="/Nomu Mobile Application.apk" 
+            download="Nomu Mobile Application.apk"
+            title="Download Customer App"
+          >
+            <FaMobileAlt style={{ marginRight: '8px' }} />
+            Customer App
+          </DownloadButton>
+          <DownloadButton 
+            href="/Mobile Barista Application.apk" 
+            download="Mobile Barista Application.apk"
+            title="Download Barista App"
+          >
+            <FaUserTie style={{ marginRight: '8px' }} />
+            Barista App
+          </DownloadButton>
+        </DownloadButtons>
         <ContinueButton onClick={onContinue}>
           Continue
         </ContinueButton>
