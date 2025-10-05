@@ -211,16 +211,16 @@ const CarouselSlides = styled.div`
 const SlideContainer = styled.div`
   display: flex;
   transition: ${props => props.$isTransitioning ? 'transform 0.5s ease' : 'none'};
-  transform: translateX(calc(50% - 400px - ${props => {
+  transform: translateX(calc(50% - 350px - ${props => {
     if (props.$currentIndex === -1) {
       // Duplicate last card at beginning
       return 0;
     } else if (props.$currentIndex === props.$totalPromos) {
       // Duplicate first card at end
-      return (props.$totalPromos + 1) * 824;
+      return (props.$totalPromos + 1) * 724;
     } else {
       // Normal cards
-      return (props.$currentIndex + 1) * 824;
+      return (props.$currentIndex + 1) * 724;
     }
   }}px));
   height: 100%;
@@ -228,14 +228,26 @@ const SlideContainer = styled.div`
   gap: 1.5rem;
   width: max-content;
   
-  @media (max-width: 1024px) {
-    transform: translateX(calc(50% - 37.5vw - ${props => {
+  @media (max-width: 1200px) {
+    transform: translateX(calc(50% - 32.5vw - ${props => {
       if (props.$currentIndex === -1) {
         return 0;
       } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 500;
+        return (props.$totalPromos + 1) * 450;
       } else {
-        return (props.$currentIndex + 1) * 500;
+        return (props.$currentIndex + 1) * 450;
+      }
+    }}px));
+  }
+  
+  @media (max-width: 1024px) {
+    transform: translateX(calc(50% - 35vw - ${props => {
+      if (props.$currentIndex === -1) {
+        return 0;
+      } else if (props.$currentIndex === props.$totalPromos) {
+        return (props.$totalPromos + 1) * 400;
+      } else {
+        return (props.$currentIndex + 1) * 400;
       }
     }}px));
   }
@@ -296,12 +308,17 @@ const PromoCard = styled.div`
   border: 2px solid #b08d57;
   transition: all 0.3s ease;
   position: relative;
-  width: 800px;
+  width: 700px;
   margin: 0 auto;
   
+  @media (max-width: 1200px) {
+    width: 65vw;
+    max-width: 65vw;
+  }
+  
   @media (max-width: 1024px) {
-    width: 75vw;
-    max-width: 75vw;
+    width: 70vw;
+    max-width: 70vw;
   }
   
   @media (max-width: 768px) {
