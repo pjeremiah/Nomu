@@ -163,7 +163,7 @@ const AdminHome = () => {
   const [activityCurrentPage, setActivityCurrentPage] = useState(1);
   const activitiesPerPage = 10;
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+  const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
   // Pagination calculations for recent activity
   const totalActivityPages = Math.ceil(recentActivity.length / activitiesPerPage) || 1;

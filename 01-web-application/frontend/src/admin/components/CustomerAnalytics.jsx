@@ -30,7 +30,7 @@ const CustomerAnalytics = ({ period = 'monthly' }) => {
         throw new Error('No authentication token found');
       }
       
-      const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+      const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
       
       // First, test if the backend is accessible
       try {

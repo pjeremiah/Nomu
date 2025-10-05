@@ -37,7 +37,7 @@ const CustomerFeedback = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
       
       const response = await fetch(`${API_URL}/api/feedback`, {
         headers: {
@@ -76,7 +76,7 @@ const CustomerFeedback = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
       
       const response = await fetch(`${API_URL}/api/feedback/reply/${selectedFeedback._id}`, {
         method: 'POST',

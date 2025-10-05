@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FaChevronLeft, FaChevronRight, FaTag, FaCalendarAlt, FaClock } from 'react-icons/fa';
 
-const API_BASE = process.env.REACT_APP_API_BASE || 'https://nomu.cafe/api';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
 // Styled Components
 const CarouselContainer = styled.div`

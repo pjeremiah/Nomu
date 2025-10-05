@@ -11,7 +11,7 @@ import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
 
@@ -998,7 +998,7 @@ const InventoryManagement = () => {
                  <div className="inventory-item-image">
                    {item.imageUrl ? (
                      <img 
-                       src={item.imageUrl} 
+                       src={`${API_BASE}${item.imageUrl}`} 
                        alt={item.name}
                        onLoad={() => {}}
                        onError={() => {}}

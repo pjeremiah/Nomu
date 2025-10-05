@@ -5,7 +5,7 @@ import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
 const emptyForm = { name: '', description: '', price: '', secondPrice: '', category: 'Donuts', image: null };

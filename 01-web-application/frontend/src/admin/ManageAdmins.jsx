@@ -73,7 +73,7 @@ const ManageAdmins = () => {
   const { showLogoutConfirm } = useModalContext();
   
   // API URL configuration
-  const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
