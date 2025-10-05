@@ -435,9 +435,59 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
           width: 100% !important;
           box-sizing: border-box !important;
         }
+        
+        @media (max-width: 768px) {
+          .form {
+            max-width: 100% !important;
+            padding: 16px !important;
+            margin: 0 !important;
+          }
+          
+          .form h2 {
+            font-size: 1.8rem !important;
+            margin-bottom: 16px !important;
+          }
+          
+          .form input, .form select {
+            font-size: 16px !important;
+            padding: 12px 16px !important;
+            height: 48px !important;
+          }
+          
+          .form label {
+            font-size: 14px !important;
+            margin-bottom: 6px !important;
+          }
+          
+          .form button {
+            height: 48px !important;
+            font-size: 16px !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .form {
+            padding: 12px !important;
+          }
+          
+          .form h2 {
+            font-size: 1.6rem !important;
+          }
+          
+          .form input, .form select {
+            padding: 10px 14px !important;
+            height: 44px !important;
+          }
+        }
       `}</style>
 
-      <form className="form" onSubmit={handleSubmit} style={{ maxWidth: 450, margin: '0 auto', padding: 8 }}>
+      <form className="form" onSubmit={handleSubmit} style={{ 
+        maxWidth: 450, 
+        margin: '0 auto', 
+        padding: 8,
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
         {!showOTPForm ? (
           <>
             <h2 style={{ textAlign: 'center', marginBottom: 12 }}>Sign Up</h2>

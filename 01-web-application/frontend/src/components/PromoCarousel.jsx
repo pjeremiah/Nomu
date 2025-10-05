@@ -45,6 +45,7 @@ const CarouselContainer = styled.div`
 const CarouselHeader = styled.div`
   text-align: center;
   margin-bottom: 4rem;
+  padding: 0 1rem;
 
   h2 {
     font-size: 2.5rem;
@@ -53,6 +54,9 @@ const CarouselHeader = styled.div`
     margin-bottom: 0.5rem;
     font-family: 'Montserrat', sans-serif;
     letter-spacing: -0.5px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.2;
   }
 
   p {
@@ -60,6 +64,39 @@ const CarouselHeader = styled.div`
     color: ${props => props.theme.text_secondary};
     font-weight: 400;
     margin: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
+  }
+  
+  @media (max-width: 768px) {
+    margin-bottom: 2rem;
+    padding: 0 0.5rem;
+    
+    h2 {
+      font-size: 2rem;
+      line-height: 1.1;
+    }
+    
+    p {
+      font-size: 1rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    margin-bottom: 1.5rem;
+    padding: 0 0.25rem;
+    
+    h2 {
+      font-size: 1.6rem;
+      line-height: 1.1;
+      letter-spacing: -0.25px;
+    }
+    
+    p {
+      font-size: 0.9rem;
+      line-height: 1.3;
+    }
   }
 `;
 

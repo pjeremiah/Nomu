@@ -65,6 +65,14 @@ const NavContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  
+  @media screen and (max-width: 768px) {
+    padding: 0 16px;
+  }
+  
+  @media screen and (max-width: 480px) {
+    padding: 0 12px;
+  }
 `;
 
 const NavLeft = styled.div`
@@ -77,6 +85,8 @@ const NavLeft = styled.div`
     justify-content: center;
     gap: 0;
     position: relative;
+    flex: 1;
+    min-width: 0;
   }
 `;
 
@@ -88,6 +98,12 @@ const NavRight = styled.div`
   @media screen and (max-width: 768px) {
     position: absolute;
     right: 10px;
+    flex-shrink: 0;
+  }
+  
+  @media screen and (max-width: 480px) {
+    right: 5px;
+    gap: 16px;
   }
 `;
 
