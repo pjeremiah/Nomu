@@ -1,0 +1,5 @@
+Super Admin Credentials
+Email: Nomucafe1@gmail.com
+Password: Nomu@ph2018
+
+Stored via environment variables. Keep this file secure.

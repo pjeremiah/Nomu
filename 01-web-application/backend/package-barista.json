@@ -1,0 +1,42 @@
+{
+  "name": "nomu-barista-scanner-api",
+  "version": "1.0.0",
+  "description": "NOMU Cafe Admin Scanner API with multi-role support (superadmin, manager, staff)",
+  "main": "barista-server.js",
+  "scripts": {
+    "start": "node barista-server.js",
+    "dev": "nodemon barista-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "nomu",
+    "cafe",
+    "admin",
+    "scanner",
+    "qr",
+    "loyalty",
+    "multi-role",
+    "superadmin",
+    "manager",
+    "staff"
+  ],
+  "author": "NOMU Cafe Development Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "cors": "^2.8.5",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.4",
+    "socket.io": "^4.7.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
