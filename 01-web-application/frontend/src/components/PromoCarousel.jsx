@@ -106,8 +106,12 @@ const CarouselWrapper = styled.div`
   margin: 0 auto;
   padding: 0 6rem;
   
+  @media (max-width: 1024px) {
+    padding: 0 3rem;
+  }
+  
   @media (max-width: 768px) {
-    padding: 0 2rem;
+    padding: 0 1.5rem;
   }
   
   @media (max-width: 480px) {
@@ -225,37 +229,37 @@ const SlideContainer = styled.div`
   width: max-content;
   
   @media (max-width: 1024px) {
-    transform: translateX(calc(50% - 35vw - ${props => {
-      if (props.$currentIndex === -1) {
-        return 0;
-      } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 500;
-      } else {
-        return (props.$currentIndex + 1) * 500;
-      }
-    }}px));
-  }
-  
-  @media (max-width: 768px) {
-    transform: translateX(calc(50% - 35vw - ${props => {
-      if (props.$currentIndex === -1) {
-        return 0;
-      } else if (props.$currentIndex === props.$totalPromos) {
-        return (props.$totalPromos + 1) * 450;
-      } else {
-        return (props.$currentIndex + 1) * 450;
-      }
-    }}px));
-  }
-  
-  @media (max-width: 480px) {
-    transform: translateX(calc(50% - 37.5vw - ${props => {
+    transform: translateX(calc(50% - 30vw - ${props => {
       if (props.$currentIndex === -1) {
         return 0;
       } else if (props.$currentIndex === props.$totalPromos) {
         return (props.$totalPromos + 1) * 400;
       } else {
         return (props.$currentIndex + 1) * 400;
+      }
+    }}px));
+  }
+  
+  @media (max-width: 768px) {
+    transform: translateX(calc(50% - 30vw - ${props => {
+      if (props.$currentIndex === -1) {
+        return 0;
+      } else if (props.$currentIndex === props.$totalPromos) {
+        return (props.$totalPromos + 1) * 350;
+      } else {
+        return (props.$currentIndex + 1) * 350;
+      }
+    }}px));
+  }
+  
+  @media (max-width: 480px) {
+    transform: translateX(calc(50% - 32.5vw - ${props => {
+      if (props.$currentIndex === -1) {
+        return 0;
+      } else if (props.$currentIndex === props.$totalPromos) {
+        return (props.$totalPromos + 1) * 300;
+      } else {
+        return (props.$currentIndex + 1) * 300;
       }
     }}px));
   }
@@ -296,23 +300,23 @@ const PromoCard = styled.div`
   margin: 0 auto;
   
   @media (max-width: 1024px) {
-    width: 70vw;
-    max-width: 70vw;
+    width: 60vw;
+    max-width: 60vw;
   }
   
   @media (max-width: 768px) {
     flex-direction: column;
     height: auto;
-    width: 70vw;
-    max-width: 70vw;
+    width: 60vw;
+    max-width: 60vw;
     min-height: 400px;
     margin: 0 auto;
     margin-bottom: 20px;
   }
   
   @media (max-width: 480px) {
-    width: 75vw;
-    max-width: 75vw;
+    width: 65vw;
+    max-width: 65vw;
     min-height: 350px;
     margin-bottom: 15px;
   }
