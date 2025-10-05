@@ -902,64 +902,89 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
   }
 
   Widget _buildPromosSection(Size screen) {
+    final isSmallScreen = screen.width < 400;
+    final isMediumScreen = screen.width < 600;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      children: [
         // Section Header
-                    Container(
+        Container(
           margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                    Text(
-                "Special Offers",
-                      style: TextStyle(
-                        fontSize: screen.width < 400 ? 18 : 20,
-                        fontWeight: FontWeight.bold,
-                  color: const Color(0xFF242C5B),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              if (_activePromos.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const PromosScreen()),
-                    );
-                  },
-                  child: Text(
-                    'View All',
-                      style: TextStyle(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Special Offers",
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 20 : (isMediumScreen ? 22 : 24),
+                      fontWeight: FontWeight.bold,
                       color: const Color(0xFF242C5B),
-                              fontWeight: FontWeight.w600,
-                            ),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  if (_activePromos.isNotEmpty)
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PromosScreen()),
+                        );
+                      },
+                      child: Text(
+                        'View All',
+                        style: TextStyle(
+                          color: const Color(0xFF242C5B),
+                          fontWeight: FontWeight.w600,
+                          fontSize: isSmallScreen ? 14 : 16,
+                        ),
                       ),
                     ),
-                  ],
+                ],
+              ),
+              SizedBox(height: isSmallScreen ? 4 : 6),
+              Text(
+                "Discover our latest promotions and exclusive deals",
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 12 : 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w400,
                 ),
               ),
-        SizedBox(height: screen.height * 0.01),
+            ],
+          ),
+        ),
+        SizedBox(height: screen.height * 0.02),
+        
         // Promos List
         if (_isLoadingPromos)
           Container(
-            height: 200,
+            height: screen.height * 0.25,
             margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+            ),
             child: const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB08D57)),
+              ),
             ),
           )
         else if (_promoError != null)
-        Container(
-            height: 200,
-          margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
-          decoration: BoxDecoration(
+          Container(
+            height: screen.height * 0.25,
+            margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
+            decoration: BoxDecoration(
               color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
             ),
             child: Center(
               child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.error_outline, color: Colors.grey, size: 48),
                   const SizedBox(height: 8),
@@ -970,6 +995,10 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: fetchActivePromos,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFB08D57),
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -977,32 +1006,32 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
             ),
           )
         else if (_activePromos.isEmpty)
-                      Container(
-            height: 200,
+          Container(
+            height: screen.height * 0.25,
             margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
-                        decoration: BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
             ),
             child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   Icon(Icons.local_offer_outlined, color: Colors.grey, size: 48),
                   SizedBox(height: 8),
-                        Text(
+                  Text(
                     'No active promotions',
                     style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
                   ),
+                ],
+              ),
+            ),
           )
         else
           PromoCarousel(
             promos: _activePromos,
-            height: 200,
-            padding: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
+            height: 0, // Let it use responsive height
+            padding: EdgeInsets.symmetric(horizontal: screen.width * 0.02), // Reduced padding for more card space
             onPromoTap: (promo) {
               Navigator.push(
                 context,

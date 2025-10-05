@@ -107,11 +107,11 @@ const CarouselWrapper = styled.div`
   padding: 0 6rem;
   
   @media (max-width: 768px) {
-    padding: 0 1rem;
+    padding: 0 2rem;
   }
   
   @media (max-width: 480px) {
-    padding: 0 0.5rem;
+    padding: 0 1rem;
   }
 `;
 
@@ -151,7 +151,17 @@ const CarouselBtn = styled.button`
     left: -25px;
     
     @media (max-width: 768px) {
-      left: -15px;
+      left: -10px;
+      width: 40px;
+      height: 40px;
+      font-size: 1rem;
+    }
+    
+    @media (max-width: 480px) {
+      left: -5px;
+      width: 36px;
+      height: 36px;
+      font-size: 0.9rem;
     }
   }
 
@@ -159,7 +169,17 @@ const CarouselBtn = styled.button`
     right: -25px;
     
     @media (max-width: 768px) {
-      right: -15px;
+      right: -10px;
+      width: 40px;
+      height: 40px;
+      font-size: 1rem;
+    }
+    
+    @media (max-width: 480px) {
+      right: -5px;
+      width: 36px;
+      height: 36px;
+      font-size: 0.9rem;
     }
   }
 `;
@@ -203,6 +223,42 @@ const SlideContainer = styled.div`
   align-items: center;
   gap: 1.5rem;
   width: max-content;
+  
+  @media (max-width: 1024px) {
+    transform: translateX(calc(50% - 37.5vw - ${props => {
+      if (props.$currentIndex === -1) {
+        return 0;
+      } else if (props.$currentIndex === props.$totalPromos) {
+        return (props.$totalPromos + 1) * 600;
+      } else {
+        return (props.$currentIndex + 1) * 600;
+      }
+    }}px));
+  }
+  
+  @media (max-width: 768px) {
+    transform: translateX(calc(50% - 40vw - ${props => {
+      if (props.$currentIndex === -1) {
+        return 0;
+      } else if (props.$currentIndex === props.$totalPromos) {
+        return (props.$totalPromos + 1) * 500;
+      } else {
+        return (props.$currentIndex + 1) * 500;
+      }
+    }}px));
+  }
+  
+  @media (max-width: 480px) {
+    transform: translateX(calc(50% - 42.5vw - ${props => {
+      if (props.$currentIndex === -1) {
+        return 0;
+      } else if (props.$currentIndex === props.$totalPromos) {
+        return (props.$totalPromos + 1) * 400;
+      } else {
+        return (props.$currentIndex + 1) * 400;
+      }
+    }}px));
+  }
 `;
 
 const SlideWrapper = styled.div`
@@ -239,19 +295,24 @@ const PromoCard = styled.div`
   width: 800px;
   margin: 0 auto;
   
+  @media (max-width: 1024px) {
+    width: 75vw;
+    max-width: 75vw;
+  }
+  
   @media (max-width: 768px) {
     flex-direction: column;
     height: auto;
-    width: 90vw;
-    max-width: 90vw;
+    width: 80vw;
+    max-width: 80vw;
     min-height: 400px;
     margin: 0 auto;
     margin-bottom: 20px;
   }
   
   @media (max-width: 480px) {
-    width: 95vw;
-    max-width: 95vw;
+    width: 85vw;
+    max-width: 85vw;
     min-height: 350px;
     margin-bottom: 15px;
   }
