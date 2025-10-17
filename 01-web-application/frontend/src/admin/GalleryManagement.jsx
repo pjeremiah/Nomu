@@ -6,6 +6,7 @@ import PageHeader from './components/PageHeader';
 import ResponsiveModal from './components/ResponsiveModal';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+// Gallery Management - Updated for deployment
 
 const GalleryManagement = () => {
   const [posts, setPosts] = useState([]);
