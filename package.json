@@ -1,0 +1,21 @@
+{
+  "name": "nomu-application",
+  "version": "1.0.0",
+  "description": "NOMU Cafe Application - Full Stack",
+  "scripts": {
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd 01-web-application/backend && npm run dev",
+    "frontend": "cd 01-web-application/frontend && npm start",
+    "install-all": "npm run install-backend && npm run install-frontend",
+    "install-backend": "cd 01-web-application/backend && npm install",
+    "install-frontend": "cd 01-web-application/frontend && npm install",
+    "build": "cd 01-web-application/frontend && npm run build",
+    "start": "cd 01-web-application/backend && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["nomu", "cafe", "react", "nodejs", "mongodb"],
+  "author": "NOMU Development Team",
+  "license": "ISC"
+}
