@@ -1,0 +1,72 @@
+services:
+  # Backend API Service
+  - type: web
+    name: nomu-backend
+    env: node
+    plan: starter
+    buildCommand: cd 01-web-application/backend && npm install
+    startCommand: cd 01-web-application/backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: SERVER_HOST
+        value: 0.0.0.0
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: SUPER_ADMIN_FULLNAME
+        value: Dexter Tan
+      - key: BCRYPT_ROUNDS
+        value: "14"
+      - key: SESSION_SECRET
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "100"
+      - key: MAX_FILE_SIZE
+        value: "5242880"
+      - key: ALLOWED_ORIGINS
+        value: https://nomu.cafe,https://www.nomu.cafe,https://nomucafe.onrender.com
+      - key: TRUST_PROXY
+        value: "true"
+      - key: CORS_CREDENTIALS
+        value: "true"
+      - key: LOG_LEVEL
+        value: warn
+      - key: LOG_FORMAT
+        value: combined
+      - key: ENABLE_REQUEST_LOGGING
+        value: "true"
+    healthCheckPath: /api/health
+    autoDeploy: true
+
+  # Frontend Web Service
+  - type: web
+    name: nomu-frontend
+    env: static
+    buildCommand: cd 01-web-application/frontend && npm ci && npm run build
+    staticPublishPath: 01-web-application/frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://nomu-backend.onrender.com
+      - key: GENERATE_SOURCEMAP
+        value: "false"
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
