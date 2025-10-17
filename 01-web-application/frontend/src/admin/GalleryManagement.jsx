@@ -61,12 +61,14 @@ const GalleryManagement = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch posts');
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to fetch posts`);
       }
 
       const data = await response.json();
       setPosts(data.data || []);
     } catch (err) {
+      console.error('Error fetching gallery posts:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -220,7 +222,6 @@ const GalleryManagement = () => {
       <PageHeader 
         title="Gallery Management" 
         icon={Grid3X3}
-        description="Create and manage gallery posts with images and videos"
       />
 
       <div className="search-filter-container" style={{
@@ -249,25 +250,8 @@ const GalleryManagement = () => {
             <h5 style={{ margin: 0, color: '#212c59', fontWeight: '600' }}>
               Gallery Posts ({posts.length})
             </h5>
-            <small style={{ color: '#6c757d' }}>Manage your gallery content</small>
           </div>
           <div style={{ flex: '1' }}></div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            flex: '0 0 auto'
-          }}>
-            <button
-              className="add-item-btn"
-              onClick={() => {
-                resetForm();
-                setShowAdd(true);
-              }}
-            >
-              <FaPlus /> Add New Post
-            </button>
-          </div>
         </div>
       </div>
 
@@ -294,23 +278,13 @@ const GalleryManagement = () => {
           <div style={{
             gridColumn: '1 / -1',
             textAlign: 'center',
-            padding: '4rem 2rem',
+            padding: '3rem 2rem',
             background: 'white',
             borderRadius: '12px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
           }}>
-            <FaImages size={64} style={{ color: '#6c757d', marginBottom: '1rem' }} />
-            <h5 style={{ color: '#6c757d', marginBottom: '0.5rem' }}>No gallery posts yet</h5>
-            <p style={{ color: '#6c757d', marginBottom: '2rem' }}>Create your first gallery post to get started</p>
-            <button
-              className="add-item-btn"
-              onClick={() => {
-                resetForm();
-                setShowAdd(true);
-              }}
-            >
-              <FaPlus /> Add First Post
-            </button>
+            <FaImages size={48} style={{ color: '#6c757d', marginBottom: '1rem' }} />
+            <h5 style={{ color: '#212c59', marginBottom: '0.5rem', fontWeight: '600' }}>No gallery posts</h5>
           </div>
         ) : (
           posts.map((post, index) => (
@@ -460,6 +434,24 @@ const GalleryManagement = () => {
             </div>
           ))
         )}
+      </div>
+
+      {/* Add New Post Button - Bottom Right */}
+      <div style={{
+        position: 'fixed',
+        bottom: '2rem',
+        right: '2rem',
+        zIndex: 1000
+      }}>
+        <button
+          className="add-item-btn"
+          onClick={() => {
+            resetForm();
+            setShowAdd(true);
+          }}
+        >
+          <FaPlus /> Add New Post
+        </button>
       </div>
 
       {/* Add Post Modal */}
