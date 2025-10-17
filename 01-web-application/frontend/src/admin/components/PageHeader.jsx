@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Users, Coffee, Gift, Star, MessageSquare } from 'lucide-react';
+import { BarChart3, Users, Coffee, Gift, Star, MessageSquare, Grid3X3 } from 'lucide-react';
 
 const PageHeader = ({ title, icon: Icon, description }) => {
   return (
@@ -48,7 +48,8 @@ export const getPageIcon = (pageName) => {
     'Menu Management': Coffee,
     'Reward Management': Gift,
     'Promo Management': Star,
-    'Customer Feedback': MessageSquare
+    'Customer Feedback': MessageSquare,
+    'Gallery Management': Grid3X3
   };
   return iconMap[pageName] || Users;
 };
@@ -61,7 +62,8 @@ export const getPageDescription = (pageName) => {
     'Menu Management': 'Add, edit, and manage menu items',
     'Reward Management': 'Configure rewards and loyalty programs',
     'Promo Management': 'Create and manage promotional offers',
-    'Customer Feedback': 'View and respond to customer feedback'
+    'Customer Feedback': 'View and respond to customer feedback',
+    'Gallery Management': 'Create and manage gallery posts with images and videos'
   };
   return descriptionMap[pageName] || 'Admin management page';
 };
