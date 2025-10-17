@@ -364,10 +364,12 @@ const AdminLayout = ({ children }) => {
               sessionStorage.removeItem('user');
               navigate('/');
             }
+            // For other errors (like 400), just silently ignore
+            return;
           }
         }
       } catch (error) {
-        // Silently handle heartbeat errors
+        // Silently handle heartbeat errors - don't log to console
       }
     };
 

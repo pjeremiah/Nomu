@@ -5,8 +5,6 @@ import { Grid3X3 } from 'lucide-react';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
 const GalleryManagement = () => {
-  console.log('GalleryManagement component is rendering!');
-  
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,7 +77,6 @@ const GalleryManagement = () => {
       }
 
       const data = await response.json();
-      console.log('API Response:', data);
       setPosts(Array.isArray(data.data) ? data.data : []);
     } catch (err) {
       console.error('Error fetching gallery posts:', err);
