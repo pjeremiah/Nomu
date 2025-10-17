@@ -30,6 +30,23 @@ const GalleryManagement = () => {
     media: []
   });
 
+  // Prevent body scrolling when any modal is open
+  useEffect(() => {
+    if (showAdd || showEdit || showDelete || showView) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
+    };
+  }, [showAdd, showEdit, showDelete, showView]);
+
   // Fetch posts
   const fetchPosts = async () => {
     setLoading(true);
@@ -192,165 +209,258 @@ const GalleryManagement = () => {
   };
 
   return (
-    <div className="container-fluid">
+    <div style={{
+      padding: '2rem',
+      fontFamily: "'Montserrat', sans-serif",
+      color: '#212c59',
+      minHeight: '100vh',
+      background: '#f8f9fa'
+    }}>
+      {/* Page Header */}
       <PageHeader 
         title="Gallery Management" 
         icon={Grid3X3}
         description="Create and manage gallery posts with images and videos"
       />
 
-      {/* Error Alert */}
-      {error && (
-        <div className="alert alert-danger" role="alert">
-          <strong>Error:</strong> {error}
+      <div className="search-filter-container" style={{
+        background: '#fff',
+        padding: '1.5rem',
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+        marginBottom: '1.5rem'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1rem',
+          width: '100%'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'row',
+            gap: '1rem',
+            alignItems: 'center',
+            marginBottom: '0',
+            flexWrap: 'nowrap',
+            flex: '0 0 auto'
+          }}>
+            <h5 style={{ margin: 0, color: '#212c59', fontWeight: '600' }}>
+              Gallery Posts ({posts.length})
+            </h5>
+            <small style={{ color: '#6c757d' }}>Manage your gallery content</small>
+          </div>
+          <div style={{ flex: '1' }}></div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            flex: '0 0 auto'
+          }}>
+            <button
+              className="add-item-btn"
+              onClick={() => {
+                resetForm();
+                setShowAdd(true);
+              }}
+            >
+              <FaPlus /> Add New Post
+            </button>
+          </div>
         </div>
-      )}
-
-      {/* Add Button */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h5 className="mb-0">Gallery Posts ({posts.length})</h5>
-          <small className="text-muted">Manage your gallery content</small>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            resetForm();
-            setShowAdd(true);
-          }}
-        >
-          <FaPlus className="me-2" />
-          Add New Post
-        </button>
       </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-2">Loading gallery posts...</p>
-        </div>
+      {error && (
+        <div className="form-error" style={{ 
+          marginBottom: 12,
+          color: '#dc3545',
+          background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
+          padding: '10px 14px',
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontSize: '13px',
+          lineHeight: '1.4',
+          fontFamily: "'Montserrat', sans-serif",
+          border: '1px solid #f5c6cb',
+          boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
+        }}>{error}</div>
       )}
 
-      {/* Posts Grid */}
-      {!loading && (
-        <div className="row">
-          {posts.length === 0 ? (
-            <div className="col-12">
-              <div className="text-center py-5">
-                <FaImages size={48} className="text-muted mb-3" />
-                <h5 className="text-muted">No gallery posts yet</h5>
-                <p className="text-muted">Create your first gallery post to get started</p>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    resetForm();
-                    setShowAdd(true);
-                  }}
-                >
-                  <FaPlus className="me-2" />
-                  Add First Post
-                </button>
-              </div>
-            </div>
-          ) : (
-            posts.map((post, index) => (
-              <div key={post._id} className="col-lg-4 col-md-6 mb-4">
-                <div className="card h-100 shadow-sm">
-                  {/* Post Media */}
-                  <div className="position-relative" style={{ height: '200px', overflow: 'hidden' }}>
-                    {post.media && post.media.length > 0 ? (
-                      <>
-                        {post.media[0].type === 'video' ? (
-                          <video
-                            src={post.media[0].url}
-                            className="w-100 h-100"
-                            style={{ objectFit: 'cover' }}
-                            muted
-                          />
-                        ) : (
-                          <img
-                            src={post.media[0].url}
-                            alt={post.title}
-                            className="w-100 h-100"
-                            style={{ objectFit: 'cover' }}
-                          />
-                        )}
-                        {post.media.length > 1 && (
-                          <div className="position-absolute top-0 end-0 m-2">
-                            <span className="badge bg-dark">
-                              +{post.media.length - 1} more
-                            </span>
-                          </div>
-                        )}
-                        <div className="position-absolute top-0 start-0 m-2">
-                          <button
-                            className={`btn btn-sm ${post.featured ? 'btn-warning' : 'btn-outline-warning'}`}
-                            onClick={() => toggleFeatured(post._id, post.featured)}
-                            title={post.featured ? 'Remove from featured' : 'Mark as featured'}
-                          >
-                            <FaStar size={12} />
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="d-flex align-items-center justify-content-center h-100 bg-light">
-                        <FaImages size={48} className="text-muted" />
-                      </div>
-                    )}
-                  </div>
+      {loading && <div className="p-3">Loading...</div>}
 
-                  {/* Post Content */}
-                  <div className="card-body">
-                    <h6 className="card-title">{post.title}</h6>
-                    <p className="card-text text-muted small">
-                      {post.description || 'No description'}
-                    </p>
-                    {post.tags && post.tags.length > 0 && (
-                      <div className="mb-2">
-                        {post.tags.map((tag, tagIndex) => (
-                          <span key={tagIndex} className="badge bg-secondary me-1">
-                            {tag}
-                          </span>
-                        ))}
+      <div className="menu-grid">
+        {!loading && posts.length === 0 ? (
+          <div style={{
+            gridColumn: '1 / -1',
+            textAlign: 'center',
+            padding: '4rem 2rem',
+            background: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+          }}>
+            <FaImages size={64} style={{ color: '#6c757d', marginBottom: '1rem' }} />
+            <h5 style={{ color: '#6c757d', marginBottom: '0.5rem' }}>No gallery posts yet</h5>
+            <p style={{ color: '#6c757d', marginBottom: '2rem' }}>Create your first gallery post to get started</p>
+            <button
+              className="add-item-btn"
+              onClick={() => {
+                resetForm();
+                setShowAdd(true);
+              }}
+            >
+              <FaPlus /> Add First Post
+            </button>
+          </div>
+        ) : (
+          posts.map((post, index) => (
+            <div key={post._id} className="menu-item">
+              <div className="menu-item-image">
+                {post.media && post.media.length > 0 ? (
+                  <>
+                    {post.media[0].type === 'video' ? (
+                      <video
+                        src={post.media[0].url}
+                        className="w-100 h-100"
+                        style={{ objectFit: 'cover' }}
+                        muted
+                      />
+                    ) : (
+                      <img
+                        src={post.media[0].url}
+                        alt={post.title}
+                        className="w-100 h-100"
+                        style={{ objectFit: 'cover' }}
+                      />
+                    )}
+                    {post.media.length > 1 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        background: 'rgba(0,0,0,0.7)',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        +{post.media.length - 1}
                       </div>
                     )}
-                    <div className="d-flex justify-content-between align-items-center">
-                      <small className="text-muted">
-                        {new Date(post.createdAt).toLocaleDateString()}
-                      </small>
-                      <div className="btn-group btn-group-sm">
-                        <button
-                          className="btn btn-outline-primary"
-                          onClick={() => {
-                            setSelectedPost(post);
-                            setShowView(true);
-                          }}
-                          title="View"
-                        >
-                          <FaEye />
-                        </button>
-                        <button
-                          className="btn btn-outline-danger"
-                          onClick={() => {
-                            setSelectedPost(post);
-                            setShowDelete(true);
-                          }}
-                          title="Delete"
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
+                    <div className="menu-item-actions">
+                      <button
+                        className={`action-icon ${post.featured ? 'featured' : ''}`}
+                        onClick={() => toggleFeatured(post._id, post.featured)}
+                        title={post.featured ? 'Remove from featured' : 'Mark as featured'}
+                        style={{
+                          background: post.featured ? '#ffc107' : 'rgba(255,255,255,0.9)',
+                          color: post.featured ? '#000' : '#212c59'
+                        }}
+                      >
+                        <FaStar size={12} />
+                      </button>
+                      <button
+                        className="action-icon view"
+                        onClick={() => {
+                          setSelectedPost(post);
+                          setShowView(true);
+                        }}
+                        title="View Post"
+                      >
+                        <FaEye />
+                      </button>
+                      <button
+                        className="action-icon delete"
+                        onClick={() => {
+                          setSelectedPost(post);
+                          setShowDelete(true);
+                        }}
+                        title="Delete Post"
+                      >
+                        <FaTrash />
+                      </button>
                     </div>
+                  </>
+                ) : (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    background: '#f8f9fa'
+                  }}>
+                    <FaImages size={48} style={{ color: '#6c757d' }} />
+                  </div>
+                )}
+              </div>
+
+              <div className="menu-item-details">
+                <h3>{post.title}</h3>
+                <p style={{
+                  color: '#6c757d',
+                  fontSize: '14px',
+                  margin: '0 0 12px 0',
+                  lineHeight: '1.4'
+                }}>
+                  {post.description || 'No description'}
+                </p>
+                {post.tags && post.tags.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    {post.tags.map((tag, tagIndex) => (
+                      <span key={tagIndex} style={{
+                        display: 'inline-block',
+                        background: '#e9ecef',
+                        color: '#495057',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        marginRight: '4px',
+                        marginBottom: '4px'
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="menu-item-meta">
+                  <small style={{ color: '#6c757d' }}>
+                    {new Date(post.createdAt).toLocaleDateString()}
+                  </small>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {post.featured && (
+                      <span style={{
+                        background: '#ffc107',
+                        color: '#000',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: '600'
+                      }}>
+                        FEATURED
+                      </span>
+                    )}
+                    <span style={{
+                      background: post.media?.length > 0 ? '#28a745' : '#6c757d',
+                      color: 'white',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      fontWeight: '600'
+                    }}>
+                      {post.media?.length || 0} MEDIA
+                    </span>
                   </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </div>
 
       {/* Add Post Modal */}
       <ResponsiveModal
@@ -364,13 +474,23 @@ const GalleryManagement = () => {
       >
         <form onSubmit={handleAddPost}>
           {modalError && (
-            <div className="alert alert-danger" role="alert">
-              {modalError}
-            </div>
+            <div className="form-error" style={{ 
+              marginBottom: 12,
+              color: '#dc3545',
+              background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              fontSize: '13px',
+              lineHeight: '1.4',
+              fontFamily: "'Montserrat', sans-serif",
+              border: '1px solid #f5c6cb',
+              boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
+            }}>{modalError}</div>
           )}
 
           <div className="mb-3">
-            <label className="form-label">Title *</label>
+            <label className="form-label" style={{ fontWeight: '600', color: '#212c59' }}>Title *</label>
             <input
               type="text"
               className="form-control"
@@ -379,11 +499,18 @@ const GalleryManagement = () => {
               onChange={handleInputChange}
               required
               placeholder="Enter post title"
+              style={{
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif"
+              }}
             />
           </div>
 
           <div className="mb-3">
-            <label className="form-label">Description</label>
+            <label className="form-label" style={{ fontWeight: '600', color: '#212c59' }}>Description</label>
             <textarea
               className="form-control"
               name="description"
@@ -391,11 +518,18 @@ const GalleryManagement = () => {
               onChange={handleInputChange}
               rows="3"
               placeholder="Enter post description"
+              style={{
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif"
+              }}
             />
           </div>
 
           <div className="mb-3">
-            <label className="form-label">Tags</label>
+            <label className="form-label" style={{ fontWeight: '600', color: '#212c59' }}>Tags</label>
             <input
               type="text"
               className="form-control"
@@ -403,8 +537,15 @@ const GalleryManagement = () => {
               value={formData.tags}
               onChange={handleInputChange}
               placeholder="Enter tags separated by commas"
+              style={{
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif"
+              }}
             />
-            <div className="form-text">Separate multiple tags with commas</div>
+            <div className="form-text" style={{ fontSize: '12px', color: '#6c757d' }}>Separate multiple tags with commas</div>
           </div>
 
           <div className="mb-3">
@@ -415,29 +556,37 @@ const GalleryManagement = () => {
                 name="featured"
                 checked={formData.featured}
                 onChange={handleInputChange}
+                style={{ transform: 'scale(1.2)' }}
               />
-              <label className="form-check-label">
+              <label className="form-check-label" style={{ fontWeight: '600', color: '#212c59', marginLeft: '8px' }}>
                 Featured Post
               </label>
             </div>
           </div>
 
           <div className="mb-3">
-            <label className="form-label">Media Files * (Max 5 files)</label>
+            <label className="form-label" style={{ fontWeight: '600', color: '#212c59' }}>Media Files * (Max 5 files)</label>
             <input
               type="file"
               className="form-control"
               multiple
               accept="image/*,video/*"
               onChange={handleFileChange}
+              style={{
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif"
+              }}
             />
-            <div className="form-text">Select up to 5 images or videos</div>
+            <div className="form-text" style={{ fontSize: '12px', color: '#6c757d' }}>Select up to 5 images or videos</div>
           </div>
 
           {/* Media Preview */}
           {formData.media.length > 0 && (
             <div className="mb-3">
-              <label className="form-label">Selected Media:</label>
+              <label className="form-label" style={{ fontWeight: '600', color: '#212c59' }}>Selected Media:</label>
               <div className="row">
                 {formData.media.map((media, index) => (
                   <div key={index} className="col-md-4 mb-2">
@@ -459,10 +608,20 @@ const GalleryManagement = () => {
                       )}
                       <button
                         type="button"
-                        className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
+                        className="btn btn-sm btn-danger position-absolute"
                         onClick={() => removeMedia(index)}
+                        style={{
+                          top: '5px',
+                          right: '5px',
+                          width: '24px',
+                          height: '24px',
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
                       >
-                        <FaTimes />
+                        <FaTimes size={10} />
                       </button>
                     </div>
                   </div>
@@ -479,10 +638,29 @@ const GalleryManagement = () => {
                 setShowAdd(false);
                 resetForm();
               }}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif"
+              }}
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif',
+                background: '#212c59',
+                border: '2px solid #212c59'
+              }}
+            >
               Create Post
             </button>
           </div>
@@ -499,15 +677,24 @@ const GalleryManagement = () => {
         {selectedPost && (
           <div>
             <div className="mb-3">
-              <h6>Description:</h6>
-              <p>{selectedPost.description || 'No description'}</p>
+              <h6 style={{ fontWeight: '600', color: '#212c59', marginBottom: '8px' }}>Description:</h6>
+              <p style={{ color: '#495057', lineHeight: '1.5' }}>{selectedPost.description || 'No description'}</p>
             </div>
 
             {selectedPost.tags && selectedPost.tags.length > 0 && (
               <div className="mb-3">
-                <h6>Tags:</h6>
+                <h6 style={{ fontWeight: '600', color: '#212c59', marginBottom: '8px' }}>Tags:</h6>
                 {selectedPost.tags.map((tag, index) => (
-                  <span key={index} className="badge bg-secondary me-1">
+                  <span key={index} style={{
+                    display: 'inline-block',
+                    background: '#e9ecef',
+                    color: '#495057',
+                    padding: '4px 12px',
+                    borderRadius: '16px',
+                    fontSize: '12px',
+                    marginRight: '8px',
+                    marginBottom: '4px'
+                  }}>
                     {tag}
                   </span>
                 ))}
@@ -515,7 +702,7 @@ const GalleryManagement = () => {
             )}
 
             <div className="mb-3">
-              <h6>Media ({selectedPost.media?.length || 0} files):</h6>
+              <h6 style={{ fontWeight: '600', color: '#212c59', marginBottom: '8px' }}>Media ({selectedPost.media?.length || 0} files):</h6>
               <div className="row">
                 {selectedPost.media?.map((media, index) => (
                   <div key={index} className="col-md-6 mb-3">
@@ -524,14 +711,14 @@ const GalleryManagement = () => {
                         src={media.url}
                         className="img-fluid rounded"
                         controls
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', borderRadius: '8px' }}
                       />
                     ) : (
                       <img
                         src={media.url}
                         alt={`Media ${index + 1}`}
                         className="img-fluid rounded"
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', borderRadius: '8px' }}
                       />
                     )}
                   </div>
@@ -540,12 +727,19 @@ const GalleryManagement = () => {
             </div>
 
             <div className="d-flex justify-content-between align-items-center">
-              <small className="text-muted">
+              <small style={{ color: '#6c757d' }}>
                 Created: {new Date(selectedPost.createdAt).toLocaleString()}
               </small>
               <div>
-                <span className={`badge ${selectedPost.featured ? 'bg-warning' : 'bg-secondary'}`}>
-                  {selectedPost.featured ? 'Featured' : 'Regular'}
+                <span style={{
+                  background: selectedPost.featured ? '#ffc107' : '#6c757d',
+                  color: selectedPost.featured ? '#000' : 'white',
+                  padding: '4px 12px',
+                  borderRadius: '16px',
+                  fontSize: '12px',
+                  fontWeight: '600'
+                }}>
+                  {selectedPost.featured ? 'FEATURED' : 'REGULAR'}
                 </span>
               </div>
             </div>
@@ -562,16 +756,29 @@ const GalleryManagement = () => {
       >
         {selectedPost && (
           <div>
-            <p>Are you sure you want to delete this gallery post?</p>
-            <div className="alert alert-warning">
-              <strong>"{selectedPost.title}"</strong>
+            <p style={{ color: '#495057', marginBottom: '16px' }}>Are you sure you want to delete this gallery post?</p>
+            <div style={{
+              background: '#f8f9fa',
+              padding: '16px',
+              borderRadius: '8px',
+              border: '1px solid #e9ecef',
+              marginBottom: '16px'
+            }}>
+              <strong style={{ color: '#212c59' }}>"{selectedPost.title}"</strong>
             </div>
-            <p className="text-muted">This action cannot be undone.</p>
+            <p style={{ color: '#6c757d', fontSize: '14px', marginBottom: '20px' }}>This action cannot be undone.</p>
             <div className="d-flex justify-content-end gap-2">
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowDelete(false)}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  fontFamily: "'Montserrat', sans-serif"
+                }}
               >
                 Cancel
               </button>
@@ -579,6 +786,13 @@ const GalleryManagement = () => {
                 type="button"
                 className="btn btn-danger"
                 onClick={handleDeletePost}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  fontFamily: "'Montserrat', sans-serif"
+                }}
               >
                 <FaTrash className="me-2" />
                 Delete Post
