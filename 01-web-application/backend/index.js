@@ -180,6 +180,7 @@ const promoRoutes = require('./routes/promos');
 const inventoryRoutes = require('./routes/inventory');
 const rewardRoutes = require('./routes/rewards');
 const abuseAlertRoutes = require('./routes/abuseAlerts');
+const galleryRoutes = require('./routes/gallery');
 
 // Register routes
 app.use('/api/auth', authRoutes);
@@ -191,6 +192,7 @@ app.use('/api/promos', promoRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/rewards', rewardRoutes);
 app.use('/api/abuse-alerts', abuseAlertRoutes);
+app.use('/api/gallery', galleryRoutes);
 
 // GridFS Image serving routes
 app.get('/api/images/promo/:id', async (req, res) => {

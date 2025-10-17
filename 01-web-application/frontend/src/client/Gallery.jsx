@@ -1,13 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { lightTheme } from '../utils/Themes';
-import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes } from 'react-icons/fa';
 import Logo from '../utils/Images/Logo.png';
 import ForGalleryPageImage from '../utils/Images/Gallery/ForGalleryPage.jpg';
 
 const GalleryContainer = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  
+  /* Custom scrollbar for webkit browsers */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #b08d57;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    background: #9a7a4a;
+  }
 `;
 
 const GalleryHeader = styled.div`
@@ -71,59 +89,335 @@ const GalleryContent = styled.div`
   min-height: 100vh;
   position: relative;
   z-index: 10;
+`;
+
+const GalleryGrid = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+`;
+
+const GallerySlot = styled.div`
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  
+  &:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+const SlotMedia = styled.div`
+  position: relative;
+  width: 100%;
+  height: 250px;
+  overflow: hidden;
+  background: #f8f9fa;
   display: flex;
   align-items: center;
   justify-content: center;
 `;
 
-const ComingSoonContainer = styled.div`
-  text-align: center;
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 0 20px;
-`;
-
-const ComingSoonIcon = styled.div`
-  font-size: 4rem;
-  margin-bottom: 30px;
-  color: #b08d57;
-  animation: pulse 2s infinite;
+const SlotImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
   
-  @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
+  ${GallerySlot}:hover & {
+    transform: scale(1.05);
   }
 `;
 
-const ComingSoonTitle = styled.h2`
-  font-size: 3rem;
+const SlotVideo = styled.video`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const PlayIcon = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: all 0.3s ease;
+  
+  ${GallerySlot}:hover & {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+`;
+
+const MediaCountBadge = styled.div`
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+`;
+
+const SlotContent = styled.div`
+  padding: 20px;
+`;
+
+const SlotTitle = styled.h3`
+  font-size: 1.3rem;
   font-weight: 700;
   color: #333;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   font-family: 'Montserrat', sans-serif;
-  
-  @media (max-width: 768px) {
-    font-size: 2.5rem;
-  }
+  line-height: 1.3;
 `;
 
-const ComingSoonMessage = styled.p`
-  font-size: 1.2rem;
+const SlotDescription = styled.p`
+  font-size: 0.95rem;
   color: #666;
-  line-height: 1.6;
-  margin-bottom: 30px;
+  line-height: 1.5;
+  margin-bottom: 15px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+`;
+
+const SlotTags = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 15px;
+`;
+
+const Tag = styled.span`
+  background: #e9ecef;
+  color: #495057;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+`;
+
+const SlotFooter = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+`;
+
+const SlotDate = styled.span`
+  font-size: 0.85rem;
+  color: #888;
+`;
+
+const FeaturedBadge = styled.div`
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: linear-gradient(45deg, #ffd700, #ffed4e);
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+`;
+
+const EmptySlot = styled.div`
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 15px;
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  text-align: center;
+  padding: 40px 20px;
+`;
+
+const EmptyIcon = styled.div`
+  font-size: 3rem;
+  margin-bottom: 20px;
+  opacity: 0.5;
+`;
+
+const EmptyText = styled.p`
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: 500;
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+`;
+
+const LoadingSpinner = styled.div`
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #b08d57;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
   
-  @media (max-width: 768px) {
-    font-size: 1.1rem;
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 `;
 
-const ComingSoonSubtext = styled.p`
-  font-size: 1rem;
-  color: #888;
-  line-height: 1.5;
-  font-style: italic;
+const ErrorContainer = styled.div`
+  text-align: center;
+  padding: 40px 20px;
+  color: #dc3545;
+`;
+
+const ErrorIcon = styled.div`
+  font-size: 3rem;
+  margin-bottom: 20px;
+`;
+
+const ErrorText = styled.p`
+  font-size: 1.1rem;
+  margin: 0;
+`;
+
+// Modal styles
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: 15px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  position: relative;
+`;
+
+const ModalHeader = styled.div`
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const ModalTitle = styled.h3`
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #666;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #f8f9fa;
+    color: #333;
+  }
+`;
+
+const ModalBody = styled.div`
+  padding: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+`;
+
+const MediaCarousel = styled.div`
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+`;
+
+const MediaItem = styled.div`
+  min-width: 200px;
+  height: 200px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  background: #f8f9fa;
+`;
+
+const CarouselImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const CarouselVideo = styled.video`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const MediaPlayIcon = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
 `;
 
 const Footer = styled.footer`
@@ -181,6 +475,133 @@ const Footer = styled.footer`
 `;
 
 const Gallery = () => {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+
+  useEffect(() => {
+    fetchGalleryPosts();
+  }, []);
+
+  const fetchGalleryPosts = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/api/gallery/client`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch gallery posts');
+      }
+
+      const data = await response.json();
+      setPosts(data.data || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePostClick = (post) => {
+    setSelectedPost(post);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedPost(null);
+  };
+
+  const renderMedia = (media, isModal = false) => {
+    if (media.type === 'video') {
+      return (
+        <>
+          {isModal ? (
+            <CarouselVideo controls>
+              <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
+            </CarouselVideo>
+          ) : (
+            <SlotVideo controls>
+              <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
+            </SlotVideo>
+          )}
+          <PlayIcon>
+            <FaPlay />
+          </PlayIcon>
+        </>
+      );
+    } else {
+      return (
+        <SlotImage 
+          src={`${API_BASE}${media.url}`} 
+          alt={media.originalName}
+        />
+      );
+    }
+  };
+
+  const renderGallerySlots = () => {
+    const slots = [];
+    
+    // Add actual posts (up to 10)
+    for (let i = 0; i < 10; i++) {
+      const post = posts[i];
+      
+      if (post) {
+        slots.push(
+          <GallerySlot key={post._id} onClick={() => handlePostClick(post)}>
+            <SlotMedia>
+              {renderMedia(post.media[0])}
+              
+              {post.media.length > 1 && (
+                <MediaCountBadge>
+                  <FaImages />
+                  {post.media.length}
+                </MediaCountBadge>
+              )}
+              
+              {post.featured && (
+                <FeaturedBadge>Featured</FeaturedBadge>
+              )}
+            </SlotMedia>
+            
+            <SlotContent>
+              <SlotTitle>{post.title}</SlotTitle>
+              <SlotDescription>{post.description}</SlotDescription>
+              
+              {post.tags && post.tags.length > 0 && (
+                <SlotTags>
+                  {post.tags.map((tag, index) => (
+                    <Tag key={index}>{tag}</Tag>
+                  ))}
+                </SlotTags>
+              )}
+              
+              <SlotFooter>
+                <SlotDate>
+                  {new Date(post.createdAt).toLocaleDateString()}
+                </SlotDate>
+              </SlotFooter>
+            </SlotContent>
+          </GallerySlot>
+        );
+      } else {
+        // Empty slot
+        slots.push(
+          <EmptySlot key={`empty-${i}`}>
+            <EmptyIcon>📸</EmptyIcon>
+            <EmptyText>Coming Soon</EmptyText>
+          </EmptySlot>
+        );
+      }
+    }
+    
+    return slots;
+  };
+
   return (
     <GalleryContainer>
       <GalleryHeader>
@@ -194,19 +615,90 @@ const Gallery = () => {
       </GalleryHeader>
 
       <GalleryContent>
-        <ComingSoonContainer>
-          <ComingSoonIcon>📸</ComingSoonIcon>
-          <ComingSoonTitle>Gallery Coming Soon</ComingSoonTitle>
-          <ComingSoonMessage>
-            We're working hard to bring you an amazing gallery experience. 
-            Soon you'll be able to explore our delicious drinks, fresh pastries, 
-            and cozy cafe atmosphere through beautiful photos.
-          </ComingSoonMessage>
-          <ComingSoonSubtext>
-            Stay tuned for updates and follow us on social media for the latest news!
-          </ComingSoonSubtext>
-        </ComingSoonContainer>
+        {loading ? (
+          <LoadingContainer>
+            <LoadingSpinner />
+          </LoadingContainer>
+        ) : error ? (
+          <ErrorContainer>
+            <ErrorIcon>⚠️</ErrorIcon>
+            <ErrorText>{error}</ErrorText>
+          </ErrorContainer>
+        ) : (
+          <GalleryGrid>
+            {renderGallerySlots()}
+          </GalleryGrid>
+        )}
       </GalleryContent>
+
+      {/* Post Detail Modal */}
+      {showModal && selectedPost && (
+        <ModalOverlay onClick={closeModal}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>{selectedPost.title}</ModalTitle>
+              <CloseButton onClick={closeModal}>
+                <FaTimes />
+              </CloseButton>
+            </ModalHeader>
+            
+            <ModalBody>
+              {selectedPost.description && (
+                <p style={{ marginBottom: '20px', color: '#666' }}>
+                  {selectedPost.description}
+                </p>
+              )}
+              
+              {selectedPost.tags && selectedPost.tags.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  {selectedPost.tags.map((tag, index) => (
+                    <Tag key={index}>{tag}</Tag>
+                  ))}
+                </div>
+              )}
+              
+              <MediaCarousel>
+                {selectedPost.media.map((media, index) => (
+                  <MediaItem key={index}>
+                    {media.type === 'video' ? (
+                      <>
+                        <CarouselVideo controls>
+                          <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
+                        </CarouselVideo>
+                        <MediaPlayIcon>
+                          <FaPlay />
+                        </MediaPlayIcon>
+                      </>
+                    ) : (
+                      <CarouselImage 
+                        src={`${API_BASE}${media.url}`} 
+                        alt={`Media ${index + 1}`}
+                      />
+                    )}
+                  </MediaItem>
+                ))}
+              </MediaCarousel>
+              
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingTop: '15px',
+                borderTop: '1px solid #e9ecef',
+                fontSize: '0.9rem',
+                color: '#666'
+              }}>
+                <span>
+                  {selectedPost.media.length} {selectedPost.media.length === 1 ? 'item' : 'items'}
+                </span>
+                <span>
+                  {new Date(selectedPost.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            </ModalBody>
+          </ModalContent>
+        </ModalOverlay>
+      )}
 
       {/* Footer */}
       <Footer>

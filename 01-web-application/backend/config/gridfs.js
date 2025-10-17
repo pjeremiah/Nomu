@@ -45,6 +45,7 @@ const promoStorage = createGridFSStorage('promo_images');
 const menuStorage = createGridFSStorage('menu_images');
 const inventoryStorage = createGridFSStorage('inventory_images');
 const profileStorage = createGridFSStorage('profile_images');
+const galleryStorage = createGridFSStorage('gallery_media');
 
 // Create multer configurations
 const createMulterConfig = (storage) => {
@@ -54,10 +55,11 @@ const createMulterConfig = (storage) => {
       fileSize: 50 * 1024 * 1024 // 50MB limit
     },
     fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith('image/')) {
+      // Allow both images and videos for gallery
+      if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
         cb(null, true);
       } else {
-        cb(new Error('Only image files are allowed'), false);
+        cb(new Error('Only image and video files are allowed'), false);
       }
     }
   });
@@ -68,10 +70,12 @@ const promoUpload = createMulterConfig(promoStorage);
 const menuUpload = createMulterConfig(menuStorage);
 const inventoryUpload = createMulterConfig(inventoryStorage);
 const profileUpload = createMulterConfig(profileStorage);
+const galleryUpload = createMulterConfig(galleryStorage);
 
 module.exports = {
   promoUpload,
   menuUpload,
   inventoryUpload,
-  profileUpload
+  profileUpload,
+  galleryUpload
 };

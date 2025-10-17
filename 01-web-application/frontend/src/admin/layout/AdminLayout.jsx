@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import NavbarandFooterImg from '../../utils/Images/ForNavbarandFooter.jpg';
 import NomuLogo from '../../utils/Images/Logo.png';
-import { Lock, BarChart3, Users, Coffee, Gift, Star, MessageSquare, X, LogOut, Package, Smartphone } from 'lucide-react';
+import { Lock, BarChart3, Users, Coffee, Gift, Star, MessageSquare, X, LogOut, Package, Smartphone, Grid3X3 } from 'lucide-react';
 import { useModalContext } from '../context/ModalContext';
 import useMobileDetection from '../hooks/useMobileDetection';
 import MobileRedirect from '../components/MobileRedirect';
@@ -480,6 +480,12 @@ const AdminLayout = ({ children }) => {
       to: "/admin/customer-feedback",
       label: "Customer Feedback",
       icon: <MessageSquare size={18} />,
+      accessible: true
+    },
+    {
+      to: "/admin/gallery-management",
+      label: "Gallery Management",
+      icon: <Grid3X3 size={18} />,
       accessible: true
     }
   ];

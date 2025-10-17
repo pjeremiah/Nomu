@@ -23,6 +23,7 @@ import InventoryManagement from './admin/InventoryManagement';
 import RewardManagement from './admin/RewardManagement';
 import PromoManagement from './admin/PromoManagement';
 import CustomerFeedback from './admin/CustomerFeedback';
+import GalleryManagement from './admin/GalleryManagement';
 import ProtectedRoute from './admin/components/ProtectedRoute';
 import { ModalProvider } from './admin/context/ModalContext';
 
@@ -156,6 +157,7 @@ function App() {
                       <Route path="/reward-management" element={<RewardManagement />} />
                       <Route path="/promo-management" element={<PromoManagement />} />
                       <Route path="/customer-feedback" element={<CustomerFeedback />} />
+                      <Route path="/gallery-management" element={<GalleryManagement />} />
                       <Route path="*" element={<Navigate to="/admin/home" replace />} />
                     </Routes>
                   </AdminLayout>
