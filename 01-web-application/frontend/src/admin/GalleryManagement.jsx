@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash, FaImages, FaVideo, FaPlay, FaTimes, FaStar, FaRegStar } from 'react-icons/fa';
 import { Grid3X3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useModalContext } from './context/ModalContext';
 import PageHeader from './components/PageHeader';
 import ResponsiveModal from './components/ResponsiveModal';
@@ -13,6 +14,7 @@ const GalleryManagement = () => {
   const [error, setError] = useState('');
   const [modalError, setModalError] = useState('');
   const { showLogoutConfirm } = useModalContext();
+  const navigate = useNavigate();
 
   // Modal states
   const [showAdd, setShowAdd] = useState(false);
@@ -52,13 +54,26 @@ const GalleryManagement = () => {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+
       const response = await fetch(`${API_BASE}/api/gallery/admin`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
+
+      if (response.status === 401) {
+        // Token is invalid or expired
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+        navigate('/admin/login');
+        return;
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -278,13 +293,13 @@ const GalleryManagement = () => {
           <div style={{
             gridColumn: '1 / -1',
             textAlign: 'center',
-            padding: '3rem 2rem',
+            padding: '2rem',
             background: 'white',
             borderRadius: '12px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            border: '2px dashed #e9ecef'
           }}>
-            <FaImages size={48} style={{ color: '#6c757d', marginBottom: '1rem' }} />
-            <h5 style={{ color: '#212c59', marginBottom: '0.5rem', fontWeight: '600' }}>No gallery posts</h5>
+            <h5 style={{ color: '#6c757d', margin: 0, fontWeight: '500' }}>No gallery posts</h5>
           </div>
         ) : (
           posts.map((post, index) => (
