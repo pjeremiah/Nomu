@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash, FaImages, FaVideo, FaPlay, FaTimes, FaStar, FaRegStar } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar } from 'react-icons/fa';
 import { Grid3X3 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useModalContext } from './context/ModalContext';
 import PageHeader from './components/PageHeader';
 import ResponsiveModal from './components/ResponsiveModal';
@@ -14,11 +13,9 @@ const GalleryManagement = () => {
   const [error, setError] = useState('');
   const [modalError, setModalError] = useState('');
   const { showLogoutConfirm } = useModalContext();
-  const navigate = useNavigate();
 
   // Modal states
   const [showAdd, setShowAdd] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showView, setShowView] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -34,7 +31,7 @@ const GalleryManagement = () => {
 
   // Prevent body scrolling when any modal is open
   useEffect(() => {
-    if (showAdd || showEdit || showDelete || showView) {
+    if (showAdd || showDelete || showView) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -47,7 +44,7 @@ const GalleryManagement = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showAdd, showEdit, showDelete, showView]);
+  }, [showAdd, showDelete, showView]);
 
   // Fetch posts
   const fetchPosts = async () => {
@@ -57,7 +54,9 @@ const GalleryManagement = () => {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       if (!token) {
-        throw new Error('No authentication token found. Please log in again.');
+        setError('No authentication token found. Please log in again.');
+        setLoading(false);
+        return;
       }
 
       const response = await fetch(`${API_BASE}/api/gallery/admin`, {
@@ -71,7 +70,8 @@ const GalleryManagement = () => {
         // Token is invalid or expired
         localStorage.removeItem('token');
         sessionStorage.removeItem('token');
-        navigate('/admin/login');
+        setError('Session expired. Please log in again.');
+        setLoading(false);
         return;
       }
 
@@ -142,7 +142,7 @@ const GalleryManagement = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const formDataToSend = new FormData();
       formDataToSend.append('title', formData.title);
       formDataToSend.append('description', formData.description);
@@ -176,7 +176,7 @@ const GalleryManagement = () => {
   // Handle delete post
   const handleDeletePost = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/gallery/${selectedPost._id}`, {
         method: 'DELETE',
         headers: {
@@ -199,7 +199,7 @@ const GalleryManagement = () => {
   // Toggle featured status
   const toggleFeatured = async (postId, currentStatus) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/gallery/${postId}`, {
         method: 'PUT',
         headers: {
