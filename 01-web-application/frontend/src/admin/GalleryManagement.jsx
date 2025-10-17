@@ -656,7 +656,7 @@ const GalleryManagement = () => {
                 borderRadius: '8px',
                 fontWeight: '600',
                 fontSize: '14px',
-                fontFamily: "'Montserrat', sans-serif',
+                fontFamily: "'Montserrat', sans-serif",
                 background: '#212c59',
                 border: '2px solid #212c59'
               }}
