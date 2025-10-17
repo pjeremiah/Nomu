@@ -79,7 +79,8 @@ const GalleryManagement = () => {
       }
 
       const data = await response.json();
-      setPosts(data.data || []);
+      console.log('API Response:', data);
+      setPosts(Array.isArray(data.data) ? data.data : []);
     } catch (err) {
       console.error('Error fetching gallery posts:', err);
       setError(err.message);
@@ -447,7 +448,7 @@ const GalleryManagement = () => {
             <h5 style={{ color: '#6c757d', margin: 0, fontWeight: '500' }}>No gallery posts</h5>
           </div>
         ) : (
-          posts.map((post, index) => (
+          Array.isArray(posts) ? posts.map((post, index) => (
             <div key={post._id} style={{
               background: 'white',
               borderRadius: '12px',
@@ -657,7 +658,7 @@ const GalleryManagement = () => {
                 </div>
               </div>
             </div>
-          ))
+          )) : null
         )}
       </div>
 
