@@ -157,7 +157,11 @@ function App() {
                       <Route path="/reward-management" element={<RewardManagement />} />
                       <Route path="/promo-management" element={<PromoManagement />} />
                       <Route path="/customer-feedback" element={<CustomerFeedback />} />
-                      <Route path="/gallery-management" element={<GalleryManagement />} />
+                      <Route path="/gallery-management" element={
+                        <ProtectedRoute requiredRole="staff" fallbackPath="/admin/home">
+                          <GalleryManagement />
+                        </ProtectedRoute>
+                      } />
                       <Route path="*" element={<Navigate to="/admin/home" replace />} />
                     </Routes>
                   </AdminLayout>
