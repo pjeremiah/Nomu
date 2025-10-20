@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { lightTheme } from '../utils/Themes';
-import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Logo from '../utils/Images/Logo.png';
 import ForGalleryPageImage from '../utils/Images/Gallery/ForGalleryPage.jpg';
 
@@ -314,8 +314,8 @@ const ErrorText = styled.p`
   margin: 0;
 `;
 
-// Modal styles
-const ModalOverlay = styled.div`
+// Instagram-style modal layout
+const InstagramModalOverlay = styled.div`
   position: fixed;
   top: 0;
   left: 0;
@@ -329,16 +329,105 @@ const ModalOverlay = styled.div`
   padding: 20px;
 `;
 
-const ModalContent = styled.div`
+const InstagramModalContent = styled.div`
   background: white;
-  border-radius: 15px;
+  border-radius: 12px;
   max-width: 90vw;
   max-height: 90vh;
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: row;
+  min-height: 500px;
 `;
 
-const ModalHeader = styled.div`
+const ImageSection = styled.div`
+  flex: 1;
+  position: relative;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 500px;
+`;
+
+const MainImage = styled.img`
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+`;
+
+const MainVideo = styled.video`
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+`;
+
+const ImageNavButton = styled.button`
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  z-index: 10;
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: translateY(-50%) scale(1.1);
+  }
+  
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+`;
+
+const ImageNavLeft = styled(ImageNavButton)`
+  left: 15px;
+`;
+
+const ImageNavRight = styled(ImageNavButton)`
+  right: 15px;
+`;
+
+const ImageDots = styled.div`
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+`;
+
+const ImageDot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${props => props.$active ? 'white' : 'rgba(255, 255, 255, 0.5)'};
+  cursor: pointer;
+  transition: all 0.3s ease;
+`;
+
+const InfoSection = styled.div`
+  width: 350px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e9ecef;
+`;
+
+const InfoHeader = styled.div`
   padding: 20px;
   border-bottom: 1px solid #e9ecef;
   display: flex;
@@ -346,11 +435,90 @@ const ModalHeader = styled.div`
   align-items: center;
 `;
 
-const ModalTitle = styled.h3`
+const InfoTitle = styled.h3`
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #333;
+  font-family: 'Montserrat', sans-serif;
+`;
+
+const InfoBody = styled.div`
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+`;
+
+const InfoDescription = styled.p`
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 15px;
+  font-size: 0.95rem;
+`;
+
+const InfoTags = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 15px;
+`;
+
+const InfoTag = styled.span`
+  background: #e9ecef;
+  color: #495057;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+`;
+
+const InfoFooter = styled.div`
+  padding: 15px 20px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #888;
+`;
+
+const PostNavButton = styled.button`
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  
+  &:hover {
+    background: white;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  }
+  
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+`;
+
+const PostNavLeft = styled(PostNavButton)`
+  left: -25px;
+`;
+
+const PostNavRight = styled(PostNavButton)`
+  right: -25px;
 `;
 
 const CloseButton = styled.button`
@@ -367,57 +535,6 @@ const CloseButton = styled.button`
     background: #f8f9fa;
     color: #333;
   }
-`;
-
-const ModalBody = styled.div`
-  padding: 20px;
-  max-height: 70vh;
-  overflow-y: auto;
-`;
-
-const MediaCarousel = styled.div`
-  display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
-  overflow-x: auto;
-  padding-bottom: 10px;
-`;
-
-const MediaItem = styled.div`
-  min-width: 200px;
-  height: 200px;
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-  background: #f8f9fa;
-`;
-
-const CarouselImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const CarouselVideo = styled.video`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const MediaPlayIcon = styled.div`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
 `;
 
 const Footer = styled.footer`
@@ -480,6 +597,8 @@ const Gallery = () => {
   const [error, setError] = useState('');
   const [selectedPost, setSelectedPost] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentPostIndex, setCurrentPostIndex] = useState(0);
 
   const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
@@ -506,6 +625,9 @@ const Gallery = () => {
   };
 
   const handlePostClick = (post) => {
+    const postIndex = posts.findIndex(p => p._id === post._id);
+    setCurrentPostIndex(postIndex);
+    setCurrentImageIndex(0);
     setSelectedPost(post);
     setShowModal(true);
   };
@@ -513,6 +635,42 @@ const Gallery = () => {
   const closeModal = () => {
     setShowModal(false);
     setSelectedPost(null);
+    setCurrentImageIndex(0);
+    setCurrentPostIndex(0);
+  };
+
+  const nextImage = () => {
+    if (selectedPost && currentImageIndex < selectedPost.media.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1);
+    }
+  };
+
+  const prevImage = () => {
+    if (currentImageIndex > 0) {
+      setCurrentImageIndex(currentImageIndex - 1);
+    }
+  };
+
+  const nextPost = () => {
+    if (currentPostIndex < posts.length - 1) {
+      const nextIndex = currentPostIndex + 1;
+      setCurrentPostIndex(nextIndex);
+      setSelectedPost(posts[nextIndex]);
+      setCurrentImageIndex(0);
+    }
+  };
+
+  const prevPost = () => {
+    if (currentPostIndex > 0) {
+      const prevIndex = currentPostIndex - 1;
+      setCurrentPostIndex(prevIndex);
+      setSelectedPost(posts[prevIndex]);
+      setCurrentImageIndex(0);
+    }
+  };
+
+  const goToImage = (index) => {
+    setCurrentImageIndex(index);
   };
 
   const renderMedia = (media, isModal = false) => {
@@ -520,9 +678,9 @@ const Gallery = () => {
       return (
         <>
           {isModal ? (
-            <CarouselVideo controls>
+            <MainVideo controls>
               <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
-            </CarouselVideo>
+            </MainVideo>
           ) : (
             <SlotVideo controls>
               <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
@@ -631,73 +789,111 @@ const Gallery = () => {
         )}
       </GalleryContent>
 
-      {/* Post Detail Modal */}
+      {/* Instagram-style Post Detail Modal */}
       {showModal && selectedPost && (
-        <ModalOverlay onClick={closeModal}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>{selectedPost.title}</ModalTitle>
-              <CloseButton onClick={closeModal}>
-                <FaTimes />
-              </CloseButton>
-            </ModalHeader>
-            
-            <ModalBody>
-              {selectedPost.description && (
-                <p style={{ marginBottom: '20px', color: '#666' }}>
-                  {selectedPost.description}
-                </p>
+        <InstagramModalOverlay onClick={closeModal}>
+          <InstagramModalContent onClick={(e) => e.stopPropagation()}>
+            {/* Post Navigation Arrows */}
+            {posts.length > 1 && (
+              <>
+                <PostNavLeft 
+                  onClick={prevPost}
+                  disabled={currentPostIndex === 0}
+                >
+                  <FaChevronLeft />
+                </PostNavLeft>
+                <PostNavRight 
+                  onClick={nextPost}
+                  disabled={currentPostIndex === posts.length - 1}
+                >
+                  <FaChevronRight />
+                </PostNavRight>
+              </>
+            )}
+
+            {/* Image Section */}
+            <ImageSection>
+              {selectedPost.media[currentImageIndex] && (
+                <>
+                  {selectedPost.media[currentImageIndex].type === 'video' ? (
+                    <MainVideo controls>
+                      <source src={`${API_BASE}${selectedPost.media[currentImageIndex].url}`} type={selectedPost.media[currentImageIndex].mimetype} />
+                    </MainVideo>
+                  ) : (
+                    <MainImage 
+                      src={`${API_BASE}${selectedPost.media[currentImageIndex].url}`} 
+                      alt={`${selectedPost.title} - Image ${currentImageIndex + 1}`}
+                    />
+                  )}
+                </>
               )}
-              
-              {selectedPost.tags && selectedPost.tags.length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  {selectedPost.tags.map((tag, index) => (
-                    <Tag key={index}>{tag}</Tag>
+
+              {/* Image Navigation Arrows */}
+              {selectedPost.media.length > 1 && (
+                <>
+                  <ImageNavLeft 
+                    onClick={prevImage}
+                    disabled={currentImageIndex === 0}
+                  >
+                    <FaChevronLeft />
+                  </ImageNavLeft>
+                  <ImageNavRight 
+                    onClick={nextImage}
+                    disabled={currentImageIndex === selectedPost.media.length - 1}
+                  >
+                    <FaChevronRight />
+                  </ImageNavRight>
+                </>
+              )}
+
+              {/* Image Dots */}
+              {selectedPost.media.length > 1 && (
+                <ImageDots>
+                  {selectedPost.media.map((_, index) => (
+                    <ImageDot 
+                      key={index}
+                      $active={index === currentImageIndex}
+                      onClick={() => goToImage(index)}
+                    />
                   ))}
-                </div>
+                </ImageDots>
               )}
+            </ImageSection>
+
+            {/* Info Section */}
+            <InfoSection>
+              <InfoHeader>
+                <InfoTitle>{selectedPost.title}</InfoTitle>
+                <CloseButton onClick={closeModal}>
+                  <FaTimes />
+                </CloseButton>
+              </InfoHeader>
               
-              <MediaCarousel>
-                {selectedPost.media.map((media, index) => (
-                  <MediaItem key={index}>
-                    {media.type === 'video' ? (
-                      <>
-                        <CarouselVideo controls>
-                          <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
-                        </CarouselVideo>
-                        <MediaPlayIcon>
-                          <FaPlay />
-                        </MediaPlayIcon>
-                      </>
-                    ) : (
-                      <CarouselImage 
-                        src={`${API_BASE}${media.url}`} 
-                        alt={`Media ${index + 1}`}
-                      />
-                    )}
-                  </MediaItem>
-                ))}
-              </MediaCarousel>
+              <InfoBody>
+                {selectedPost.description && (
+                  <InfoDescription>{selectedPost.description}</InfoDescription>
+                )}
+                
+                {selectedPost.tags && selectedPost.tags.length > 0 && (
+                  <InfoTags>
+                    {selectedPost.tags.map((tag, index) => (
+                      <InfoTag key={index}>#{tag}</InfoTag>
+                    ))}
+                  </InfoTags>
+                )}
+              </InfoBody>
               
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                paddingTop: '15px',
-                borderTop: '1px solid #e9ecef',
-                fontSize: '0.9rem',
-                color: '#666'
-              }}>
+              <InfoFooter>
                 <span>
                   {selectedPost.media.length} {selectedPost.media.length === 1 ? 'item' : 'items'}
                 </span>
                 <span>
                   {new Date(selectedPost.createdAt).toLocaleDateString()}
                 </span>
-              </div>
-            </ModalBody>
-          </ModalContent>
-        </ModalOverlay>
+              </InfoFooter>
+            </InfoSection>
+          </InstagramModalContent>
+        </InstagramModalOverlay>
       )}
 
       {/* Footer */}

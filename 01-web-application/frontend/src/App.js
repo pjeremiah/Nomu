@@ -60,9 +60,10 @@ const RequireAdmin = ({ children }) => {
   const user = Object.keys(localUser).length > 0 ? localUser : sessionUser;
   const token = localToken || sessionToken;
   
-  if (!token || (user.role !== 'superadmin' && user.role !== 'manager' && user.role !== 'staff')) {
+  if (!token || !['superadmin', 'manager', 'staff'].includes(user.role)) {
     return <Navigate to="/" replace />;
   }
+  
   return children;
 };
 
@@ -78,30 +79,19 @@ const RequireClient = ({ children }) => {
   const user = Object.keys(localUser).length > 0 ? localUser : sessionUser;
   const token = localToken || sessionToken;
   
-  if (token && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
+  if (token && ['superadmin', 'manager', 'staff'].includes(user.role)) {
     return <Navigate to="/admin/home" replace />;
   }
+  
   return children;
 };
 
-// Component to conditionally render navbar based on current route
+// Conditional Navbar Component
 const ConditionalNavbar = () => {
   const location = useLocation();
-  // Check both localStorage and sessionStorage for user data
-  const localUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const localToken = localStorage.getItem('token');
-  const sessionUser = JSON.parse(sessionStorage.getItem('user') || '{}');
-  const sessionToken = sessionStorage.getItem('token');
   
-  // Use whichever storage has the data
-  const user = Object.keys(localUser).length > 0 ? localUser : sessionUser;
-  const token = localToken || sessionToken;
-  
-  const isAdminUser = token && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff');
-  const isAdminRoute = location.pathname.startsWith('/admin');
-  
-  // Hide navbar if on admin route OR if user is admin (regardless of route)
-  if (isAdminRoute || isAdminUser) {
+  // Don't show navbar on admin routes
+  if (location.pathname.startsWith('/admin')) {
     return null;
   }
   
@@ -114,7 +104,6 @@ function App() {
   const toggleTheme = () => {}; // No-op function
 
   const currentTheme = lightTheme;
-
 
   return (
     <BrowserRouter>
@@ -153,7 +142,7 @@ function App() {
                         </ProtectedRoute>
                       } />
                       
-                      {/* Open Routes - Available to all admin users */}
+
                       <Route path="/reward-management" element={<RewardManagement />} />
                       <Route path="/promo-management" element={<PromoManagement />} />
                       <Route path="/customer-feedback" element={<CustomerFeedback />} />
