@@ -4,6 +4,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Production builds
+build/
+dist/
+
 # Environment variables
 .env
 .env.local
@@ -11,33 +15,13 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# Build outputs
-build/
-dist/
-*.tgz
-*.tar.gz
-
-# Flutter/Dart
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-build/
-
-# APK files (too large for GitHub)
-*.apk
-**/*.apk
-
-# IDE
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -80,34 +64,97 @@ jspm_packages/
 # dotenv environment variables file
 .env
 
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
 
-# next.js build output
-.next
+# Gradle
+.gradle/
+**/.gradle/
+**/gradle/
+**/gradle/wrapper/dists/
+**/gradle/wrapper/gradle-wrapper.jar
+**/gradle/wrapper/gradle-wrapper.properties
 
-# nuxt.js build output
-.nuxt
+# Android
+*.jks
+key.properties
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
 
-# vuepress build output
-.vuepress/dist
+# iOS
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.moved-aside
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/**/*sync/
+**/ios/**/.sconsign.dblite
+**/ios/**/.tags*
+**/ios/**/.vagrant/
+**/ios/**/DerivedData/
+**/ios/**/Icon?
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/profile
+**/ios/**/xcuserdata
+**/ios/.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
 
-# Serverless directories
-.serverless
+# Windows
+*.exe
+*.msi
+*.msm
+*.msp
 
-# FuseBox cache
-.fusebox/
+# Temporary files
+*.tmp
+*.temp
 
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# Temporary folders
-tmp/
-temp/
+# System files
+Application Data/
+AppData/
+Contacts/
+Cookies/
+Desktop/
+Documents/
+Downloads/
+Favorites/
+Links/
+Local Settings/
+Music/
+My Documents/
+NetHood/
+OneDrive/
+PrintHood/
+Recent/
+Saved Games/
+Searches/
+SendTo/
+Start Menu/
+Templates/
+Videos/
+WPS Cloud Files/
+ZAP/
+Zomboid/
+ntuser.dat*
+ntuser.ini

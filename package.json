@@ -1,7 +1,7 @@
 {
   "name": "nomu-application",
   "version": "1.0.0",
-  "description": "NOMU Cafe Application - Full Stack",
+  "description": "NOMU Cafe Application - Full Stack - Updated for Render deployment",
   "scripts": {
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd 01-web-application/backend && npm run dev",
