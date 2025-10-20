@@ -503,7 +503,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
+                                color: Colors.green.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(50),
                               ),
                               child: const Icon(
@@ -541,7 +541,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
+                                color: Colors.blue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(50),
                               ),
                               child: const Icon(
@@ -1123,7 +1123,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     }
     
     // Handle transaction completion
-    if (selectedItems.length == 1 && selectedItems.first == 'COMPLETE_TRANSACTION') {
+    if (selectedItems.length == 1 && selectedItems.first['_id'] == 'COMPLETE_TRANSACTION') {
       await _completeTransaction(qrResult!, '');
       return;
     }

@@ -13,10 +13,10 @@ class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
   @override
-  _SignupPageState createState() => _SignupPageState();
+  SignupPageState createState() => SignupPageState();
 }
 
-class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
+class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   final _fullnameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -288,6 +288,28 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
               
               _showSuccessDialog();
             } else {
+              if (mounted) {
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Registration Successful'),
+                    content: const Text('Account created! Please log in manually.'),
+                    actions: [
+                      TextButton(
+                        child: const Text('OK'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              }
+            }
+          } catch (loginError) {
+            // If auto-login fails, show success message and ask to login manually
+            if (mounted) {
               showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
@@ -300,36 +322,37 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                         Navigator.of(context).pop();
                         Navigator.of(context).pop();
                       },
-                    ),
-                  ],
-                ),
-              );
-            }
-          } catch (loginError) {
-            // If auto-login fails, show success message and ask to login manually
-            showDialog(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: const Text('Registration Successful'),
-                content: const Text('Account created! Please log in manually.'),
-                actions: [
-                  TextButton(
-                    child: const Text('OK'),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pop();
-                    },
                   ),
                 ],
               ),
             );
           }
         } else {
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Registration Failed'),
+                content: Text(error),
+                actions: [
+                  TextButton(
+                    child: const Text('OK'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        LoggingService.instance.error("Signup error", e);
+        if (mounted) {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
-              title: const Text('Registration Failed'),
-              content: Text(error),
+              title: const Text('Error'),
+              content: Text(e.toString()),
               actions: [
                 TextButton(
                   child: const Text('OK'),
@@ -339,22 +362,6 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
             ),
           );
         }
-      } catch (e) {
-        setState(() => _isLoading = false);
-        LoggingService.instance.error("Signup error", e);
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Error'),
-            content: Text(e.toString()),
-            actions: [
-              TextButton(
-                child: const Text('OK'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        );
       }
     }
   }
@@ -766,7 +773,7 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
 
   Widget _buildGenderField() {
     return DropdownButtonFormField<String>(
-      value: _selectedGender,
+      initialValue: _selectedGender,
       items: ['Male', 'Female', 'Prefer not to say']
           .map((gender) => DropdownMenuItem(
                 value: gender,
