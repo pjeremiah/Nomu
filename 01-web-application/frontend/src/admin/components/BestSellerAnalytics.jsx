@@ -6,9 +6,9 @@ const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const BestSellerAnalytics = ({ period = 'monthly' }) => {
   const [analyticsData, setAnalyticsData] = useState({
-    bestSellers: [],
+    topSellingItems: [],
     categorySales: [],
-    salesTrend: []
+    detailedPerformance: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,24 +33,38 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
       };
       
       // Fetch all analytics data from separate endpoints
-      const [bestSellersResponse, categoryResponse, trendsResponse] = await Promise.all([
-        axios.get(`${API_BASE}/api/analytics/best-sellers?period=${period}`, { headers }),
-        axios.get(`${API_BASE}/api/analytics/best-sellers-by-category?period=${period}`, { headers }),
+      const [bestSellersResponse, categoryResponse, performanceResponse] = await Promise.all([
+        axios.get(`${API_BASE}/api/analytics/best-sellers?period=${period}&limit=10`, { headers }),
+        axios.get(`${API_BASE}/api/analytics/best-sellers-by-category?period=${period}&limit=10`, { headers }),
         axios.get(`${API_BASE}/api/analytics/sales-trends?period=${period}`, { headers })
       ]);
       
-      // Process category data for chart
-      const categoryTotals = categoryResponse.data.categoryTotals || {};
-      const categorySalesData = Object.entries(categoryTotals).map(([category, data]) => ({
-        category,
-        totalQuantity: data.totalQuantity,
-        totalOrders: data.totalOrders
-      }));
+      // Process category data for chart - get top 10 from each category
+      const categories = categoryResponse.data.categories || {};
+      const categorySalesData = [];
+      
+      // Process Pizza, Donuts, Drinks, Pastries categories
+      const targetCategories = ['Pizza', 'Donuts', 'Drinks', 'Pastries'];
+      targetCategories.forEach(category => {
+        if (categories[category] && categories[category].length > 0) {
+          // Get top 10 items from this category
+          const topItems = categories[category].slice(0, 10);
+          topItems.forEach((item, index) => {
+            categorySalesData.push({
+              category: category,
+              itemName: item.itemName,
+              totalQuantity: item.totalQuantity,
+              totalOrders: item.totalOrders,
+              rank: index + 1
+            });
+          });
+        }
+      });
 
       setAnalyticsData({
-        bestSellers: bestSellersResponse.data.bestSellers || [],
+        topSellingItems: bestSellersResponse.data.bestSellers || [],
         categorySales: categorySalesData,
-        salesTrend: trendsResponse.data.trends || []
+        detailedPerformance: performanceResponse.data.trends || []
       });
     } catch (err) {
       console.error('Analytics fetch error:', err);
@@ -82,8 +96,13 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
   }
 
   // Color schemes for different charts
-  const BEST_SELLER_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00C49F'];
-  const CATEGORY_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF7300', '#8884d8'];
+  const BEST_SELLER_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00C49F', '#9c27b0', '#f44336', '#4caf50', '#ff9800', '#2196f3'];
+  const CATEGORY_COLORS = {
+    'Pizza': '#ff7300',
+    'Donuts': '#ffc658', 
+    'Drinks': '#00C49F',
+    'Pastries': '#8884d8'
+  };
 
   return (
     <div className="analytics-container">
@@ -91,31 +110,31 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {/* Charts Grid */}
         <div className="charts-grid" style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-
-          {/* Best Sellers */}
+        
+          {/* Top 10 Best Selling Items */}
           <div className="chart-card">
-            <h4>Top Best Sellers</h4>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analyticsData.bestSellers} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
+            <h4>Top 10 Best Selling Items</h4>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={analyticsData.topSellingItems} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="itemName"
+                <XAxis 
+                  dataKey="itemName" 
                   type="category"
                   tickFormatter={(value) => {
                     // Truncate long names
-                    return value.length > 15 ? value.substring(0, 15) + '...' : value;
+                    return value.length > 12 ? value.substring(0, 12) + '...' : value;
                   }}
                   angle={-45}
                   textAnchor="end"
-                  height={60}
+                  height={80}
                 />
                 <YAxis />
-                <Tooltip
+                <Tooltip 
                   formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Product: ${label}`}
                 />
                 <Bar dataKey="totalQuantity" fill="#8884d8">
-                  {analyticsData.bestSellers.map((entry, index) => (
+                  {analyticsData.topSellingItems.map((entry, index) => (
                     <Bar key={`bar-${index}`} fill={BEST_SELLER_COLORS[index % BEST_SELLER_COLORS.length]} />
                   ))}
                 </Bar>
@@ -123,45 +142,45 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
             </ResponsiveContainer>
           </div>
 
-          {/* Category Sales */}
+          {/* Top 10 Best Sellers by Category */}
           <div className="chart-card">
-            <h4>Sales by Category</h4>
-            <ResponsiveContainer width="100%" height={300}>
+            <h4>Top 10 Best Sellers by Category</h4>
+            <ResponsiveContainer width="100%" height={400}>
               <BarChart data={analyticsData.categorySales} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="category"
+                <XAxis 
+                  dataKey="itemName" 
                   type="category"
                   tickFormatter={(value) => {
-                    // Truncate long category names
-                    return value.length > 12 ? value.substring(0, 12) + '...' : value;
+                    // Truncate long names
+                    return value.length > 10 ? value.substring(0, 10) + '...' : value;
                   }}
                   angle={-45}
                   textAnchor="end"
-                  height={60}
+                  height={80}
                 />
                 <YAxis />
-                <Tooltip
+                <Tooltip 
                   formatter={(value, name) => [value, 'Total Quantity']}
-                  labelFormatter={(label) => `Category: ${label}`}
+                  labelFormatter={(label) => `Product: ${label}`}
                 />
                 <Bar dataKey="totalQuantity" fill="#00C49F">
                   {analyticsData.categorySales.map((entry, index) => (
-                    <Bar key={`bar-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                    <Bar key={`bar-${index}`} fill={CATEGORY_COLORS[entry.category] || '#8884d8'} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Sales Trend */}
+          {/* Detailed Performance */}
           <div className="chart-card">
-            <h4>Sales Trend ({period})</h4>
+            <h4>Detailed Performance ({period})</h4>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analyticsData.salesTrend} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
+              <BarChart data={analyticsData.detailedPerformance} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="period"
+                <XAxis 
+                  dataKey="period" 
                   type="category"
                   tickFormatter={(value) => {
                     // Format date if it's a date string
@@ -176,7 +195,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                   height={60}
                 />
                 <YAxis />
-                <Tooltip
+                <Tooltip 
                   formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Period: ${label}`}
                 />

@@ -97,16 +97,16 @@ const CustomerAnalytics = () => {
 
   // Process data for charts
   const genderData = ensureAllCategories(analyticsData.genderDistribution, [
-    { _id: 'male', count: 0 },
-    { _id: 'female', count: 0 },
-    { _id: 'other', count: 0 }
+    { _id: 'Male', count: 0 },
+    { _id: 'Female', count: 0 },
+    { _id: 'Other', count: 0 }
   ]);
 
   const employmentData = ensureAllCategories(analyticsData.employmentStatus, [
-    { _id: 'employed', count: 0 },
-    { _id: 'unemployed', count: 0 },
-    { _id: 'student', count: 0 },
-    { _id: 'retired', count: 0 }
+    { _id: 'Employed', count: 0 },
+    { _id: 'Unemployed', count: 0 },
+    { _id: 'Student', count: 0 },
+    { _id: 'Retired', count: 0 }
   ]);
 
   const ageData = ensureAllCategories(analyticsData.ageRanges, [
@@ -126,20 +126,20 @@ const CustomerAnalytics = () => {
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {/* Charts Grid */}
         <div className="charts-grid" style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-
+        
           {/* Gender Distribution */}
           <div className="chart-card">
             <h4>Gender Distribution</h4>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={genderData} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="_id"
+                <XAxis 
+                  dataKey="_id" 
                   type="category"
                   tickFormatter={(value) => {
-                    if (value === 'male') return 'Male';
-                    if (value === 'female') return 'Female';
-                    if (value === 'other') return 'Other';
+                    if (value === 'Male') return 'Male';
+                    if (value === 'Female') return 'Female';
+                    if (value === 'Other') return 'Other';
                     return value;
                   }}
                   angle={-45}
@@ -163,8 +163,8 @@ const CustomerAnalytics = () => {
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={employmentData} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="_id"
+                <XAxis 
+                  dataKey="_id" 
                   type="category"
                   tickFormatter={(value) => value}
                   angle={-45}
@@ -188,8 +188,8 @@ const CustomerAnalytics = () => {
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={ageData} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="_id"
+                <XAxis 
+                  dataKey="_id" 
                   type="category"
                   tickFormatter={(value) => {
                     if (value === '18-25') return '18-25 years';
@@ -219,8 +219,8 @@ const CustomerAnalytics = () => {
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={analyticsData.signupGrowth} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="_id"
+                <XAxis 
+                  dataKey="_id" 
                   type="category"
                   tickFormatter={(value) => {
                     // Format date if it's a date string

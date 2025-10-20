@@ -3,6 +3,8 @@ import { FaChartBar, FaChartLine, FaUsers, FaCoffee, FaStar, FaClock, FaSpinner,
 import { BarChart3 } from 'lucide-react';
 import { MdTrendingUp } from 'react-icons/md';
 import Pagination from 'react-bootstrap/Pagination';
+import CustomerAnalytics from './components/CustomerAnalytics';
+import BestSellerAnalytics from './components/BestSellerAnalytics';
 import AnalyticsDisplay from './components/AnalyticsDisplay';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
@@ -524,6 +526,52 @@ const AdminHome = () => {
         style={{ marginBottom: '1rem' }}
       >
         <AnalyticsDisplay />
+      </InfoCard>
+
+      {/* Customer Analytics Section */}
+      <InfoCard 
+        title="Customer Analytics" 
+        icon={FaChartBar}
+        style={{ marginBottom: '1rem' }}
+      >
+        <CustomerAnalytics />
+      </InfoCard>
+
+      {/* Best Seller Analytics Section */}
+      <InfoCard 
+        title="Best Seller Analytics" 
+        icon={FaChartLine}
+        extraContent={
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginLeft: 'auto'
+          }}>
+            <span style={{
+              fontSize: '0.85rem',
+              color: '#6c757d',
+              fontWeight: '500'
+            }}>
+              Period:
+            </span>
+            <EnhancedDropdown
+              options={[
+                { value: 'daily', label: 'Daily' },
+                { value: 'weekly', label: 'Weekly' },
+                { value: 'monthly', label: 'Monthly' },
+                { value: 'yearly', label: 'Yearly' }
+              ]}
+              value={bestSellersPeriod}
+              onChange={setBestSellersPeriod}
+              minWidth="120px"
+              variant="compact"
+            />
+          </div>
+        }
+        style={{ marginBottom: '1rem' }}
+      >
+        <BestSellerAnalytics period={bestSellersPeriod} />
       </InfoCard>
 
 
