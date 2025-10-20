@@ -678,9 +678,9 @@ const Gallery = () => {
       return (
         <>
           {isModal ? (
-            <CarouselVideo controls>
+            <MainVideo controls>
               <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
-            </CarouselVideo>
+            </MainVideo>
           ) : (
             <SlotVideo controls>
               <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
