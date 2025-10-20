@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar, FaEdit } from 'react-icons/fa';
 import { Grid3X3 } from 'lucide-react';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
 console.log('API_BASE:', API_BASE);
 
