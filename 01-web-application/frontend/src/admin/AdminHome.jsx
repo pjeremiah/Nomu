@@ -569,11 +569,9 @@ const AdminHome = () => {
             />
           </div>
         }
-        style={{ marginBottom: '1rem' }}
       >
         <BestSellerAnalytics period={bestSellersPeriod} />
       </InfoCard>
-
 
       
       {/* Security Alerts */}

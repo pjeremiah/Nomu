@@ -8,8 +8,7 @@ const ResponsiveModal = ({
   children, 
   size = 'medium',
   className = '',
-  showCloseButton = true,
-  compact = false 
+  showCloseButton = true 
 }) => {
   if (!show) return null;
 
@@ -17,33 +16,28 @@ const ResponsiveModal = ({
     switch (size) {
       case 'small':
         return {
-          maxWidth: compact ? '420px' : '500px',
+          maxWidth: '500px',
           width: '90vw'
         };
       case 'large':
         return {
-          maxWidth: compact ? '720px' : '800px',
+          maxWidth: '800px',
           width: '95vw'
         };
       case 'extra-large':
         return {
-          maxWidth: compact ? '900px' : '1000px',
+          maxWidth: '1000px',
           width: '98vw'
         };
       default: // medium
         return {
-          maxWidth: compact ? '520px' : '600px',
+          maxWidth: '600px',
           width: '90vw'
         };
     }
   };
 
   const modalSize = getModalSize();
-
-  const headerPadding = compact ? '1rem 1.25rem' : '1.5rem 2rem';
-  const bodyPadding = compact ? '1rem 1.25rem' : '1.5rem 2rem';
-  const borderRadius = compact ? '14px' : '20px';
-  const headerFontSize = compact ? '1.25rem' : '1.5rem';
 
   return (
     <div
@@ -60,7 +54,7 @@ const ResponsiveModal = ({
         justifyContent: 'center',
         zIndex: 10000,
         animation: 'fadeIn 0.3s ease-out',
-        padding: compact ? '12px' : '20px',
+        padding: '20px',
         boxSizing: 'border-box',
         overflow: 'auto'
       }}
@@ -80,7 +74,7 @@ const ResponsiveModal = ({
           display: 'flex',
           flexDirection: 'column',
           background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-          borderRadius: borderRadius,
+          borderRadius: '20px',
           border: '1px solid rgba(255, 255, 255, 0.2)',
           position: 'relative',
           transformOrigin: 'center',
@@ -94,17 +88,17 @@ const ResponsiveModal = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: headerPadding,
-          background: 'transparent',
-          borderRadius: '0',
-          borderBottom: '1px solid #e9ecef',
+          padding: '1.5rem 2rem',
+          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+          borderRadius: '20px 20px 0 0',
+          borderBottom: '2px solid rgba(33, 44, 89, 0.1)',
           flexShrink: 0
         }}>
           <h3 style={{
             margin: 0,
             color: '#212c59',
             fontWeight: '700',
-            fontSize: headerFontSize,
+            fontSize: '1.5rem',
             fontFamily: "'Montserrat', sans-serif"
           }}>
             {title}
@@ -118,11 +112,11 @@ const ResponsiveModal = ({
                 fontSize: '1.1rem',
                 cursor: 'pointer',
                 color: '#212c59',
-                padding: compact ? '6px' : '8px',
+                padding: '8px',
                 borderRadius: '50%',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                width: compact ? '32px' : '36px',
-                height: compact ? '32px' : '36px',
+                width: '36px',
+                height: '36px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -148,26 +142,55 @@ const ResponsiveModal = ({
 
         {/* Modal Content */}
         <div style={{
-          padding: bodyPadding,
+          padding: '1.5rem 2rem',
           flex: 1,
           overflowY: 'auto',
           minHeight: 0,
           maxHeight: 'calc(85vh - 120px)'
         }}>
           {children}
-        </div>
+</div>
       </div>
 
-      {/* CSS remains with responsive tweaks */}
+      {/* Add CSS animations */}
       <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideIn { from { opacity: 0; transform: scale(0.9) translateY(-20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-        @media (max-width: 768px) {
-          .admin-modal { width: 95vw !important; max-width: 95vw !important; margin: 10px; max-height: calc(100vh - 20px) !important; }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
+        
+        @keyframes slideIn {
+          from { 
+            opacity: 0;
+            transform: scale(0.9) translateY(-20px);
+          }
+          to { 
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+          .admin-modal {
+            width: 95vw !important;
+            max-width: 95vw !important;
+            margin: 10px;
+            max-height: calc(100vh - 20px) !important;
+          }
+        }
+
         @media (max-width: 480px) {
-          .admin-modal { width: 98vw !important; max-width: 98vw !important; margin: 5px; max-height: calc(100vh - 10px) !important; }
-          .admin-modal h3 { font-size: ${headerFontSize}; }
+          .admin-modal {
+            width: 98vw !important;
+            max-width: 98vw !important;
+            margin: 5px;
+            max-height: calc(100vh - 10px) !important;
+          }
+          
+          .admin-modal h3 {
+            font-size: 1.25rem !important;
+          }
         }
       `}</style>
     </div>
