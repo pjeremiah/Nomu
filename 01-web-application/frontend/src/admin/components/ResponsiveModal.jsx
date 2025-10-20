@@ -95,9 +95,9 @@ const ResponsiveModal = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: headerPadding,
-          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-          borderRadius: `${borderRadius} ${borderRadius} 0 0`,
-          borderBottom: '2px solid rgba(33, 44, 89, 0.1)',
+          background: 'transparent',
+          borderRadius: '0',
+          borderBottom: '1px solid #e9ecef',
           flexShrink: 0
         }}>
           <h3 style={{
