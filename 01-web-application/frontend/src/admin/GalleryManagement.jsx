@@ -4,8 +4,6 @@ import { Grid3X3 } from 'lucide-react';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
-console.log('API_BASE:', API_BASE);
-
 // Helper to resolve media URL (handles absolute and relative)
 const getMediaUrl = (url) => {
   if (!url) return '';
@@ -153,8 +151,8 @@ const GalleryManagement = () => {
   
   // Debug posts state
   useEffect(() => {
-    console.log('Posts state updated:', posts);
-    console.log('Posts length:', posts.length);
+    // console.log('Posts state updated:', posts);
+    // console.log('Posts length:', posts.length);
   }, [posts]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -231,8 +229,8 @@ const GalleryManagement = () => {
       }
 
       const data = await response.json();
-      console.log('Gallery API Response:', data);
-      console.log('Posts data:', data.data?.posts);
+      // console.log('Gallery API Response:', data);
+      // console.log('Posts data:', data.data?.posts);
       setPosts(Array.isArray(data.data?.posts) ? data.data.posts : []);
     } catch (err) {
       console.error('Error fetching gallery posts:', err);
@@ -294,7 +292,7 @@ const GalleryManagement = () => {
   const handleEditPost = async (e) => {
     // Prevent multiple submissions
     if (isEditing) {
-      console.log('Already editing post, ignoring request');
+      // console.log('Already editing post, ignoring request');
       return;
     }
     
@@ -304,16 +302,16 @@ const GalleryManagement = () => {
     }
     
     try {
-      console.log('=== handleEditPost function called ===');
-      console.log('Event:', e);
-      console.log('Event type:', e?.type);
+      // console.log('=== handleEditPost function called ===');
+      // console.log('Event:', e);
+      // console.log('Event type:', e?.type);
       
       setModalError('');
       setIsEditing(true);
 
-      console.log('Form submitted for edit!');
-      console.log('Form data:', formData);
-      console.log('Selected post:', selectedPost);
+      // console.log('Form submitted for edit!');
+      // console.log('Form data:', formData);
+      // console.log('Selected post:', selectedPost);
 
       // Validation - allow existing media or new media
       if (formData.media.length === 0) {
@@ -328,7 +326,7 @@ const GalleryManagement = () => {
         return;
       }
 
-      console.log('Validation passed, proceeding with API call...');
+      // console.log('Validation passed, proceeding with API call...');
 
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) {
@@ -349,9 +347,9 @@ const GalleryManagement = () => {
         formDataToSend.append('media', media.file);
       });
 
-      console.log('API_BASE:', API_BASE);
-      console.log('Full URL:', `${API_BASE}/api/gallery/${selectedPost._id}`);
-      console.log('Sending request to:', `${API_BASE}/api/gallery/${selectedPost._id}`);
+      // console.log('API_BASE:', API_BASE);
+      // console.log('Full URL:', `${API_BASE}/api/gallery/${selectedPost._id}`);
+      // console.log('Sending request to:', `${API_BASE}/api/gallery/${selectedPost._id}`);
 
       const response = await fetch(`${API_BASE}/api/gallery/${selectedPost._id}`, {
         method: 'PUT',
@@ -361,9 +359,9 @@ const GalleryManagement = () => {
         body: formDataToSend
       });
 
-      console.log('Response status:', response.status);
+      // console.log('Response status:', response.status);
       const responseData = await response.json();
-      console.log('Response data:', responseData);
+      // console.log('Response data:', responseData);
 
       if (!response.ok) {
         throw new Error(responseData.message || 'Failed to update post');
@@ -386,23 +384,23 @@ const GalleryManagement = () => {
   const handleAddPost = async (e) => {
     // Prevent multiple submissions
     if (isCreating) {
-      console.log('Already creating post, ignoring request');
+      // console.log('Already creating post, ignoring request');
       return;
     }
     
     try {
-      console.log('=== handleAddPost function called ===');
-      console.log('Event:', e);
-      console.log('Event type:', e?.type);
+      // console.log('=== handleAddPost function called ===');
+      // console.log('Event:', e);
+      // console.log('Event type:', e?.type);
       
       e.preventDefault();
       setModalError('');
       setIsCreating(true);
 
-      console.log('Form submitted!');
-      console.log('Form data:', formData);
-      console.log('Form data media length:', formData.media.length);
-      console.log('Form data title:', formData.title);
+      // console.log('Form submitted!');
+      // console.log('Form data:', formData);
+      // console.log('Form data media length:', formData.media.length);
+      // console.log('Form data title:', formData.title);
     } catch (error) {
       console.error('Error in handleAddPost start:', error);
       setModalError('Error processing form: ' + error.message);
@@ -422,7 +420,7 @@ const GalleryManagement = () => {
       return;
     }
 
-    console.log('Validation passed, proceeding with API call...');
+    // console.log('Validation passed, proceeding with API call...');
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -442,15 +440,15 @@ const GalleryManagement = () => {
         formDataToSend.append('media', media.file);
       });
 
-      console.log('API_BASE:', API_BASE);
-      console.log('Full URL:', `${API_BASE}/api/gallery`);
-      console.log('Sending request to:', `${API_BASE}/api/gallery`);
-      console.log('FormData contents:');
+      // console.log('API_BASE:', API_BASE);
+      // console.log('Full URL:', `${API_BASE}/api/gallery`);
+      // console.log('Sending request to:', `${API_BASE}/api/gallery`);
+      // console.log('FormData contents:');
       for (let [key, value] of formDataToSend.entries()) {
-        console.log(key, value);
+        // console.log(key, value);
       }
-      console.log('Token exists:', !!token);
-      console.log('Token length:', token?.length);
+      // console.log('Token exists:', !!token);
+      // console.log('Token length:', token?.length);
 
       const response = await fetch(`${API_BASE}/api/gallery`, {
         method: 'POST',
@@ -460,9 +458,9 @@ const GalleryManagement = () => {
         body: formDataToSend
       });
 
-      console.log('Response status:', response.status);
+      // console.log('Response status:', response.status);
       const responseData = await response.json();
-      console.log('Response data:', responseData);
+      // console.log('Response data:', responseData);
 
       if (!response.ok) {
         throw new Error(responseData.message || 'Failed to create post');
@@ -968,15 +966,15 @@ const GalleryManagement = () => {
       >
         <form 
           onSubmit={(e) => {
-            console.log('Form onSubmit triggered');
+            // console.log('Form onSubmit triggered');
             e.preventDefault();
             handleAddPost(e);
           }} 
           onKeyDown={(e) => {
-            console.log('Form onKeyDown triggered, key:', e.key);
+            // console.log('Form onKeyDown triggered, key:', e.key);
             if (e.key === 'Enter' && e.target.type !== 'textarea') {
               e.preventDefault();
-              console.log('Enter key pressed, calling handleAddPost');
+              // console.log('Enter key pressed, calling handleAddPost');
               handleAddPost(e);
             }
           }}
