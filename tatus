@@ -1,0 +1,641 @@
+[33mcommit 1bd02664dcc9fa06854b707c0272f97c7cf488ce[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: pjeremiah <jeremiahpagarigan60@gmail.com>
+Date:   Mon Oct 20 03:45:34 2025 +0800
+
+    Add user spending analysis to admin dashboard
+    
+    - Replace simple average spent metric with detailed user spending breakdown
+    - Add user spending ranking system showing top 20 users
+    - Display individual user spending amounts in Philippine Peso ()
+    - Show user names, emails, total spent, and order counts
+    - Add visual hierarchy with gold/silver/bronze highlighting for top 3 users
+    - Implement responsive grid layout for 5 stat cards
+    - Add auto-refresh functionality for user spending data
+    - Create scrollable user spending analysis section
+
+.gitignore
+.playwright-mcp/promo-icons-test.png
+01-web-application/GALLERY_FEATURE_GUIDE.md
+01-web-application/README.md
+01-web-application/backend/Procfile
+01-web-application/backend/README.md
+01-web-application/backend/SUPER_ADMIN_NOTE.txt
+01-web-application/backend/barista-server.js
+01-web-application/backend/config/gridfs.js
+01-web-application/backend/config/security.js
+01-web-application/backend/docs/README.md
+01-web-application/backend/docs/api-endpoints.md
+01-web-application/backend/docs/authentication.md
+01-web-application/backend/docs/best-seller-analytics.md
+01-web-application/backend/docs/customer-analytics.md
+01-web-application/backend/docs/environment-variables.md
+01-web-application/backend/docs/feedback-system.md
+01-web-application/backend/docs/file-storage-setup.md
+01-web-application/backend/docs/file-storage.md
+01-web-application/backend/docs/individual-items-analytics.md
+01-web-application/backend/docs/inventory-management.md
+01-web-application/backend/docs/mobile-integration.md
+01-web-application/backend/docs/otp-setup.md
+01-web-application/backend/docs/production-security.md
+01-web-application/backend/docs/security.md
+01-web-application/backend/fix-profile-images.js
+01-web-application/backend/index.js
+01-web-application/backend/middleware/authMiddleware.js
+01-web-application/backend/middleware/failedAttemptMiddleware.js
+01-web-application/backend/middleware/securityMiddleware.js
+01-web-application/backend/migrate-grouped-orders.js
+01-web-application/backend/models/AbuseAlert.js
+01-web-application/backend/models/Admin.js
+01-web-application/backend/models/AdminActivity.js
+01-web-application/backend/models/FailedAttempt.js
+01-web-application/backend/models/Feedback.js
+01-web-application/backend/models/GalleryPost.js
+01-web-application/backend/models/InventoryItem.js
+01-web-application/backend/models/MenuItem.js
+01-web-application/backend/models/OTP.js
+01-web-application/backend/models/Promo.js
+01-web-application/backend/models/Reward.js
+01-web-application/backend/models/StockMovement.js
+01-web-application/backend/models/TempSignup.js
+01-web-application/backend/models/User.js
+01-web-application/backend/package-barista.json
+01-web-application/backend/package-lock.json
+01-web-application/backend/package.json
+01-web-application/backend/routes/abuseAlerts.js
+01-web-application/backend/routes/admins.js
+01-web-application/backend/routes/analytics.js
+01-web-application/backend/routes/auth.js
+01-web-application/backend/routes/feedback.js
+01-web-application/backend/routes/gallery.js
+01-web-application/backend/routes/inventory-new.js
+01-web-application/backend/routes/inventory.js
+01-web-application/backend/routes/menu.js
+01-web-application/backend/routes/promos.js
+01-web-application/backend/routes/rewards.js
+01-web-application/backend/services/activityService.js
+01-web-application/backend/services/emailService.js
+01-web-application/backend/services/otpService.js
+01-web-application/frontend/.gitignore
+01-web-application/frontend/Procfile
+01-web-application/frontend/copy-apks.js
+01-web-application/frontend/package-lock.json
+01-web-application/frontend/package.json
+01-web-application/frontend/postcss.config.js
+01-web-application/frontend/public/download-apk.html
+01-web-application/frontend/public/favicon.ico
+01-web-application/frontend/public/index.html
+01-web-application/frontend/public/manifest.json
+01-web-application/frontend/src/App.js
+01-web-application/frontend/src/admin/AdminHome.jsx
+01-web-application/frontend/src/admin/CustomerFeedback.jsx
+01-web-application/frontend/src/admin/GalleryManagement.jsx
+01-web-application/frontend/src/admin/InventoryManagement.jsx
+01-web-application/frontend/src/admin/ManageAdmins.jsx
+01-web-application/frontend/src/admin/MenuManagement.jsx
+01-web-application/frontend/src/admin/PromoManagement.jsx
+01-web-application/frontend/src/admin/RewardManagement.jsx
+01-web-application/frontend/src/admin/components/BestSellerAnalytics.jsx
+01-web-application/frontend/src/admin/components/CustomerAnalytics.jsx
+01-web-application/frontend/src/admin/components/EnhancedDropdown.jsx
+01-web-application/frontend/src/admin/components/IconGuide.jsx
+01-web-application/frontend/src/admin/components/MobileDetectionTest.jsx
+01-web-application/frontend/src/admin/components/MobileRedirect.jsx
+01-web-application/frontend/src/admin/components/PageHeader.jsx
+01-web-application/frontend/src/admin/components/ProtectedRoute.jsx
+01-web-application/frontend/src/admin/components/ResponsiveModal.jsx
+01-web-application/frontend/src/admin/context/ModalContext.jsx
+01-web-application/frontend/src/admin/hooks/useMobileDetection.js
+01-web-application/frontend/src/admin/layout/AddEditRewardModal.jsx
+01-web-application/frontend/src/admin/layout/AdminLayout.jsx
+01-web-application/frontend/src/admin/test-logout-functionality.js
+01-web-application/frontend/src/admin/test-mobile-detection.js
+01-web-application/frontend/src/admin/verify-integration.js
+01-web-application/frontend/src/client/AboutUs.jsx
+01-web-application/frontend/src/client/AccountSettings.jsx
+01-web-application/frontend/src/client/ContactUs.jsx
+01-web-application/frontend/src/client/ForgotPasswordForm.jsx
+01-web-application/frontend/src/client/Gallery.jsx
+01-web-application/frontend/src/client/Home.jsx
+01-web-application/frontend/src/client/Location.jsx
+01-web-application/frontend/src/client/Menu.jsx
+01-web-application/frontend/src/client/SignInForm.jsx
+01-web-application/frontend/src/client/SignUpForm.jsx
+01-web-application/frontend/src/client/components/EnhancedEmploymentDropdown.jsx
+01-web-application/frontend/src/client/components/EnhancedGenderDropdown.jsx
+01-web-application/frontend/src/components/Button.jsx
+01-web-application/frontend/src/components/FeedbackSuccessModal.jsx
+01-web-application/frontend/src/components/MobileAppModal.jsx
+01-web-application/frontend/src/components/Navbar.jsx
+01-web-application/frontend/src/components/PromoCarousel.jsx
+01-web-application/frontend/src/components/ScrollToTop.jsx
+01-web-application/frontend/src/components/SuccessModal.jsx
+01-web-application/frontend/src/components/TextInput.jsx
+01-web-application/frontend/src/index.css
+01-web-application/frontend/src/index.js
+01-web-application/frontend/src/utils/Images/About Us/ForAboutUsPage.png
+01-web-application/frontend/src/utils/Images/About Us/ForAboutUsStory.jpg
+01-web-application/frontend/src/utils/Images/About Us/ForMission.jpg
+01-web-application/frontend/src/utils/Images/About Us/ForVision.jpg
+01-web-application/frontend/src/utils/Images/Contact Us/ForContactUsPage.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management - Shortcut.lnk
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Classic Donut.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Dark Choco Donut.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Donut Five.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Donut Four.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Donut One.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Donut Three.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Donut Two.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/Original Glaze Donut.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Donuts/White Choco Donut.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Aburi Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Americano.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Blue Cotton Candy.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Caramel Macchiato.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Caramel Shakerato.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Chai Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Chizuti.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Cold Brew with Cream.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Cold Brew.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Dark Mocha.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Honey Citron Ginger Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Honey Oatmilk Spiced Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Hot Choco.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Hot Honey Citron Ginger Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Hot Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Hot Matcha Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Hot Ube Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Iced Coconut Vanilla Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Iced Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Jasmine Milk Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Blue Cotton Candy.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Choco.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Coffee.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Mango.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Matcha.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Milo with Oreo.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Mixed Berries.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Nomu Milk Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Sakura.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Strawberry.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Sweet Potato.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Taro.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Kumo Wintermelon.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Mixed Berries.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Mixed Fruit Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Nomu Milk Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Orange Long Black.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Roasted Oolong Milk Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Spanish Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Spanish Shakerato.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Strawberry Lemonade Green Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Taro Milk Tea with Taro Paste.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Tiger Brown Sugar.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Triple Peach Apple Tea.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Drinks/Ube Cheesecake Latte.jpeg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Almond Croissant.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Butter Croissant.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Hazelnut Cruffin.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Kouign Aman.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Pain Au Chocolat.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Pain Suisse.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Pistachio Croissant.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pastries/Strawberry Croissant.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pizza/Cheese Pizza.jpg
+01-web-application/frontend/src/utils/Images/For Menu Management/Pizza/Truffle Pizza.jpg
+01-web-application/frontend/src/utils/Images/ForNavbarandFooter.jpg
+01-web-application/frontend/src/utils/Images/ForSideBar.jpg
+01-web-application/frontend/src/utils/Images/Gallery/ForGalleryPage.jpg
+01-web-application/frontend/src/utils/Images/Home/ForHomePageAbout.jpg
+01-web-application/frontend/src/utils/Images/Home/ForHomePageLocation.jpg
+01-web-application/frontend/src/utils/Images/Home/ForHomePageMenu.jpg
+01-web-application/frontend/src/utils/Images/Location/ForLocationPage.jpg
+01-web-application/frontend/src/utils/Images/Logo.png
+01-web-application/frontend/src/utils/Images/Nomu Cafe Branches/NomuJupiterMakati.png
+01-web-application/frontend/src/utils/Images/Nomu Cafe Branches/NomuUPD.jpg
+01-web-application/frontend/src/utils/Images/Nomu Cafe Branches/NomuUSTDapitan.jpg
+01-web-application/frontend/src/utils/Themes.js
+01-web-application/frontend/src/utils/Videos/VideoForHome.mp4
+01-web-application/frontend/src/utils/data.js
+01-web-application/frontend/tailwind.config.js
+01-web-application/setup-local-dev.md
+02-mobile-client/.gitignore
+02-mobile-client/.metadata
+02-mobile-client/README.md
+02-mobile-client/SETUP_INSTRUCTIONS.md
+02-mobile-client/mobile-backend/SECURITY_IMPLEMENTATION.md
+02-mobile-client/mobile-backend/check-promos.js
+02-mobile-client/mobile-backend/create-sample-promos.js
+02-mobile-client/mobile-backend/download-promo-images.js
+02-mobile-client/mobile-backend/env-template.txt
+02-mobile-client/mobile-backend/middleware/securityMiddleware.js
+02-mobile-client/mobile-backend/migrate-promo-images.js
+02-mobile-client/mobile-backend/migrate-reward-cycles.js
+02-mobile-client/mobile-backend/migrate-to-camelcase.js
+02-mobile-client/mobile-backend/migration.js
+02-mobile-client/mobile-backend/package-lock.json
+02-mobile-client/mobile-backend/package.json
+02-mobile-client/mobile-backend/reset-rate-limit.js
+02-mobile-client/mobile-backend/run-migration.js
+02-mobile-client/mobile-backend/run_role_migration.js
+02-mobile-client/mobile-backend/server.js
+02-mobile-client/mobile-backend/services/activityService.js
+02-mobile-client/mobile-backend/update-promo-urls.js
+02-mobile-client/mobile-frontend/analysis_options.yaml
+02-mobile-client/mobile-frontend/android/.gitignore
+02-mobile-client/mobile-frontend/android/app/build.gradle.kts
+02-mobile-client/mobile-frontend/android/app/src/debug/AndroidManifest.xml
+02-mobile-client/mobile-frontend/android/app/src/main/AndroidManifest.xml
+02-mobile-client/mobile-frontend/android/app/src/main/kotlin/com/example/login/MainActivity.kt
+02-mobile-client/mobile-frontend/android/app/src/main/res/drawable-v21/launch_background.xml
+02-mobile-client/mobile-frontend/android/app/src/main/res/drawable/launch_background.xml
+02-mobile-client/mobile-frontend/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+02-mobile-client/mobile-frontend/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+02-mobile-client/mobile-frontend/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+02-mobile-client/mobile-frontend/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+02-mobile-client/mobile-frontend/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+02-mobile-client/mobile-frontend/android/app/src/main/res/network_security_config.xml
+02-mobile-client/mobile-frontend/android/app/src/main/res/values-night/styles.xml
+02-mobile-client/mobile-frontend/android/app/src/main/res/values/styles.xml
+02-mobile-client/mobile-frontend/android/app/src/main/res/xml/network_security_config.xml
+02-mobile-client/mobile-frontend/android/app/src/profile/AndroidManifest.xml
+02-mobile-client/mobile-frontend/android/build.gradle.kts
+02-mobile-client/mobile-frontend/android/gradle.properties
+02-mobile-client/mobile-frontend/android/gradle/wrapper/gradle-wrapper.properties
+02-mobile-client/mobile-frontend/android/login_android.iml
+02-mobile-client/mobile-frontend/android/settings.gradle.kts
+02-mobile-client/mobile-frontend/assets/fonts/Montserrat-Italic-VariableFont_wght.ttf
+02-mobile-client/mobile-frontend/assets/fonts/Montserrat-VariableFont_wght.ttf
+02-mobile-client/mobile-frontend/assets/fonts/OFL.txt
+02-mobile-client/mobile-frontend/assets/fonts/README.txt
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-Black.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-BlackItalic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-Bold.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-BoldItalic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-ExtraBold.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-ExtraBoldItalic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-ExtraLight.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-ExtraLightItalic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-Italic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-Light.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-LightItalic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-Medium.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-MediumItalic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-Regular.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-SemiBold.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-SemiBoldItalic.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-Thin.ttf
+02-mobile-client/mobile-frontend/assets/fonts/static/Montserrat-ThinItalic.ttf
+02-mobile-client/mobile-frontend/assets/images/coffee-cup.png
+02-mobile-client/mobile-frontend/assets/images/coffee.png
+02-mobile-client/mobile-frontend/assets/images/croissant.png
+02-mobile-client/mobile-frontend/assets/images/dapitan.jpg
+02-mobile-client/mobile-frontend/assets/images/donut.png
+02-mobile-client/mobile-frontend/assets/images/donuts.png
+02-mobile-client/mobile-frontend/assets/images/ggllogo.png
+02-mobile-client/mobile-frontend/assets/images/google.png
+02-mobile-client/mobile-frontend/assets/images/iskor.png
+02-mobile-client/mobile-frontend/assets/images/istetik.png
+02-mobile-client/mobile-frontend/assets/images/jupi.png
+02-mobile-client/mobile-frontend/assets/images/land-layer-location.png
+02-mobile-client/mobile-frontend/assets/images/load.png
+02-mobile-client/mobile-frontend/assets/images/loyaltyicon.png
+02-mobile-client/mobile-frontend/assets/images/manual-book.png
+02-mobile-client/mobile-frontend/assets/images/mapdapitan.jpg
+02-mobile-client/mobile-frontend/assets/images/mapdiliman.jpg
+02-mobile-client/mobile-frontend/assets/images/mapicon.jpg
+02-mobile-client/mobile-frontend/assets/images/mapjupiter.jpg
+02-mobile-client/mobile-frontend/assets/images/matcha.jpg
+02-mobile-client/mobile-frontend/assets/images/menu1.jpg
+02-mobile-client/mobile-frontend/assets/images/menu2.jpg
+02-mobile-client/mobile-frontend/assets/images/menu3.jpg
+02-mobile-client/mobile-frontend/assets/images/nomudisplay.jpg
+02-mobile-client/mobile-frontend/assets/images/nomudisplay2.jpg
+02-mobile-client/mobile-frontend/assets/images/nomudisplay3.jpg
+02-mobile-client/mobile-frontend/assets/images/nomulogo.png
+02-mobile-client/mobile-frontend/assets/images/nomulogo1.jpg
+02-mobile-client/mobile-frontend/assets/images/nomutrans.png
+02-mobile-client/mobile-frontend/assets/images/pastry.jpg
+02-mobile-client/mobile-frontend/assets/images/points.png
+02-mobile-client/mobile-frontend/assets/images/qricon.png
+02-mobile-client/mobile-frontend/assets/images/upd.png
+02-mobile-client/mobile-frontend/assets/images/usericon.png
+02-mobile-client/mobile-frontend/assets/images/users-loyalty.png
+02-mobile-client/mobile-frontend/assets/videos/dap.mp4
+02-mobile-client/mobile-frontend/assets/videos/sec.mp4
+02-mobile-client/mobile-frontend/assets/videos/third.mp4
+02-mobile-client/mobile-frontend/devtools_options.yaml
+02-mobile-client/mobile-frontend/ios/.gitignore
+02-mobile-client/mobile-frontend/ios/Flutter/AppFrameworkInfo.plist
+02-mobile-client/mobile-frontend/ios/Flutter/Debug.xcconfig
+02-mobile-client/mobile-frontend/ios/Flutter/Release.xcconfig
+02-mobile-client/mobile-frontend/ios/Runner.xcodeproj/project.pbxproj
+02-mobile-client/mobile-frontend/ios/Runner.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+02-mobile-client/mobile-frontend/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+02-mobile-client/mobile-frontend/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+02-mobile-client/mobile-frontend/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
+02-mobile-client/mobile-frontend/ios/Runner.xcworkspace/contents.xcworkspacedata
+02-mobile-client/mobile-frontend/ios/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+02-mobile-client/mobile-frontend/ios/Runner.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+02-mobile-client/mobile-frontend/ios/Runner/AppDelegate.swift
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-50x50@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-50x50@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-57x57@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-57x57@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-72x72@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-72x72@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png
+02-mobile-client/mobile-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md
+02-mobile-client/mobile-frontend/ios/Runner/Base.lproj/LaunchScreen.storyboard
+02-mobile-client/mobile-frontend/ios/Runner/Base.lproj/Main.storyboard
+02-mobile-client/mobile-frontend/ios/Runner/Info.plist
+02-mobile-client/mobile-frontend/ios/Runner/Runner-Bridging-Header.h
+02-mobile-client/mobile-frontend/lib/account_settings_page.dart
+02-mobile-client/mobile-frontend/lib/api/api.dart
+02-mobile-client/mobile-frontend/lib/config.dart
+02-mobile-client/mobile-frontend/lib/forgot_password_page.dart
+02-mobile-client/mobile-frontend/lib/help_support.dart
+02-mobile-client/mobile-frontend/lib/homepage.dart
+02-mobile-client/mobile-frontend/lib/login.dart
+02-mobile-client/mobile-frontend/lib/loyalty_page.dart
+02-mobile-client/mobile-frontend/lib/main.dart
+02-mobile-client/mobile-frontend/lib/map_page.dart
+02-mobile-client/mobile-frontend/lib/models/inventory_item.dart
+02-mobile-client/mobile-frontend/lib/models/menu_item.dart
+02-mobile-client/mobile-frontend/lib/models/promo.dart
+02-mobile-client/mobile-frontend/lib/profile_page.dart
+02-mobile-client/mobile-frontend/lib/screens/promos_screen.dart
+02-mobile-client/mobile-frontend/lib/services/cache_service.dart
+02-mobile-client/mobile-frontend/lib/services/file_upload_service.dart
+02-mobile-client/mobile-frontend/lib/services/file_validation_service.dart
+02-mobile-client/mobile-frontend/lib/services/gridfs_image_service.dart
+02-mobile-client/mobile-frontend/lib/services/image_processing_service.dart
+02-mobile-client/mobile-frontend/lib/services/logging_service.dart
+02-mobile-client/mobile-frontend/lib/services/logout_service.dart
+02-mobile-client/mobile-frontend/lib/services/openai_service.dart
+02-mobile-client/mobile-frontend/lib/services/promo_service.dart
+02-mobile-client/mobile-frontend/lib/services/realtime_notification_service.dart
+02-mobile-client/mobile-frontend/lib/services/realtime_service.dart
+02-mobile-client/mobile-frontend/lib/services/scan_limit_notification_service.dart
+02-mobile-client/mobile-frontend/lib/services/socket_service.dart
+02-mobile-client/mobile-frontend/lib/sign_up.dart
+02-mobile-client/mobile-frontend/lib/usermodel.dart
+02-mobile-client/mobile-frontend/lib/widgets/customer_stats_widget.dart
+02-mobile-client/mobile-frontend/lib/widgets/gridfs_image_widget.dart
+02-mobile-client/mobile-frontend/lib/widgets/menu_item_card.dart
+02-mobile-client/mobile-frontend/lib/widgets/promo_card.dart
+02-mobile-client/mobile-frontend/linux/.gitignore
+02-mobile-client/mobile-frontend/linux/CMakeLists.txt
+02-mobile-client/mobile-frontend/linux/flutter/CMakeLists.txt
+02-mobile-client/mobile-frontend/linux/flutter/generated_plugin_registrant.cc
+02-mobile-client/mobile-frontend/linux/flutter/generated_plugin_registrant.h
+02-mobile-client/mobile-frontend/linux/flutter/generated_plugins.cmake
+02-mobile-client/mobile-frontend/linux/runner/CMakeLists.txt
+02-mobile-client/mobile-frontend/linux/runner/main.cc
+02-mobile-client/mobile-frontend/linux/runner/my_application.cc
+02-mobile-client/mobile-frontend/linux/runner/my_application.h
+02-mobile-client/mobile-frontend/login.iml
+02-mobile-client/mobile-frontend/macos/.gitignore
+02-mobile-client/mobile-frontend/macos/Flutter/Flutter-Debug.xcconfig
+02-mobile-client/mobile-frontend/macos/Flutter/Flutter-Release.xcconfig
+02-mobile-client/mobile-frontend/macos/Runner.xcodeproj/project.pbxproj
+02-mobile-client/mobile-frontend/macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+02-mobile-client/mobile-frontend/macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
+02-mobile-client/mobile-frontend/macos/Runner.xcworkspace/contents.xcworkspacedata
+02-mobile-client/mobile-frontend/macos/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+02-mobile-client/mobile-frontend/macos/Runner/AppDelegate.swift
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png
+02-mobile-client/mobile-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png
+02-mobile-client/mobile-frontend/macos/Runner/Base.lproj/MainMenu.xib
+02-mobile-client/mobile-frontend/macos/Runner/Configs/AppInfo.xcconfig
+02-mobile-client/mobile-frontend/macos/Runner/Configs/Debug.xcconfig
+02-mobile-client/mobile-frontend/macos/Runner/Configs/Release.xcconfig
+02-mobile-client/mobile-frontend/macos/Runner/Configs/Warnings.xcconfig
+02-mobile-client/mobile-frontend/macos/Runner/DebugProfile.entitlements
+02-mobile-client/mobile-frontend/macos/Runner/Info.plist
+02-mobile-client/mobile-frontend/macos/Runner/MainFlutterWindow.swift
+02-mobile-client/mobile-frontend/macos/Runner/Release.entitlements
+02-mobile-client/mobile-frontend/pubspec.lock
+02-mobile-client/mobile-frontend/pubspec.yaml
+02-mobile-client/mobile-frontend/windows/.gitignore
+02-mobile-client/mobile-frontend/windows/CMakeLists.txt
+02-mobile-client/mobile-frontend/windows/flutter/CMakeLists.txt
+02-mobile-client/mobile-frontend/windows/flutter/generated_plugin_registrant.cc
+02-mobile-client/mobile-frontend/windows/flutter/generated_plugin_registrant.h
+02-mobile-client/mobile-frontend/windows/flutter/generated_plugins.cmake
+02-mobile-client/mobile-frontend/windows/runner/CMakeLists.txt
+02-mobile-client/mobile-frontend/windows/runner/Runner.rc
+02-mobile-client/mobile-frontend/windows/runner/flutter_window.cpp
+02-mobile-client/mobile-frontend/windows/runner/flutter_window.h
+02-mobile-client/mobile-frontend/windows/runner/main.cpp
+02-mobile-client/mobile-frontend/windows/runner/resource.h
+02-mobile-client/mobile-frontend/windows/runner/resources/app_icon.ico
+02-mobile-client/mobile-frontend/windows/runner/runner.exe.manifest
+02-mobile-client/mobile-frontend/windows/runner/utils.cpp
+02-mobile-client/mobile-frontend/windows/runner/utils.h
+02-mobile-client/mobile-frontend/windows/runner/win32_window.cpp
+02-mobile-client/mobile-frontend/windows/runner/win32_window.h
+03-mobile-barista/README.md
+03-mobile-barista/SETUP_INSTRUCTIONS.md
+03-mobile-barista/mobile-barista-backend/PRESENTATION_SCRIPT.md
+03-mobile-barista/mobile-barista-backend/README.md
+03-mobile-barista/mobile-barista-backend/SECURITY_IMPLEMENTATION.md
+03-mobile-barista/mobile-barista-backend/check-admins.js
+03-mobile-barista/mobile-barista-backend/env-template.txt
+03-mobile-barista/mobile-barista-backend/middleware/securityMiddleware.js
+03-mobile-barista/mobile-barista-backend/package-lock.json
+03-mobile-barista/mobile-barista-backend/package.json
+03-mobile-barista/mobile-barista-backend/server.js
+03-mobile-barista/mobile-barista-backend/services/abuseAlertService.js
+03-mobile-barista/mobile-barista-frontend/.gitignore
+03-mobile-barista/mobile-barista-frontend/.metadata
+03-mobile-barista/mobile-barista-frontend/README.md
+03-mobile-barista/mobile-barista-frontend/analysis_options.yaml
+03-mobile-barista/mobile-barista-frontend/android/.gitignore
+03-mobile-barista/mobile-barista-frontend/android/app/build.gradle.kts
+03-mobile-barista/mobile-barista-frontend/android/app/src/debug/AndroidManifest.xml
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/AndroidManifest.xml
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/kotlin/com/example/scanner/MainActivity.kt
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/drawable-v21/launch_background.xml
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/drawable/launch_background.xml
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-hdpi/launcher_icon.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-mdpi/launcher_icon.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-xhdpi/launcher_icon.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-xxhdpi/launcher_icon.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/mipmap-xxxhdpi/launcher_icon.png
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/values-night/styles.xml
+03-mobile-barista/mobile-barista-frontend/android/app/src/main/res/values/styles.xml
+03-mobile-barista/mobile-barista-frontend/android/app/src/profile/AndroidManifest.xml
+03-mobile-barista/mobile-barista-frontend/android/build.gradle.kts
+03-mobile-barista/mobile-barista-frontend/android/gradle.properties
+03-mobile-barista/mobile-barista-frontend/android/gradle/wrapper/gradle-wrapper.properties
+03-mobile-barista/mobile-barista-frontend/android/settings.gradle.kts
+03-mobile-barista/mobile-barista-frontend/assets/fonts/Montserrat-Italic-VariableFont_wght.ttf
+03-mobile-barista/mobile-barista-frontend/assets/fonts/Montserrat-VariableFont_wght.ttf
+03-mobile-barista/mobile-barista-frontend/assets/images/istetik.png
+03-mobile-barista/mobile-barista-frontend/assets/images/nomulogo1.jpg
+03-mobile-barista/mobile-barista-frontend/assets/images/nomutrans.png
+03-mobile-barista/mobile-barista-frontend/assets/images/qricon.png
+03-mobile-barista/mobile-barista-frontend/ios/.gitignore
+03-mobile-barista/mobile-barista-frontend/ios/Flutter/AppFrameworkInfo.plist
+03-mobile-barista/mobile-barista-frontend/ios/Flutter/Debug.xcconfig
+03-mobile-barista/mobile-barista-frontend/ios/Flutter/Release.xcconfig
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcodeproj/project.pbxproj
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcworkspace/contents.xcworkspacedata
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+03-mobile-barista/mobile-barista-frontend/ios/Runner.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+03-mobile-barista/mobile-barista-frontend/ios/Runner/AppDelegate.swift
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-50x50@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-50x50@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-57x57@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-57x57@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-72x72@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-72x72@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Base.lproj/LaunchScreen.storyboard
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Base.lproj/Main.storyboard
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Info.plist
+03-mobile-barista/mobile-barista-frontend/ios/Runner/Runner-Bridging-Header.h
+03-mobile-barista/mobile-barista-frontend/ios/RunnerTests/RunnerTests.swift
+03-mobile-barista/mobile-barista-frontend/lib/api/api.dart
+03-mobile-barista/mobile-barista-frontend/lib/barista.dart
+03-mobile-barista/mobile-barista-frontend/lib/config.dart
+03-mobile-barista/mobile-barista-frontend/lib/config/app_config.dart
+03-mobile-barista/mobile-barista-frontend/lib/constants/app_constants.dart
+03-mobile-barista/mobile-barista-frontend/lib/constants/menu_constants.dart
+03-mobile-barista/mobile-barista-frontend/lib/login.dart
+03-mobile-barista/mobile-barista-frontend/lib/main.dart
+03-mobile-barista/mobile-barista-frontend/lib/model.dart
+03-mobile-barista/mobile-barista-frontend/lib/models/gridfs_models.dart
+03-mobile-barista/mobile-barista-frontend/lib/otp_verification.dart
+03-mobile-barista/mobile-barista-frontend/lib/services/drink_menu_service.dart
+03-mobile-barista/mobile-barista-frontend/lib/services/gridfs_api_service.dart
+03-mobile-barista/mobile-barista-frontend/lib/services/inventory_scanner_service.dart
+03-mobile-barista/mobile-barista-frontend/lib/services/inventory_service.dart
+03-mobile-barista/mobile-barista-frontend/lib/services/menu_service.dart
+03-mobile-barista/mobile-barista-frontend/lib/services/notification_service.dart
+03-mobile-barista/mobile-barista-frontend/lib/services/socket_service.dart
+03-mobile-barista/mobile-barista-frontend/lib/theme/notification_theme.dart
+03-mobile-barista/mobile-barista-frontend/lib/utils/image_utils.dart
+03-mobile-barista/mobile-barista-frontend/lib/utils/logger.dart
+03-mobile-barista/mobile-barista-frontend/lib/utils/qr_validation_utils.dart
+03-mobile-barista/mobile-barista-frontend/lib/widgets/README.md
+03-mobile-barista/mobile-barista-frontend/lib/widgets/custom_toast.dart
+03-mobile-barista/mobile-barista-frontend/lib/widgets/notification_banner.dart
+03-mobile-barista/mobile-barista-frontend/linux/.gitignore
+03-mobile-barista/mobile-barista-frontend/linux/CMakeLists.txt
+03-mobile-barista/mobile-barista-frontend/linux/flutter/CMakeLists.txt
+03-mobile-barista/mobile-barista-frontend/linux/flutter/generated_plugin_registrant.cc
+03-mobile-barista/mobile-barista-frontend/linux/flutter/generated_plugin_registrant.h
+03-mobile-barista/mobile-barista-frontend/linux/flutter/generated_plugins.cmake
+03-mobile-barista/mobile-barista-frontend/linux/runner/CMakeLists.txt
+03-mobile-barista/mobile-barista-frontend/linux/runner/main.cc
+03-mobile-barista/mobile-barista-frontend/linux/runner/my_application.cc
+03-mobile-barista/mobile-barista-frontend/linux/runner/my_application.h
+03-mobile-barista/mobile-barista-frontend/macos/.gitignore
+03-mobile-barista/mobile-barista-frontend/macos/Flutter/Flutter-Debug.xcconfig
+03-mobile-barista/mobile-barista-frontend/macos/Flutter/Flutter-Release.xcconfig
+03-mobile-barista/mobile-barista-frontend/macos/Flutter/GeneratedPluginRegistrant.swift
+03-mobile-barista/mobile-barista-frontend/macos/Runner.xcodeproj/project.pbxproj
+03-mobile-barista/mobile-barista-frontend/macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+03-mobile-barista/mobile-barista-frontend/macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
+03-mobile-barista/mobile-barista-frontend/macos/Runner.xcworkspace/contents.xcworkspacedata
+03-mobile-barista/mobile-barista-frontend/macos/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+03-mobile-barista/mobile-barista-frontend/macos/Runner/AppDelegate.swift
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Base.lproj/MainMenu.xib
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Configs/AppInfo.xcconfig
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Configs/Debug.xcconfig
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Configs/Release.xcconfig
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Configs/Warnings.xcconfig
+03-mobile-barista/mobile-barista-frontend/macos/Runner/DebugProfile.entitlements
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Info.plist
+03-mobile-barista/mobile-barista-frontend/macos/Runner/MainFlutterWindow.swift
+03-mobile-barista/mobile-barista-frontend/macos/Runner/Release.entitlements
+03-mobile-barista/mobile-barista-frontend/macos/RunnerTests/RunnerTests.swift
+03-mobile-barista/mobile-barista-frontend/pubspec.lock
+03-mobile-barista/mobile-barista-frontend/pubspec.yaml
+03-mobile-barista/mobile-barista-frontend/windows/.gitignore
+03-mobile-barista/mobile-barista-frontend/windows/CMakeLists.txt
+03-mobile-barista/mobile-barista-frontend/windows/flutter/CMakeLists.txt
+03-mobile-barista/mobile-barista-frontend/windows/flutter/generated_plugin_registrant.cc
+03-mobile-barista/mobile-barista-frontend/windows/flutter/generated_plugin_registrant.h
+03-mobile-barista/mobile-barista-frontend/windows/flutter/generated_plugins.cmake
+03-mobile-barista/mobile-barista-frontend/windows/runner/CMakeLists.txt
+03-mobile-barista/mobile-barista-frontend/windows/runner/Runner.rc
+03-mobile-barista/mobile-barista-frontend/windows/runner/flutter_window.cpp
+03-mobile-barista/mobile-barista-frontend/windows/runner/flutter_window.h
+03-mobile-barista/mobile-barista-frontend/windows/runner/main.cpp
+03-mobile-barista/mobile-barista-frontend/windows/runner/resource.h
+03-mobile-barista/mobile-barista-frontend/windows/runner/resources/app_icon.ico
+03-mobile-barista/mobile-barista-frontend/windows/runner/runner.exe.manifest
+03-mobile-barista/mobile-barista-frontend/windows/runner/utils.cpp
+03-mobile-barista/mobile-barista-frontend/windows/runner/utils.h
+03-mobile-barista/mobile-barista-frontend/windows/runner/win32_window.cpp
+03-mobile-barista/mobile-barista-frontend/windows/runner/win32_window.h
+04-documentation/README.md
+05-database/README.md
+README.md
+package.json
+render.yaml
+start-dev.bat

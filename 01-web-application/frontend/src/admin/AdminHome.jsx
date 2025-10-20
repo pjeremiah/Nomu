@@ -5,6 +5,7 @@ import { MdTrendingUp } from 'react-icons/md';
 import Pagination from 'react-bootstrap/Pagination';
 import CustomerAnalytics from './components/CustomerAnalytics';
 import BestSellerAnalytics from './components/BestSellerAnalytics';
+import AnalyticsDisplay from './components/AnalyticsDisplay';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
 
@@ -518,6 +519,15 @@ const AdminHome = () => {
 
 
       
+      {/* Analytics Display Section */}
+      <InfoCard 
+        title="Business Analytics" 
+        icon={FaChartBar}
+        style={{ marginBottom: '1rem' }}
+      >
+        <AnalyticsDisplay />
+      </InfoCard>
+
       {/* Customer Analytics Section */}
       <InfoCard 
         title="Customer Analytics" 
