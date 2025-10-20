@@ -1,17 +1,139 @@
-import React, { useState, useEffect } from 'react';
-import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar, FaEdit } from 'react-icons/fa';
 import { Grid3X3 } from 'lucide-react';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+console.log('API_BASE:', API_BASE);
+
+// Simple Modal component - moved outside to prevent recreation
+const SimpleModal = ({ show, onHide, title, children, size = 'medium' }) => {
+  if (!show) return null;
+
+  const getModalSize = () => {
+    switch (size) {
+      case 'small': return { maxWidth: '500px', width: '90vw' };
+      case 'large': return { maxWidth: '800px', width: '95vw' };
+      case 'extra-large': return { maxWidth: '1000px', width: '98vw' };
+      default: return { maxWidth: '600px', width: '90vw' };
+    }
+  };
+
+  const modalSize = getModalSize();
+
+  // Handle backdrop click - only close if clicking the backdrop itself
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onHide();
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+        padding: '20px',
+        boxSizing: 'border-box',
+        overflow: 'auto'
+      }}
+      onClick={handleBackdropClick}
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+          borderRadius: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          width: modalSize.width,
+          maxWidth: modalSize.maxWidth,
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)'
+        }}
+      >
+        {/* Modal Header */}
+        <div style={{ 
+          padding: '1.5rem 2rem',
+          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+          borderRadius: '20px 20px 0 0',
+          borderBottom: '2px solid rgba(33, 44, 89, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <h3 style={{
+            margin: 0,
+            color: '#212c59',
+            fontWeight: '700',
+            fontSize: '1.5rem',
+            fontFamily: "'Montserrat', sans-serif"
+          }}>
+            {title}
+          </h3>
+          <button
+            onClick={onHide}
+            style={{
+              background: 'rgba(33, 44, 89, 0.1)',
+              border: 'none',
+              fontSize: '1.1rem',
+              cursor: 'pointer',
+              color: '#212c59',
+              padding: '8px',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <FaTimes />
+          </button>
+        </div>
+
+        {/* Modal Content */}
+        <div style={{
+          padding: '1.5rem 2rem',
+          flex: 1,
+          overflowY: 'auto',
+          minHeight: 0
+        }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const GalleryManagement = () => {
   const [posts, setPosts] = useState([]);
+  
+  // Debug posts state
+  useEffect(() => {
+    console.log('Posts state updated:', posts);
+    console.log('Posts length:', posts.length);
+  }, [posts]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [modalError, setModalError] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Modal states
   const [showAdd, setShowAdd] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showView, setShowView] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -27,7 +149,7 @@ const GalleryManagement = () => {
 
   // Prevent body scrolling when any modal is open
   useEffect(() => {
-    if (showAdd || showDelete || showView) {
+    if (showAdd || showEdit || showDelete || showView) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -40,7 +162,8 @@ const GalleryManagement = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showAdd, showDelete, showView]);
+  }, [showAdd, showEdit, showDelete, showView]);
+
 
   // Fetch posts
   const fetchPosts = async () => {
@@ -77,7 +200,9 @@ const GalleryManagement = () => {
       }
 
       const data = await response.json();
-      setPosts(Array.isArray(data.data) ? data.data : []);
+      console.log('Gallery API Response:', data);
+      console.log('Posts data:', data.data?.posts);
+      setPosts(Array.isArray(data.data?.posts) ? data.data.posts : []);
     } catch (err) {
       console.error('Error fetching gallery posts:', err);
       setError(err.message);
@@ -91,26 +216,29 @@ const GalleryManagement = () => {
   }, []);
 
   // Handle form input changes
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-  };
+  }, []);
 
   // Handle file upload
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 5) {
-      setModalError('Maximum 5 files allowed');
+    const currentMediaCount = formData.media.length;
+    
+    if (currentMediaCount + files.length > 5) {
+      setModalError(`Maximum 5 files allowed. You currently have ${currentMediaCount} files.`);
       return;
     }
 
     const newMedia = files.map(file => ({
       file,
       preview: URL.createObjectURL(file),
-      type: file.type.startsWith('video/') ? 'video' : 'image'
+      type: file.type.startsWith('video/') ? 'video' : 'image',
+      isExisting: false // Mark as new media
     }));
 
     setFormData(prev => ({
@@ -127,27 +255,167 @@ const GalleryManagement = () => {
     }));
   };
 
+  // Handle edit post
+  const handleEditPost = async (e) => {
+    // Prevent multiple submissions
+    if (isEditing) {
+      console.log('Already editing post, ignoring request');
+      return;
+    }
+    
+    // Prevent default form submission
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
+    try {
+      console.log('=== handleEditPost function called ===');
+      console.log('Event:', e);
+      console.log('Event type:', e?.type);
+      
+      setModalError('');
+      setIsEditing(true);
+
+      console.log('Form submitted for edit!');
+      console.log('Form data:', formData);
+      console.log('Selected post:', selectedPost);
+
+      // Validation - allow existing media or new media
+      if (formData.media.length === 0) {
+        setModalError('Please keep at least one media file or upload new ones');
+        setIsEditing(false);
+        return;
+      }
+
+      if (!formData.title.trim()) {
+        setModalError('Please enter a title');
+        setIsEditing(false);
+        return;
+      }
+
+      console.log('Validation passed, proceeding with API call...');
+
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        setModalError('Authentication required. Please log in again.');
+        setIsEditing(false);
+        return;
+      }
+
+      const formDataToSend = new FormData();
+      formDataToSend.append('title', formData.title.trim());
+      formDataToSend.append('description', formData.description.trim());
+      formDataToSend.append('tags', formData.tags.trim());
+      formDataToSend.append('featured', formData.featured);
+
+      // Only send new media files (not existing ones)
+      const newMediaFiles = formData.media.filter(media => !media.isExisting && media.file);
+      newMediaFiles.forEach((media, index) => {
+        formDataToSend.append('media', media.file);
+      });
+
+      console.log('API_BASE:', API_BASE);
+      console.log('Full URL:', `${API_BASE}/api/gallery/${selectedPost._id}`);
+      console.log('Sending request to:', `${API_BASE}/api/gallery/${selectedPost._id}`);
+
+      const response = await fetch(`${API_BASE}/api/gallery/${selectedPost._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formDataToSend
+      });
+
+      console.log('Response status:', response.status);
+      const responseData = await response.json();
+      console.log('Response data:', responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Failed to update post');
+      }
+
+      // Success - close modal and reset form
+      setIsEditing(false);
+      setShowEdit(false);
+      setSelectedPost(null);
+      setFormData({ title: '', description: '', tags: '', featured: false, media: [] });
+      fetchPosts();
+    } catch (error) {
+      console.error('Error in handleEditPost:', error);
+      setModalError(error.message || 'An unexpected error occurred');
+      setIsEditing(false);
+    }
+  };
+
   // Handle add post
   const handleAddPost = async (e) => {
-    e.preventDefault();
-    setModalError('');
+    // Prevent multiple submissions
+    if (isCreating) {
+      console.log('Already creating post, ignoring request');
+      return;
+    }
+    
+    try {
+      console.log('=== handleAddPost function called ===');
+      console.log('Event:', e);
+      console.log('Event type:', e?.type);
+      
+      e.preventDefault();
+      setModalError('');
+      setIsCreating(true);
 
-    if (formData.media.length === 0) {
-      setModalError('Please select at least one media file');
+      console.log('Form submitted!');
+      console.log('Form data:', formData);
+      console.log('Form data media length:', formData.media.length);
+      console.log('Form data title:', formData.title);
+    } catch (error) {
+      console.error('Error in handleAddPost start:', error);
+      setModalError('Error processing form: ' + error.message);
+      setIsCreating(false);
       return;
     }
 
+    if (formData.media.length === 0) {
+      setModalError('Please select at least one media file');
+      setIsCreating(false);
+      return;
+    }
+
+    if (!formData.title.trim()) {
+      setModalError('Please enter a title');
+      setIsCreating(false);
+      return;
+    }
+
+    console.log('Validation passed, proceeding with API call...');
+
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        setModalError('Authentication required. Please log in again.');
+        setIsCreating(false);
+        return;
+      }
+
       const formDataToSend = new FormData();
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('tags', formData.tags);
+      formDataToSend.append('title', formData.title.trim());
+      formDataToSend.append('description', formData.description.trim());
+      formDataToSend.append('tags', formData.tags.trim());
       formDataToSend.append('featured', formData.featured);
 
       formData.media.forEach((media, index) => {
         formDataToSend.append('media', media.file);
       });
+
+      console.log('API_BASE:', API_BASE);
+      console.log('Full URL:', `${API_BASE}/api/gallery`);
+      console.log('Sending request to:', `${API_BASE}/api/gallery`);
+      console.log('FormData contents:');
+      for (let [key, value] of formDataToSend.entries()) {
+        console.log(key, value);
+      }
+      console.log('Token exists:', !!token);
+      console.log('Token length:', token?.length);
 
       const response = await fetch(`${API_BASE}/api/gallery`, {
         method: 'POST',
@@ -157,15 +425,23 @@ const GalleryManagement = () => {
         body: formDataToSend
       });
 
+      console.log('Response status:', response.status);
+      const responseData = await response.json();
+      console.log('Response data:', responseData);
+
       if (!response.ok) {
-        throw new Error('Failed to create post');
+        throw new Error(responseData.message || 'Failed to create post');
       }
 
+      // Success - close modal and reset form
+      setIsCreating(false);
       setShowAdd(false);
       setFormData({ title: '', description: '', tags: '', featured: false, media: [] });
       fetchPosts();
     } catch (err) {
+      console.error('Error creating post:', err);
       setModalError(err.message);
+      setIsCreating(false);
     }
   };
 
@@ -219,6 +495,33 @@ const GalleryManagement = () => {
   const resetForm = () => {
     setFormData({ title: '', description: '', tags: '', featured: false, media: [] });
     setModalError('');
+    setIsCreating(false);
+    setIsEditing(false);
+  };
+
+  // Open edit modal and populate form
+  const openEditModal = (post) => {
+    setSelectedPost(post);
+    setFormData({
+      title: post.title || '',
+      description: post.description || '',
+      tags: Array.isArray(post.tags) ? post.tags.join(', ') : '',
+      featured: post.featured || false,
+      media: post.media ? post.media.map(media => ({
+        ...media,
+        isExisting: true, // Mark as existing media
+        preview: media.url // Use the actual URL for preview
+      })) : []
+    });
+    setModalError('');
+    setShowEdit(true);
+  };
+
+  // Close edit modal
+  const closeEditModal = () => {
+    setShowEdit(false);
+    setSelectedPost(null);
+    resetForm();
   };
 
   // Simple PageHeader component
@@ -259,109 +562,6 @@ const GalleryManagement = () => {
     </div>
   );
 
-  // Simple Modal component
-  const SimpleModal = ({ show, onHide, title, children, size = 'medium' }) => {
-    if (!show) return null;
-
-    const getModalSize = () => {
-      switch (size) {
-        case 'small': return { maxWidth: '500px', width: '90vw' };
-        case 'large': return { maxWidth: '800px', width: '95vw' };
-        case 'extra-large': return { maxWidth: '1000px', width: '98vw' };
-        default: return { maxWidth: '600px', width: '90vw' };
-      }
-    };
-
-    const modalSize = getModalSize();
-
-    return (
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '20px',
-          boxSizing: 'border-box',
-          overflow: 'auto'
-        }}
-        onClick={onHide}
-      >
-        <div 
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            width: modalSize.width,
-            maxWidth: modalSize.maxWidth,
-            maxHeight: '85vh',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          {/* Modal Header */}
-          <div style={{ 
-            padding: '1.5rem 2rem',
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-            borderRadius: '20px 20px 0 0',
-            borderBottom: '2px solid rgba(33, 44, 89, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <h3 style={{
-              margin: 0,
-              color: '#212c59',
-              fontWeight: '700',
-              fontSize: '1.5rem',
-              fontFamily: "'Montserrat', sans-serif"
-            }}>
-              {title}
-            </h3>
-            <button
-              onClick={onHide}
-              style={{
-                background: 'rgba(33, 44, 89, 0.1)',
-                border: 'none',
-                fontSize: '1.1rem',
-                cursor: 'pointer',
-                color: '#212c59',
-                padding: '8px',
-                borderRadius: '50%',
-                width: '36px',
-                height: '36px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <FaTimes />
-            </button>
-          </div>
-
-          {/* Modal Content */}
-          <div style={{
-            padding: '1.5rem 2rem',
-            flex: 1,
-            overflowY: 'auto',
-            minHeight: 0
-          }}>
-            {children}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div style={{
@@ -534,6 +734,24 @@ const GalleryManagement = () => {
                         }}
                       >
                         <FaEye />
+                      </button>
+                      <button
+                        onClick={() => openEditModal(post)}
+                        title="Edit Post"
+                        style={{
+                          background: 'rgba(255,255,255,0.9)',
+                          color: '#212c59',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '32px',
+                          height: '32px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <FaEdit />
                       </button>
                       <button
                         onClick={() => {
@@ -713,7 +931,21 @@ const GalleryManagement = () => {
         title="Add New Gallery Post"
         size="large"
       >
-        <form onSubmit={handleAddPost}>
+        <form 
+          onSubmit={(e) => {
+            console.log('Form onSubmit triggered');
+            e.preventDefault();
+            handleAddPost(e);
+          }} 
+          onKeyDown={(e) => {
+            console.log('Form onKeyDown triggered, key:', e.key);
+            if (e.key === 'Enter' && e.target.type !== 'textarea') {
+              e.preventDefault();
+              console.log('Enter key pressed, calling handleAddPost');
+              handleAddPost(e);
+            }
+          }}
+        >
           {modalError && (
             <div style={{ 
               marginBottom: 12,
@@ -733,12 +965,14 @@ const GalleryManagement = () => {
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ fontWeight: '600', color: '#212c59', display: 'block', marginBottom: '0.5rem' }}>Title *</label>
             <input
+              key="title-input"
               type="text"
               name="title"
               value={formData.title}
               onChange={handleInputChange}
               required
               placeholder="Enter post title"
+              autoComplete="off"
               style={{
                 width: '100%',
                 border: '2px solid #e9ecef',
@@ -746,7 +980,15 @@ const GalleryManagement = () => {
                 padding: '12px',
                 fontSize: '14px',
                 fontFamily: "'Montserrat', sans-serif",
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                outline: 'none',
+                transition: 'border-color 0.2s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#212c59';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#e9ecef';
               }}
             />
           </div>
@@ -897,19 +1139,21 @@ const GalleryManagement = () => {
             </button>
             <button 
               type="submit"
+              disabled={isCreating}
               style={{
                 padding: '12px 24px',
                 borderRadius: '8px',
                 fontWeight: '600',
                 fontSize: '14px',
                 fontFamily: "'Montserrat', sans-serif",
-                background: '#212c59',
+                background: isCreating ? '#ff6b6b' : '#212c59',
                 color: 'white',
                 border: 'none',
-                cursor: 'pointer'
+                cursor: isCreating ? 'not-allowed' : 'pointer',
+                opacity: isCreating ? 0.7 : 1
               }}
             >
-              Create Post
+              {isCreating ? 'Creating...' : 'Create Post'}
             </button>
           </div>
         </form>
@@ -1054,6 +1298,244 @@ const GalleryManagement = () => {
             </div>
           </div>
         )}
+      </SimpleModal>
+
+      {/* Edit Post Modal */}
+      <SimpleModal
+        show={showEdit}
+        onHide={closeEditModal}
+        title="Edit Gallery Post"
+        size="large"
+      >
+        <form 
+          onSubmit={handleEditPost}
+        >
+          {modalError && (
+            <div style={{ 
+              marginBottom: 12,
+              color: '#dc3545',
+              background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              fontSize: '13px',
+              lineHeight: '1.4',
+              fontFamily: "'Montserrat', sans-serif",
+              border: '1px solid #f5c6cb',
+              boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
+            }}>{modalError}</div>
+          )}
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ fontWeight: '600', color: '#212c59', display: 'block', marginBottom: '0.5rem' }}>Title *</label>
+            <input
+              key="edit-title-input"
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter post title"
+              autoComplete="off"
+              style={{
+                width: '100%',
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif",
+                boxSizing: 'border-box',
+                outline: 'none',
+                transition: 'border-color 0.2s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#212c59';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#e9ecef';
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ fontWeight: '600', color: '#212c59', display: 'block', marginBottom: '0.5rem' }}>Description</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              rows="3"
+              placeholder="Enter post description"
+              style={{
+                width: '100%',
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif",
+                boxSizing: 'border-box',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ fontWeight: '600', color: '#212c59', display: 'block', marginBottom: '0.5rem' }}>Tags</label>
+            <input
+              type="text"
+              name="tags"
+              value={formData.tags}
+              onChange={handleInputChange}
+              placeholder="Enter tags separated by commas"
+              style={{
+                width: '100%',
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif",
+                boxSizing: 'border-box'
+              }}
+            />
+            <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '0.25rem' }}>Separate multiple tags with commas</div>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                name="featured"
+                checked={formData.featured}
+                onChange={handleInputChange}
+                style={{ transform: 'scale(1.2)' }}
+              />
+              <span style={{ fontWeight: '600', color: '#212c59' }}>Featured Post</span>
+            </label>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ fontWeight: '600', color: '#212c59', display: 'block', marginBottom: '0.5rem' }}>Add New Media (Optional)</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+              style={{
+                width: '100%',
+                border: '2px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif",
+                boxSizing: 'border-box'
+              }}
+            />
+            <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '0.25rem' }}>Add new images or videos to the existing media (max 5 total files)</div>
+          </div>
+
+          {/* Media Preview */}
+          {formData.media.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontWeight: '600', color: '#212c59', display: 'block', marginBottom: '0.5rem' }}>Current Media:</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                {formData.media.map((media, index) => (
+                  <div key={index} style={{ position: 'relative' }}>
+                    {media.type === 'video' ? (
+                      <video
+                        src={media.preview}
+                        style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px' }}
+                        muted
+                      />
+                    ) : (
+                      <img
+                        src={media.preview}
+                        alt={`Preview ${index + 1}`}
+                        style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px' }}
+                      />
+                    )}
+                    {media.isExisting && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '5px',
+                        left: '5px',
+                        background: 'rgba(33, 44, 89, 0.8)',
+                        color: 'white',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: '600'
+                      }}>
+                        EXISTING
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(index)}
+                      style={{
+                        position: 'absolute',
+                        top: '5px',
+                        right: '5px',
+                        background: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '0.5rem' }}>
+                💡 Tip: You can remove existing media or add new media. Only new media will be uploaded.
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={closeEditModal}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif",
+                background: '#6c757d',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              disabled={isEditing}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '14px',
+                fontFamily: "'Montserrat', sans-serif",
+                background: isEditing ? '#ff6b6b' : '#28a745',
+                color: 'white',
+                border: 'none',
+                cursor: isEditing ? 'not-allowed' : 'pointer',
+                opacity: isEditing ? 0.7 : 1
+              }}
+            >
+              {isEditing ? 'Updating...' : 'Update Post'}
+            </button>
+          </div>
+        </form>
       </SimpleModal>
     </div>
   );
