@@ -95,114 +95,161 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
     );
   }
 
-  // Color schemes for different charts
-  const BEST_SELLER_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00C49F', '#9c27b0', '#f44336', '#4caf50', '#ff9800', '#2196f3'];
-  const CATEGORY_COLORS = {
-    'Pizza': '#ff7300',
-    'Donuts': '#ffc658', 
-    'Drinks': '#00C49F',
-    'Pastries': '#8884d8'
-  };
-
   return (
-    <div className="analytics-container">
-      {/* Content Wrapper for Centering */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-        {/* Charts Grid */}
-        <div className="charts-grid" style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+    <div style={{ padding: '20px', background: '#fff' }}>
+      {/* Top Selling Items Section */}
+      <div style={{ marginBottom: '40px' }}>
+        <h3 style={{ marginBottom: '10px', color: '#333' }}>Top Selling Items</h3>
+        <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>Ranked by quantity sold</p>
         
-          {/* Top 10 Best Selling Items */}
-          <div className="chart-card">
-            <h4>Top 10 Best Selling Items</h4>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={analyticsData.topSellingItems} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="itemName" 
-                  type="category"
-                  tickFormatter={(value) => {
-                    // Truncate long names
-                    return value.length > 12 ? value.substring(0, 12) + '...' : value;
-                  }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value, name) => [value, 'Total Quantity']}
-                  labelFormatter={(label) => `Product: ${label}`}
-                />
-                <Bar dataKey="totalQuantity" fill="#8884d8">
-                  {analyticsData.topSellingItems.map((entry, index) => (
-                    <Bar key={`bar-${index}`} fill={BEST_SELLER_COLORS[index % BEST_SELLER_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        <div style={{ height: '400px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analyticsData.topSellingItems} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="itemName" 
+                tick={{ fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={100}
+              />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="totalOrders" fill="#4CAF50" name="Orders" />
+              <Bar dataKey="totalQuantity" fill="#2196F3" name="Quantity" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Best Sellers by Category Section */}
+      <div style={{ marginBottom: '40px' }}>
+        <h3 style={{ marginBottom: '10px', color: '#333' }}>Best Sellers by Category</h3>
+        <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>Top items per category</p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+          {/* Pizzas */}
+          <div>
+            <h4 style={{ marginBottom: '10px', color: '#333', fontSize: '16px' }}>Pizzas</h4>
+            <div style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analyticsData.categorySales.filter(item => item.category === 'Pizza')} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="itemName" 
+                    tick={{ fontSize: 10 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Bar dataKey="totalQuantity" fill="#9C27B0" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          {/* Top 10 Best Sellers by Category */}
-          <div className="chart-card">
-            <h4>Top 10 Best Sellers by Category</h4>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={analyticsData.categorySales} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="itemName" 
-                  type="category"
-                  tickFormatter={(value) => {
-                    // Truncate long names
-                    return value.length > 10 ? value.substring(0, 10) + '...' : value;
-                  }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value, name) => [value, 'Total Quantity']}
-                  labelFormatter={(label) => `Product: ${label}`}
-                />
-                <Bar dataKey="totalQuantity" fill="#00C49F">
-                  {analyticsData.categorySales.map((entry, index) => (
-                    <Bar key={`bar-${index}`} fill={CATEGORY_COLORS[entry.category] || '#8884d8'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          {/* Donuts */}
+          <div>
+            <h4 style={{ marginBottom: '10px', color: '#333', fontSize: '16px' }}>Donuts</h4>
+            <div style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analyticsData.categorySales.filter(item => item.category === 'Donuts')} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="itemName" 
+                    tick={{ fontSize: 10 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Bar dataKey="totalQuantity" fill="#9C27B0" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          {/* Detailed Performance */}
-          <div className="chart-card">
-            <h4>Detailed Performance ({period})</h4>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analyticsData.detailedPerformance} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="period" 
-                  type="category"
-                  tickFormatter={(value) => {
-                    // Format date if it's a date string
-                    if (value.includes('-')) {
-                      const date = new Date(value);
-                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    }
-                    return value;
-                  }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value, name) => [value, 'Total Quantity']}
-                  labelFormatter={(label) => `Period: ${label}`}
-                />
-                <Bar dataKey="totalQuantity" fill="#ff7300" />
-              </BarChart>
-            </ResponsiveContainer>
+          {/* Drinks */}
+          <div>
+            <h4 style={{ marginBottom: '10px', color: '#333', fontSize: '16px' }}>Drinks</h4>
+            <div style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analyticsData.categorySales.filter(item => item.category === 'Drinks')} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="itemName" 
+                    tick={{ fontSize: 10 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Bar dataKey="totalQuantity" fill="#9C27B0" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Detailed Performance Table */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0, color: '#333' }}>Detailed Performance</h3>
+          <a href="#" style={{ color: '#666', fontSize: '14px', textDecoration: 'none' }}>Complete item statistics</a>
+        </div>
+        
+        <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e0e0e0' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f5f5f5' }}>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e0e0e0', fontSize: '14px', fontWeight: '600' }}>Rank</th>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e0e0e0', fontSize: '14px', fontWeight: '600' }}>Item Name</th>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e0e0e0', fontSize: '14px', fontWeight: '600' }}>Quantity</th>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e0e0e0', fontSize: '14px', fontWeight: '600' }}>Orders</th>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e0e0e0', fontSize: '14px', fontWeight: '600' }}>Customers</th>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e0e0e0', fontSize: '14px', fontWeight: '600' }}>Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {analyticsData.topSellingItems.map((item, index) => {
+                const rankColors = ['#FFC107', '#6C757D', '#FF9800', '#6C757D', '#6C757D', '#6C757D', '#6C757D', '#6C757D', '#6C757D', '#6C757D'];
+                const share = analyticsData.topSellingItems.length > 0 ? 
+                  ((item.totalQuantity / analyticsData.topSellingItems.reduce((sum, i) => sum + i.totalQuantity, 0)) * 100).toFixed(2) : '0.00';
+                
+                return (
+                  <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <div style={{ 
+                        width: '24px', 
+                        height: '24px', 
+                        borderRadius: '50%', 
+                        background: rankColors[index], 
+                        color: 'white', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        fontSize: '12px', 
+                        fontWeight: 'bold',
+                        margin: '0 auto'
+                      }}>
+                        {index + 1}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{item.itemName}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{item.totalQuantity}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{item.totalOrders}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{item.uniqueCustomers || 1}</td>
+                    <td style={{ padding: '12px', fontSize: '14px' }}>{share}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
