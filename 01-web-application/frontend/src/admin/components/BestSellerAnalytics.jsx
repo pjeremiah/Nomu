@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
+// import {
+//   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+// } from 'recharts';
 import { FaChartBar, FaCoffee } from 'react-icons/fa';
 
 const BestSellerAnalytics = ({ period = 'monthly' }) => {

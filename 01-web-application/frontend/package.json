@@ -27,8 +27,6 @@
     "react-router-dom": "^6.8.1",
     "react-scripts": "5.0.1",
     "react-toastify": "^11.0.5",
-    "recharts": "^3.2.1",
-    "redux-persist": "^6.0.0",
     "serve": "^14.2.1",
     "styled-components": "^6.1.17",
     "tailwindcss": "^3.4.15",
@@ -36,7 +34,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "build:dev": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

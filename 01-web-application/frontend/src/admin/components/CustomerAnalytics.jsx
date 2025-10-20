@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
+// import {
+//   Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+// } from 'recharts';
 
 const CustomerAnalytics = () => {
   const [analyticsData, setAnalyticsData] = useState({
