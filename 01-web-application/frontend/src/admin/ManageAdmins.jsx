@@ -847,7 +847,8 @@ const ManageAdmins = () => {
           show={showAddModal}
           onHide={() => setShowAddModal(false)}
           title="Add New Admin"
-          size="medium"
+          size="small"
+          compact={true}
         >
             <form onSubmit={handleAddAdmin} className="admin-form">
               {/* Error Display inside Add Modal */}
@@ -867,7 +868,7 @@ const ManageAdmins = () => {
                 }}>{error}</div>
               )}
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group" style={{ marginBottom: '8px' }}>
                 <label htmlFor="add-fullname" className="admin-form-label">Full Name</label>
                 <input
                   type="text"
@@ -881,7 +882,7 @@ const ManageAdmins = () => {
                 />
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group" style={{ marginBottom: '8px' }}>
                 <label htmlFor="add-email" className="admin-form-label">Email</label>
                 <input
                   type="email"
@@ -895,7 +896,7 @@ const ManageAdmins = () => {
                 />
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group" style={{ marginBottom: '8px' }}>
                 <label htmlFor="add-password" className="admin-form-label">Password</label>
                 <div className="password-input-wrapper">
                   <input
@@ -943,7 +944,7 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
+              <div className="admin-form-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '8px', marginBottom: '6px' }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1026,7 +1027,8 @@ const ManageAdmins = () => {
           show={showEditModal}
           onHide={() => setShowEditModal(false)}
           title="Edit Admin"
-          size="medium"
+          size="small"
+          compact={true}
         >
             <form onSubmit={handleEditAdmin} className="admin-form">
               {/* Error Display inside Edit Modal */}
@@ -1046,7 +1048,7 @@ const ManageAdmins = () => {
                 }}>{error}</div>
               )}
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group" style={{ marginBottom: '8px' }}>
                 <label className="admin-form-label">Full Name</label>
                 <input
                   type="text"
@@ -1057,7 +1059,7 @@ const ManageAdmins = () => {
                 />
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group" style={{ marginBottom: '8px' }}>
                 <label className="admin-form-label">Email</label>
                 <input
                   type="email"
@@ -1094,7 +1096,7 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
+              <div className="admin-form-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '8px', marginBottom: '6px' }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1180,6 +1182,7 @@ const ManageAdmins = () => {
           onHide={() => setShowResetModal(false)}
           title="Reset Password"
           size="small"
+          compact={true}
         >
             <div className="reset-password-text" style={{ marginBottom: '12px' }}>
               Reset password for <strong>{selectedAdmin.fullName}</strong>
@@ -1203,7 +1206,7 @@ const ManageAdmins = () => {
                 }}>{error}</div>
               )}
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group" style={{ marginBottom: '8px' }}>
                 <label className="admin-form-label">New Password</label>
                 <div className="password-input-wrapper">
                   <input
@@ -1223,7 +1226,7 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group" style={{ marginBottom: '8px' }}>
                 <label className="admin-form-label">Confirm Password</label>
                 <div className="password-input-wrapper">
                   <input
@@ -1243,7 +1246,7 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
+              <div className="admin-form-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '8px', marginBottom: '6px' }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1327,6 +1330,7 @@ const ManageAdmins = () => {
           onHide={() => setShowDeleteModal(false)}
           title="Delete Admin"
           size="small"
+          compact={true}
         >
             <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '16px' }}>
               Are you sure you want to delete admin <strong>{selectedAdmin.fullName}</strong>?
