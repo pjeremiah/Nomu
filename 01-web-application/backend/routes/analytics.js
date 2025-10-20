@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Order = require('../models/Order');
 const Feedback = require('../models/Feedback');
 const MenuItem = require('../models/MenuItem');
 const Admin = require('../models/Admin');
@@ -177,6 +178,114 @@ router.get('/overview', authMiddleware, async (req, res) => {
   }
 });
 
+// Get users with spending data from orders collection
+router.get('/users-with-spending', authMiddleware, async (req, res) => {
+  try {
+    if (!['superadmin', 'manager', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Aggregate spending data from orders collection
+    const spendingData = await Order.aggregate([
+      {
+        $match: { status: 'completed' } // Only completed orders
+      },
+      {
+        $group: {
+          _id: '$userId',
+          totalSpent: { $sum: '$totalAmount' },
+          ordersCount: { $sum: 1 },
+          lastOrderDate: { $max: '$orderDate' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      {
+        $unwind: '$user'
+      },
+      {
+        $match: { 'user.role': 'Customer' }
+      },
+      {
+        $project: {
+          name: '$user.fullName',
+          email: '$user.email',
+          employmentStatus: '$user.employmentStatus',
+          ordersCount: 1,
+          totalSpent: 1,
+          lastOrderDate: 1,
+          joinedDate: '$user.createdAt',
+          hasOrders: { $gt: ['$ordersCount', 0] }
+        }
+      },
+      {
+        $sort: { totalSpent: -1 }
+      },
+      {
+        $limit: 50
+      }
+    ]);
+
+    res.json(spendingData);
+  } catch (error) {
+    console.error('Error fetching users with spending:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get highest spenders by employment status - using orders collection only
+router.get('/highest-spenders-by-employment', authMiddleware, async (req, res) => {
+  try {
+    if (!['superadmin', 'manager', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Simple aggregation using only orders collection
+    const spendingByEmployment = await Order.aggregate([
+      {
+        $match: { 
+          status: 'completed',
+          employmentStatus: { $in: ['Employed', 'Student'] }
+        }
+      },
+      {
+        $group: {
+          _id: '$employmentStatus',
+          totalSpent: { $sum: '$totalAmount' },
+          totalOrders: { $sum: 1 },
+          users: {
+            $addToSet: '$userId'
+          }
+        }
+      },
+      {
+        $project: {
+          employmentStatus: '$_id',
+          totalSpent: 1,
+          totalOrders: 1,
+          userCount: { $size: '$users' },
+          averageSpent: { $divide: ['$totalSpent', { $size: '$users' }] }
+        }
+      },
+      {
+        $sort: { totalSpent: -1 }
+      }
+    ]);
+
+    console.log('Employment spending data (orders only):', spendingByEmployment);
+    res.json(spendingByEmployment);
+  } catch (error) {
+    console.error('Error fetching highest spenders by employment:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Get dashboard statistics
 router.get('/dashboard-stats', authMiddleware, async (req, res) => {
   try {
@@ -201,13 +310,46 @@ router.get('/dashboard-stats', authMiddleware, async (req, res) => {
       createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
     });
 
+    // Compute averageSpent based on real orders collection
+    let averageSpent = 0;
+    let totalOrders = 0;
+    try {
+      // Get statistics from actual orders collection
+      const orderStats = await Order.aggregate([
+        { $match: { status: 'completed' } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            totalAmount: { $sum: '$totalAmount' }
+          }
+        }
+      ]);
+
+      if (orderStats.length > 0) {
+        totalOrders = orderStats[0].totalOrders;
+        const totalAmount = orderStats[0].totalAmount;
+        
+        // Calculate average spent per order
+        if (totalOrders > 0) {
+          averageSpent = totalAmount / totalOrders;
+        }
+      }
+    } catch (calcErr) {
+      console.error('Error calculating average spent:', calcErr);
+      // Fail silently for averageSpent so dashboard still loads
+      averageSpent = 0;
+    }
+
     res.json({
       totalCustomers,
       totalFeedback,
       pendingFeedback,
       totalMenuItems,
       activeMenuItems,
-      newCustomersThisMonth
+      newCustomersThisMonth,
+      totalOrders,
+      averageSpent: Number.isFinite(averageSpent) ? Number(averageSpent.toFixed(2)) : 0
     });
   } catch (error) {
 
