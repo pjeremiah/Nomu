@@ -54,7 +54,7 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
 
-  # Frontend Web Service
+  # Frontend Web Service (Static - No Auto Deploy)
   - type: web
     name: nomu-frontend
     env: static
@@ -65,7 +65,7 @@ services:
         value: https://nomu-backend.onrender.com
       - key: GENERATE_SOURCEMAP
         value: "false"
-    autoDeploy: true
+    autoDeploy: false
     routes:
       - type: rewrite
         source: /*
