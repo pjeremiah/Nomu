@@ -6,6 +6,12 @@ const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender
 
 console.log('API_BASE:', API_BASE);
 
+// Helper to resolve media URL (handles absolute and relative)
+const getMediaUrl = (url) => {
+  if (!url) return '';
+  return url.startsWith('http') ? url : `${API_BASE}${url}`;
+};
+
 // Simple Modal component - moved outside to prevent recreation
 const SimpleModal = ({ show, onHide, title, children, size = 'medium' }) => {
   if (!show) return null;
@@ -510,7 +516,7 @@ const GalleryManagement = () => {
       media: post.media ? post.media.map(media => ({
         ...media,
         isExisting: true, // Mark as existing media
-        preview: media.url // Use the actual URL for preview
+        preview: getMediaUrl(media.url) // Use absolute URL for preview
       })) : []
     });
     setModalError('');
@@ -663,13 +669,13 @@ const GalleryManagement = () => {
                   <>
                     {post.media[0].type === 'video' ? (
                       <video
-                        src={post.media[0].url}
+                        src={getMediaUrl(post.media[0].url)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         muted
                       />
                     ) : (
                       <img
-                        src={post.media[0].url}
+                        src={getMediaUrl(post.media[0].url)}
                         alt={post.title}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
@@ -1200,13 +1206,13 @@ const GalleryManagement = () => {
                   <div key={index}>
                     {media.type === 'video' ? (
                       <video
-                        src={media.url}
+                        src={getMediaUrl(media.url)}
                         controls
                         style={{ width: '100%', borderRadius: '8px' }}
                       />
                     ) : (
                       <img
-                        src={media.url}
+                        src={getMediaUrl(media.url)}
                         alt={`Media ${index + 1}`}
                         style={{ width: '100%', borderRadius: '8px' }}
                       />
