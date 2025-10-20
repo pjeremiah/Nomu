@@ -8,7 +8,7 @@ import Home from "./client/Home";
 import Location from "./client/Location";
 import AboutUs from "./client/AboutUs";
 import ContactUs from "./client/ContactUs";
-// import Gallery from "./client/Gallery";
+import Gallery from "./client/Gallery";
 import Menu from "./client/Menu";
 import AccountSettings from "./client/AccountSettings";
 import SignInForm from "./client/SignInForm";
@@ -162,7 +162,7 @@ function App() {
             <Route path="/" element={<RequireClient><Home /></RequireClient>} />
             <Route path="/aboutus" element={<RequireClient><AboutUs /></RequireClient>} />
             <Route path="/menu" element={<RequireClient><Menu /></RequireClient>} />
-            {/* <Route path="/gallery" element={<RequireClient><Gallery /></RequireClient>} /> */}
+            <Route path="/gallery" element={<RequireClient><Gallery /></RequireClient>} />
             <Route path="/location" element={<RequireClient><Location /></RequireClient>} />
             <Route path="/contactus" element={<RequireClient><ContactUs /></RequireClient>} />
             <Route path="/account-settings" element={<RequireClient><AccountSettings /></RequireClient>} />
