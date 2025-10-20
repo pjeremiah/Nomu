@@ -322,10 +322,11 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                         Navigator.of(context).pop();
                         Navigator.of(context).pop();
                       },
-                  ),
-                ],
-              ),
-            );
+                    ),
+                  ],
+                ),
+              );
+            }
           }
         } else {
           if (mounted) {
