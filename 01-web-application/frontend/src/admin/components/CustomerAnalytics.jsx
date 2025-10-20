@@ -22,12 +22,23 @@ const CustomerAnalytics = () => {
     try {
       setLoading(true);
       
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Set up axios headers
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      };
+      
       // Fetch all analytics data from separate endpoints
       const [genderResponse, employmentResponse, ageResponse, signupResponse] = await Promise.all([
-        axios.get(`${API_BASE}/api/analytics/gender`),
-        axios.get(`${API_BASE}/api/analytics/employment`),
-        axios.get(`${API_BASE}/api/analytics/age-ranges`),
-        axios.get(`${API_BASE}/api/analytics/signup-growth`)
+        axios.get(`${API_BASE}/api/analytics/gender`, { headers }),
+        axios.get(`${API_BASE}/api/analytics/employment`, { headers }),
+        axios.get(`${API_BASE}/api/analytics/age-ranges`, { headers }),
+        axios.get(`${API_BASE}/api/analytics/signup-growth`, { headers })
       ]);
       
       setAnalyticsData({

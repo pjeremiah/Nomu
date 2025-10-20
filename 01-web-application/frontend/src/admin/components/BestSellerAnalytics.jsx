@@ -21,11 +21,22 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
     try {
       setLoading(true);
       
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Set up axios headers
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      };
+      
       // Fetch all analytics data from separate endpoints
       const [bestSellersResponse, categoryResponse, trendsResponse] = await Promise.all([
-        axios.get(`${API_BASE}/api/analytics/best-sellers?period=${period}`),
-        axios.get(`${API_BASE}/api/analytics/best-sellers-by-category?period=${period}`),
-        axios.get(`${API_BASE}/api/analytics/sales-trends?period=${period}`)
+        axios.get(`${API_BASE}/api/analytics/best-sellers?period=${period}`, { headers }),
+        axios.get(`${API_BASE}/api/analytics/best-sellers-by-category?period=${period}`, { headers }),
+        axios.get(`${API_BASE}/api/analytics/sales-trends?period=${period}`, { headers })
       ]);
       
       // Process category data for chart
