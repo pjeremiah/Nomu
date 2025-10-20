@@ -12,6 +12,31 @@ const getMediaUrl = (url) => {
   return url.startsWith('http') ? url : `${API_BASE}${url}`;
 };
 
+// Responsive helpers
+const getGridMinWidth = () => {
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  if (w <= 480) return 220;      // very small
+  if (w <= 640) return 240;      // small tablets
+  if (w <= 768) return 260;      // tablets
+  if (w <= 1024) return 280;     // small laptop
+  return 300;                    // desktop
+};
+
+const getCardMediaHeight = () => {
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  if (w <= 480) return 160;
+  if (w <= 640) return 180;
+  if (w <= 768) return 190;
+  if (w <= 1024) return 200;
+  return 220;
+};
+
+const getFabOffset = () => {
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  const base = w <= 480 ? 12 : w <= 768 ? 16 : 24;
+  return { bottom: base * 1.5, right: base * 1.5 };
+};
+
 // Simple Modal component - moved outside to prevent recreation
 const SimpleModal = ({ show, onHide, title, children, size = 'medium' }) => {
   if (!show) return null;
@@ -219,6 +244,10 @@ const GalleryManagement = () => {
 
   useEffect(() => {
     fetchPosts();
+    // trigger re-render on resize for responsive calculations
+    const onResize = () => setPosts(prev => [...prev]);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   // Handle form input changes
@@ -634,7 +663,7 @@ const GalleryManagement = () => {
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${getGridMinWidth()}px, 1fr))`,
         gap: '1.5rem',
         marginBottom: '2rem'
       }}>
@@ -662,7 +691,7 @@ const GalleryManagement = () => {
             }}>
               <div style={{
                 position: 'relative',
-                height: '200px',
+                height: `${getCardMediaHeight()}px`,
                 overflow: 'hidden'
               }}>
                 {post.media && post.media.length > 0 ? (
@@ -886,8 +915,8 @@ const GalleryManagement = () => {
       {/* Add New Post Button - Bottom Right */}
       <div style={{
         position: 'fixed',
-        bottom: '2rem',
-        right: '2rem',
+        bottom: `${getFabOffset().bottom}px`,
+        right: `${getFabOffset().right}px`,
         zIndex: 1000
       }}>
         <button
