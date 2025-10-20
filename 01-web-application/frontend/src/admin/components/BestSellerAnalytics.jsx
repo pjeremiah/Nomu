@@ -20,9 +20,29 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}/api/analytics/bestsellers?period=${period}`);
-      setAnalyticsData(response.data);
+      
+      // Fetch all analytics data from separate endpoints
+      const [bestSellersResponse, categoryResponse, trendsResponse] = await Promise.all([
+        axios.get(`${API_BASE}/api/analytics/best-sellers?period=${period}`),
+        axios.get(`${API_BASE}/api/analytics/best-sellers-by-category?period=${period}`),
+        axios.get(`${API_BASE}/api/analytics/sales-trends?period=${period}`)
+      ]);
+      
+      // Process category data for chart
+      const categoryTotals = categoryResponse.data.categoryTotals || {};
+      const categorySalesData = Object.entries(categoryTotals).map(([category, data]) => ({
+        category,
+        totalQuantity: data.totalQuantity,
+        totalOrders: data.totalOrders
+      }));
+
+      setAnalyticsData({
+        bestSellers: bestSellersResponse.data.bestSellers || [],
+        categorySales: categorySalesData,
+        salesTrend: trendsResponse.data.trends || []
+      });
     } catch (err) {
+      console.error('Analytics fetch error:', err);
       setError('Failed to fetch analytics data');
     } finally {
       setLoading(false);
@@ -68,7 +88,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
               <BarChart data={analyticsData.bestSellers} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="name" 
+                  dataKey="itemName" 
                   type="category"
                   tickFormatter={(value) => {
                     // Truncate long names
@@ -80,10 +100,10 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                 />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value, name) => [value, 'Sales Count']}
+                  formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Product: ${label}`}
                 />
-                <Bar dataKey="salesCount" fill="#8884d8">
+                <Bar dataKey="totalQuantity" fill="#8884d8">
                   {analyticsData.bestSellers.map((entry, index) => (
                     <Bar key={`bar-${index}`} fill={BEST_SELLER_COLORS[index % BEST_SELLER_COLORS.length]} />
                   ))}
@@ -114,7 +134,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                   formatter={(value, name) => [value, 'Sales Count']}
                   labelFormatter={(label) => `Category: ${label}`}
                 />
-                <Bar dataKey="salesCount" fill="#00C49F">
+                <Bar dataKey="totalQuantity" fill="#00C49F">
                   {analyticsData.categorySales.map((entry, index) => (
                     <Bar key={`bar-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                   ))}
@@ -149,7 +169,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                   formatter={(value, name) => [value, 'Sales Count']}
                   labelFormatter={(label) => `Period: ${label}`}
                 />
-                <Bar dataKey="salesCount" fill="#ff7300" />
+                <Bar dataKey="totalQuantity" fill="#ff7300" />
               </BarChart>
             </ResponsiveContainer>
           </div>

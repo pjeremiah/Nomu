@@ -21,9 +21,23 @@ const CustomerAnalytics = () => {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}/api/analytics/customers`);
-      setAnalyticsData(response.data);
+      
+      // Fetch all analytics data from separate endpoints
+      const [genderResponse, employmentResponse, ageResponse, signupResponse] = await Promise.all([
+        axios.get(`${API_BASE}/api/analytics/gender`),
+        axios.get(`${API_BASE}/api/analytics/employment`),
+        axios.get(`${API_BASE}/api/analytics/age-ranges`),
+        axios.get(`${API_BASE}/api/analytics/signup-growth`)
+      ]);
+      
+      setAnalyticsData({
+        genderDistribution: genderResponse.data,
+        employmentStatus: employmentResponse.data,
+        ageRanges: ageResponse.data,
+        signupGrowth: signupResponse.data
+      });
     } catch (err) {
+      console.error('Analytics fetch error:', err);
       setError('Failed to fetch analytics data');
     } finally {
       setLoading(false);
