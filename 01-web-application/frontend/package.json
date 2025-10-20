@@ -14,9 +14,11 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "autoprefixer": "^10.4.20",
     "axios": "^1.8.4",
     "bootstrap": "^5.3.6",
     "lucide-react": "^0.541.0",
+    "postcss": "^8.4.49",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.0",
@@ -29,6 +31,7 @@
     "redux-persist": "^6.0.0",
     "serve": "^14.2.1",
     "styled-components": "^6.1.17",
+    "tailwindcss": "^3.4.15",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
