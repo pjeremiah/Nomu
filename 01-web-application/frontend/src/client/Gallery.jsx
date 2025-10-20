@@ -414,7 +414,7 @@ const ImageDot = styled.div`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: ${props => props.active ? 'white' : 'rgba(255, 255, 255, 0.5)'};
+  background: ${props => props.$active ? 'white' : 'rgba(255, 255, 255, 0.5)'};
   cursor: pointer;
   transition: all 0.3s ease;
 `;
@@ -852,7 +852,7 @@ const Gallery = () => {
                   {selectedPost.media.map((_, index) => (
                     <ImageDot 
                       key={index}
-                      active={index === currentImageIndex}
+                      $active={index === currentImageIndex}
                       onClick={() => goToImage(index)}
                     />
                   ))}
