@@ -142,7 +142,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                 />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value, name) => [value, 'Sales Count']}
+                  formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Category: ${label}`}
                 />
                 <Bar dataKey="totalQuantity" fill="#00C49F">
@@ -161,7 +161,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
               <BarChart data={analyticsData.salesTrend} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="_id" 
+                  dataKey="period" 
                   type="category"
                   tickFormatter={(value) => {
                     // Format date if it's a date string
@@ -177,7 +177,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                 />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value, name) => [value, 'Sales Count']}
+                  formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Period: ${label}`}
                 />
                 <Bar dataKey="totalQuantity" fill="#ff7300" />
