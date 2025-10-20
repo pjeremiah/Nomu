@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -97,16 +97,16 @@ const CustomerAnalytics = () => {
 
   // Process data for charts
   const genderData = ensureAllCategories(analyticsData.genderDistribution, [
-    { _id: 'Male', count: 0 },
-    { _id: 'Female', count: 0 },
-    { _id: 'Other', count: 0 }
+    { _id: 'male', count: 0 },
+    { _id: 'female', count: 0 },
+    { _id: 'other', count: 0 }
   ]);
 
   const employmentData = ensureAllCategories(analyticsData.employmentStatus, [
-    { _id: 'Employed', count: 0 },
-    { _id: 'Unemployed', count: 0 },
-    { _id: 'Student', count: 0 },
-    { _id: 'Retired', count: 0 }
+    { _id: 'employed', count: 0 },
+    { _id: 'unemployed', count: 0 },
+    { _id: 'student', count: 0 },
+    { _id: 'retired', count: 0 }
   ]);
 
   const ageData = ensureAllCategories(analyticsData.ageRanges, [
@@ -126,28 +126,34 @@ const CustomerAnalytics = () => {
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {/* Charts Grid */}
         <div className="charts-grid" style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-        
-          {/* Gender Distribution - Pie Chart */}
+
+          {/* Gender Distribution */}
           <div className="chart-card">
             <h4>Gender Distribution</h4>
             <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={genderData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ _id, count }) => `${_id}: ${count}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
+              <BarChart data={genderData} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="_id"
+                  type="category"
+                  tickFormatter={(value) => {
+                    if (value === 'male') return 'Male';
+                    if (value === 'female') return 'Female';
+                    if (value === 'other') return 'Other';
+                    return value;
+                  }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#8884d8">
                   {genderData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={GENDER_COLORS[index % GENDER_COLORS.length]} />
                   ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
 
@@ -157,8 +163,8 @@ const CustomerAnalytics = () => {
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={employmentData} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="_id" 
+                <XAxis
+                  dataKey="_id"
                   type="category"
                   tickFormatter={(value) => value}
                   angle={-45}
@@ -182,8 +188,8 @@ const CustomerAnalytics = () => {
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={ageData} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="_id" 
+                <XAxis
+                  dataKey="_id"
                   type="category"
                   tickFormatter={(value) => {
                     if (value === '18-25') return '18-25 years';
@@ -207,14 +213,14 @@ const CustomerAnalytics = () => {
             </ResponsiveContainer>
           </div>
 
-          {/* Signup Growth - Line Chart */}
+          {/* Signup Growth */}
           <div className="chart-card">
             <h4>Signup Growth</h4>
             <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={analyticsData.signupGrowth} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
+              <BarChart data={analyticsData.signupGrowth} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="_id" 
+                <XAxis
+                  dataKey="_id"
                   type="category"
                   tickFormatter={(value) => {
                     // Format date if it's a date string
@@ -230,8 +236,8 @@ const CustomerAnalytics = () => {
                 />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="#ff7300" strokeWidth={2} />
-              </LineChart>
+                <Bar dataKey="count" fill="#ff7300" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>

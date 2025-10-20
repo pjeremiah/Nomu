@@ -91,15 +91,15 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {/* Charts Grid */}
         <div className="charts-grid" style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-        
+
           {/* Best Sellers */}
           <div className="chart-card">
             <h4>Top Best Sellers</h4>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={analyticsData.bestSellers} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="itemName" 
+                <XAxis
+                  dataKey="itemName"
                   type="category"
                   tickFormatter={(value) => {
                     // Truncate long names
@@ -110,7 +110,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                   height={60}
                 />
                 <YAxis />
-                <Tooltip 
+                <Tooltip
                   formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Product: ${label}`}
                 />
@@ -129,8 +129,8 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={analyticsData.categorySales} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="category" 
+                <XAxis
+                  dataKey="category"
                   type="category"
                   tickFormatter={(value) => {
                     // Truncate long category names
@@ -141,7 +141,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                   height={60}
                 />
                 <YAxis />
-                <Tooltip 
+                <Tooltip
                   formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Category: ${label}`}
                 />
@@ -160,8 +160,8 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={analyticsData.salesTrend} margin={{ left: 10, right: 10, top: 5, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="period" 
+                <XAxis
+                  dataKey="period"
                   type="category"
                   tickFormatter={(value) => {
                     // Format date if it's a date string
@@ -176,7 +176,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                   height={60}
                 />
                 <YAxis />
-                <Tooltip 
+                <Tooltip
                   formatter={(value, name) => [value, 'Total Quantity']}
                   labelFormatter={(label) => `Period: ${label}`}
                 />
