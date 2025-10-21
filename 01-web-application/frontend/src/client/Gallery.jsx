@@ -1503,6 +1503,7 @@ const Gallery = () => {
               <FaTimes />
             </button>
             <SignInForm 
+              preventRedirect={true}
               onSubmit={async () => {
                 console.log('🎉 SignInForm onSubmit called');
                 setShowSignInModal(false);

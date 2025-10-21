@@ -11,7 +11,7 @@ const maskEmail = (email) => {
   return `${maskedLocal}@${domain}`;
 };
 
-const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
+const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = false }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -123,7 +123,9 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
             localStorage.removeItem('rememberMe');
             localStorage.removeItem('rememberFor30Days');
           }
-          window.location.href = '/admin/home';
+          if (!preventRedirect) {
+            window.location.href = '/admin/home';
+          }
           onSubmit && onSubmit();
         } else {
           // Customer login successful
@@ -141,7 +143,9 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
             localStorage.removeItem('rememberMe');
             localStorage.removeItem('rememberFor30Days');
           }
-          window.location.href = '/';
+          if (!preventRedirect) {
+            window.location.href = '/';
+          }
           onSubmit && onSubmit();
         }
       } catch (error) {
@@ -195,7 +199,9 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
           localStorage.removeItem('rememberMe');
           localStorage.removeItem('rememberFor30Days');
         }
-        window.location.href = '/admin/home';
+        if (!preventRedirect) {
+          window.location.href = '/admin/home';
+        }
         onSubmit && onSubmit();
       } catch (error) {
 
