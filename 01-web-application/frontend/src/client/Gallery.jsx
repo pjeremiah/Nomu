@@ -474,8 +474,8 @@ const Username = styled.div`
 const InstagramIcon = styled.div`
   width: 20px;
   height: 20px;
-  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-  border-radius: 4px;
+  background: linear-gradient(135deg, #f58529 0%, #dd2a7b 50%, #8134af 100%);
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -486,10 +486,10 @@ const InstagramIcon = styled.div`
   &::before {
     content: '';
     position: absolute;
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     background: white;
-    border-radius: 2px;
+    border-radius: 3px;
     top: 2px;
     left: 2px;
   }
@@ -497,17 +497,17 @@ const InstagramIcon = styled.div`
   &::after {
     content: '';
     position: absolute;
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
     background: white;
     border-radius: 50%;
     top: 3px;
-    left: 7px;
+    left: 6px;
   }
   
   &:hover {
     transform: scale(1.05);
-    box-shadow: 0 2px 8px rgba(225, 48, 108, 0.3);
+    box-shadow: 0 2px 8px rgba(221, 42, 123, 0.3);
   }
 `;
 
@@ -806,6 +806,22 @@ const Gallery = () => {
       fetchLikes(selectedPost._id);
     }
   }, [selectedPost, isAuthenticated]);
+
+  // Handle body class for modal consistency
+  useEffect(() => {
+    if (showSignInModal) {
+      document.body.classList.add('modal-open');
+      document.documentElement.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
+    }
+
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
+    };
+  }, [showSignInModal]);
 
   const fetchGalleryPosts = async () => {
     try {
