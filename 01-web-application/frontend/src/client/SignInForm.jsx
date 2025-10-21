@@ -130,12 +130,20 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           localStorage.removeItem('rememberMe');
           localStorage.removeItem('rememberFor30Days');
         }
-        if (!preventRedirect) {
-          window.location.href = '/admin/home';
-        }
-        // Update global auth state
+        // Update global auth state first
         login(data.user);
         onSubmit && onSubmit(data.user);
+        
+        if (!preventRedirect) {
+          window.location.href = '/admin/home';
+        } else {
+          // If preventRedirect is true but user is admin, trigger a redirect after auth state updates
+          setTimeout(() => {
+            if (data.user.role === 'superadmin' || data.user.role === 'manager' || data.user.role === 'staff') {
+              window.location.href = '/admin/home';
+            }
+          }, 100);
+        }
         } else {
           // Customer login successful
           
@@ -220,12 +228,20 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           localStorage.removeItem('rememberMe');
           localStorage.removeItem('rememberFor30Days');
         }
-        if (!preventRedirect) {
-          window.location.href = '/admin/home';
-        }
-        // Update global auth state
+        // Update global auth state first
         login(data.user);
         onSubmit && onSubmit(data.user);
+        
+        if (!preventRedirect) {
+          window.location.href = '/admin/home';
+        } else {
+          // If preventRedirect is true but user is admin, trigger a redirect after auth state updates
+          setTimeout(() => {
+            if (data.user.role === 'superadmin' || data.user.role === 'manager' || data.user.role === 'staff') {
+              window.location.href = '/admin/home';
+            }
+          }, 100);
+        }
       } catch (error) {
 
         setError(error.message || 'OTP verification failed');

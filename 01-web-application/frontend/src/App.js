@@ -116,6 +116,38 @@ function App() {
 
   const currentTheme = lightTheme;
 
+  // Handle admin redirect after login
+  useEffect(() => {
+    const handleAuthChange = () => {
+      const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const localToken = localStorage.getItem('token');
+      const sessionUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+      const sessionToken = sessionStorage.getItem('token');
+
+      // Use whichever storage has the data
+      const user = Object.keys(localUser).length > 0 ? localUser : sessionUser;
+      const token = localToken || sessionToken;
+
+      // If user is admin and not on admin route, redirect to admin
+      if (token && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith('/admin')) {
+          window.location.href = '/admin/home';
+        }
+      }
+    };
+
+    // Listen for auth changes
+    window.addEventListener('authChanged', handleAuthChange);
+    
+    // Check on initial load
+    handleAuthChange();
+
+    return () => {
+      window.removeEventListener('authChanged', handleAuthChange);
+    };
+  }, []);
+
 
   return (
     <AuthProvider>

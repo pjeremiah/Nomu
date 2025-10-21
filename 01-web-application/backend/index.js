@@ -102,6 +102,10 @@ app.use(generalRateLimiter);
 app.use(express.json({ 
   limit: process.env.MAX_FILE_SIZE || '5mb',
   verify: (req, res, buf) => {
+    // Skip JSON validation for empty bodies (like heartbeat requests)
+    if (buf.length === 0) {
+      return;
+    }
     try {
       JSON.parse(buf);
     } catch (e) {
