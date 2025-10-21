@@ -17,40 +17,24 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.id;
 
-    console.log('🔍 Like request - postId:', postId, 'userId:', userId);
-    console.log('🔍 User from token:', req.user);
-    console.log('🔍 postId type:', typeof postId, 'length:', postId?.length);
-    console.log('🔍 userId type:', typeof userId, 'length:', userId?.length);
-
-    // Validate postId format
-    if (!postId || postId.length !== 24) {
-      console.log('❌ Invalid postId format:', postId, 'length:', postId?.length);
-      return res.status(400).json({ message: 'Invalid post ID format' });
-    }
-
-    // Validate userId format
-    if (!userId || userId.length !== 24) {
-      console.log('❌ Invalid userId format:', userId, 'length:', userId?.length);
-      return res.status(400).json({ message: 'Invalid user ID format' });
+    // Basic validation
+    if (!postId || !userId) {
+      return res.status(400).json({ message: 'Missing post ID or user ID' });
     }
 
     // Check if post exists
     const post = await GalleryPost.findById(postId);
     if (!post) {
-      console.log('❌ Post not found:', postId);
       return res.status(404).json({ message: 'Post not found' });
     }
 
     // Check if user already liked this post
     const existingLike = await Like.findOne({ user: userId, post: postId });
-    console.log('🔍 Existing like:', existingLike);
     
     if (existingLike) {
       // Unlike the post
-      console.log('🔄 Unliking post...');
       await Like.findByIdAndDelete(existingLike._id);
       const likeCount = await Like.countDocuments({ post: postId });
-      console.log('✅ Post unliked, new count:', likeCount);
       return res.json({ 
         message: 'Post unliked successfully',
         liked: false,
@@ -58,11 +42,8 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
       });
     } else {
       // Like the post
-      console.log('🔄 Liking post...');
       const newLike = await Like.create({ user: userId, post: postId });
-      console.log('✅ New like created:', newLike);
       const likeCount = await Like.countDocuments({ post: postId });
-      console.log('✅ Post liked, new count:', likeCount);
       return res.json({ 
         message: 'Post liked successfully',
         liked: true,
@@ -115,47 +96,30 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id;
 
-    console.log('🔍 Comment request - postId:', postId, 'userId:', userId, 'content:', content);
-    console.log('🔍 User from token:', req.user);
-    console.log('🔍 postId type:', typeof postId, 'length:', postId?.length);
-    console.log('🔍 userId type:', typeof userId, 'length:', userId?.length);
-
-    // Validate postId format
-    if (!postId || postId.length !== 24) {
-      console.log('❌ Invalid postId format:', postId, 'length:', postId?.length);
-      return res.status(400).json({ message: 'Invalid post ID format' });
-    }
-
-    // Validate userId format
-    if (!userId || userId.length !== 24) {
-      console.log('❌ Invalid userId format:', userId, 'length:', userId?.length);
-      return res.status(400).json({ message: 'Invalid user ID format' });
+    // Basic validation
+    if (!postId || !userId) {
+      return res.status(400).json({ message: 'Missing post ID or user ID' });
     }
 
     if (!content || content.trim().length === 0) {
-      console.log('❌ Comment content is required');
       return res.status(400).json({ message: 'Comment content is required' });
     }
 
     // Check if post exists
     const post = await GalleryPost.findById(postId);
     if (!post) {
-      console.log('❌ Post not found:', postId);
       return res.status(404).json({ message: 'Post not found' });
     }
 
     // Create comment
-    console.log('🔄 Creating comment...');
     const comment = await Comment.create({
       user: userId,
       post: postId,
       content: content.trim()
     });
-    console.log('✅ Comment created:', comment);
 
     // Populate user details
     await comment.populate('user', 'fullName profilePicture');
-    console.log('✅ Comment populated with user:', comment.user);
 
     res.status(201).json({
       message: 'Comment added successfully',

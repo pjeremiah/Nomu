@@ -937,18 +937,11 @@ const Gallery = () => {
   };
 
   const handleLike = async (postId) => {
-    console.log('❤️ handleLike called for post:', postId);
-    console.log('❤️ postId type:', typeof postId, 'length:', postId?.length);
-    console.log('❤️ Current isAuthenticated state:', isAuthenticated);
-    console.log('❤️ Token in localStorage:', !!localStorage.getItem('token'));
-    
     if (!isAuthenticated) {
-      console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
     }
     
-    console.log('✅ User is authenticated, proceeding with like...');
 
     try {
       const token = localStorage.getItem('token');
@@ -981,18 +974,11 @@ const Gallery = () => {
   };
 
   const handleComment = async (postId) => {
-    console.log('💬 handleComment called for post:', postId);
-    console.log('💬 postId type:', typeof postId, 'length:', postId?.length);
-    console.log('💬 Current isAuthenticated state:', isAuthenticated);
-    console.log('💬 Token in localStorage:', !!localStorage.getItem('token'));
-    
     if (!isAuthenticated) {
-      console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
     }
     
-    console.log('✅ User is authenticated, proceeding with comment...');
 
     if (!newComment.trim()) return;
 
