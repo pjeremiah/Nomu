@@ -7,6 +7,7 @@ import { Lock, BarChart3, Users, Coffee, Gift, Star, MessageSquare, X, LogOut, P
 import { useModalContext } from '../context/ModalContext';
 import useMobileDetection from '../hooks/useMobileDetection';
 import MobileRedirect from '../components/MobileRedirect';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Page = styled.div`
   display: flex;
@@ -297,6 +298,7 @@ const AdminLayout = ({ children }) => {
   const [userRole, setUserRole] = useState('staff');
   const navigate = useNavigate();
   const { shouldShowMobileRedirect, isMobilePhone } = useMobileDetection();
+  const { logout: globalLogout } = useAuth();
 
   // Fetch current user info on component mount
   useEffect(() => {
@@ -399,11 +401,16 @@ const AdminLayout = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear both localStorage and sessionStorage
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Use global logout to update auth context
+      globalLogout();
+      
+      // Also clear sessionStorage (global logout only clears localStorage)
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
+      
+      // Trigger auth change event for other components
+      window.dispatchEvent(new CustomEvent('authChanged'));
+      
       navigate('/');
     }
   };

@@ -83,6 +83,8 @@ export const AuthProvider = ({ children }) => {
     console.log('🔐 Global logout called');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
   };

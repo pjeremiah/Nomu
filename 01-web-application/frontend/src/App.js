@@ -116,7 +116,7 @@ function App() {
 
   const currentTheme = lightTheme;
 
-  // Handle admin redirect after login
+  // Handle admin redirect after login and logout
   useEffect(() => {
     const handleAuthChange = () => {
       const localUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -134,6 +134,10 @@ function App() {
         if (!currentPath.startsWith('/admin')) {
           window.location.href = '/admin/home';
         }
+      }
+      // If no token and on admin route, redirect to home
+      else if (!token && window.location.pathname.startsWith('/admin')) {
+        window.location.href = '/';
       }
     };
 
