@@ -8,7 +8,7 @@ import SignInForm from './SignInForm';
 import SignUpForm from './SignUpForm';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
 const GalleryContainer = styled.div`
   min-height: 100vh;
@@ -820,7 +820,7 @@ const Gallery = () => {
   // Use global auth context
   const { isAuthenticated, checkAuthentication, login } = useAuth();
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+  // API_BASE is already defined at the top of the file
 
   useEffect(() => {
     fetchGalleryPosts();
