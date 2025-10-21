@@ -831,6 +831,25 @@ const Gallery = () => {
     }
   }, [showSignInModal, showSignUpModal]);
 
+  // Listen for storage changes (token updates from other tabs)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'token') {
+        console.log('🔄 Token changed in localStorage, rechecking authentication...');
+        checkAuthentication();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Additional check when component mounts
+  useEffect(() => {
+    console.log('🚀 Gallery component mounted, checking authentication...');
+    checkAuthentication();
+  }, []);
+
   useEffect(() => {
     if (selectedPost) {
       fetchEngagementStats(selectedPost._id);
@@ -875,10 +894,11 @@ const Gallery = () => {
 
   const checkAuthentication = () => {
     const token = localStorage.getItem('token');
-    console.log('checkAuthentication called, token exists:', !!token);
+    console.log('🔐 checkAuthentication called, token exists:', !!token);
+    console.log('🔐 Current isAuthenticated state:', isAuthenticated);
     
     if (!token) {
-      console.log('No token found, setting isAuthenticated to false');
+      console.log('❌ No token found, setting isAuthenticated to false');
       setIsAuthenticated(false);
       return;
     }
@@ -886,7 +906,7 @@ const Gallery = () => {
     // Check if token has valid JWT format (3 parts separated by dots)
     const tokenParts = token.split('.');
     if (tokenParts.length !== 3) {
-      console.log('Invalid token format, removing token');
+      console.log('❌ Invalid token format, removing token');
       localStorage.removeItem('token');
       setIsAuthenticated(false);
       return;
@@ -897,19 +917,23 @@ const Gallery = () => {
       const payload = JSON.parse(atob(tokenParts[1]));
       const currentTime = Math.floor(Date.now() / 1000);
       
+      console.log('🔐 Token payload:', payload);
+      console.log('🔐 Current time:', currentTime);
+      console.log('🔐 Token expires at:', payload.exp);
+      
       if (payload.exp && payload.exp < currentTime) {
         // Token is expired
-        console.log('Token expired, removing token');
+        console.log('❌ Token expired, removing token');
         localStorage.removeItem('token');
         setIsAuthenticated(false);
         return;
       }
       
-      console.log('Token is valid, setting isAuthenticated to true');
+      console.log('✅ Token is valid, setting isAuthenticated to true');
       setIsAuthenticated(true);
     } catch (error) {
       // Invalid token format
-      console.log('Invalid token format, removing token');
+      console.log('❌ Invalid token format, removing token:', error);
       localStorage.removeItem('token');
       setIsAuthenticated(false);
     }
@@ -969,12 +993,17 @@ const Gallery = () => {
   };
 
   const handleLike = async (postId) => {
-    console.log('handleLike called, isAuthenticated:', isAuthenticated);
+    console.log('❤️ handleLike called for post:', postId);
+    console.log('❤️ Current isAuthenticated state:', isAuthenticated);
+    console.log('❤️ Token in localStorage:', !!localStorage.getItem('token'));
+    
     if (!isAuthenticated) {
-      console.log('User not authenticated, showing sign-in modal');
+      console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
     }
+    
+    console.log('✅ User is authenticated, proceeding with like...');
 
     try {
       const token = localStorage.getItem('token');
@@ -1007,10 +1036,17 @@ const Gallery = () => {
   };
 
   const handleComment = async (postId) => {
+    console.log('💬 handleComment called for post:', postId);
+    console.log('💬 Current isAuthenticated state:', isAuthenticated);
+    console.log('💬 Token in localStorage:', !!localStorage.getItem('token'));
+    
     if (!isAuthenticated) {
+      console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
     }
+    
+    console.log('✅ User is authenticated, proceeding with comment...');
 
     if (!newComment.trim()) return;
 
@@ -1422,13 +1458,23 @@ const Gallery = () => {
               <FaTimes />
             </button>
             <SignInForm 
-              onSuccess={() => {
+              onSuccess={async () => {
+                console.log('🎉 SignInForm onSuccess called');
                 setShowSignInModal(false);
+                
+                // Wait a bit for the token to be set in localStorage
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                console.log('🔄 Checking authentication after login...');
                 checkAuthentication();
-                // Refresh engagement data for the current post
-                if (selectedPost) {
-                  fetchEngagementStats(selectedPost._id);
-                }
+                
+                // Wait for state to update, then refresh engagement data
+                setTimeout(() => {
+                  console.log('🔄 Refreshing engagement data...');
+                  if (selectedPost) {
+                    fetchEngagementStats(selectedPost._id);
+                  }
+                }, 200);
               }}
               onSwitch={() => {
                 setShowSignInModal(false);
@@ -1450,13 +1496,23 @@ const Gallery = () => {
               <FaTimes />
             </button>
             <SignUpForm 
-              onSuccess={() => {
+              onSuccess={async () => {
+                console.log('🎉 SignUpForm onSuccess called');
                 setShowSignUpModal(false);
+                
+                // Wait a bit for the token to be set in localStorage
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                console.log('🔄 Checking authentication after signup...');
                 checkAuthentication();
-                // Refresh engagement data for the current post
-                if (selectedPost) {
-                  fetchEngagementStats(selectedPost._id);
-                }
+                
+                // Wait for state to update, then refresh engagement data
+                setTimeout(() => {
+                  console.log('🔄 Refreshing engagement data...');
+                  if (selectedPost) {
+                    fetchEngagementStats(selectedPost._id);
+                  }
+                }, 200);
               }}
               onSwitch={() => {
                 setShowSignUpModal(false);
