@@ -476,9 +476,10 @@ const DetailsSection = styled.div`
     flex: 1;
     border-left: none;
     border-top: 1px solid #e9ecef;
-    min-height: 0; /* Allow flex item to shrink */
-    overflow: visible; /* Allow content to be visible */
-    max-height: 50vh; /* Limit height to half of viewport */
+    min-height: 0;
+    overflow: visible;
+    max-height: none; /* Remove height restriction */
+    height: auto; /* Allow natural height */
   }
 `;
 
@@ -603,8 +604,9 @@ const ScrollableContent = styled.div`
   scrollbar-width: thin; /* Thin scrollbar on Firefox */
   
   @media (max-width: 768px) {
-    max-height: 200px; /* Limit height on mobile to ensure scrolling */
+    max-height: 300px; /* Increased height for mobile */
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   /* Custom scrollbar for webkit browsers */
@@ -901,6 +903,17 @@ const Gallery = () => {
       fetchLikes(selectedPost._id);
     }
   }, [isAuthenticated, selectedPost]);
+
+  // Force refresh like state when modal opens
+  useEffect(() => {
+    if (showModal && selectedPost && isAuthenticated) {
+      console.log('🔄 Modal opened, force refreshing like state for post:', selectedPost._id);
+      // Small delay to ensure token is available
+      setTimeout(() => {
+        fetchLikes(selectedPost._id);
+      }, 100);
+    }
+  }, [showModal, selectedPost, isAuthenticated]);
 
   // Handle body class for modal consistency and scroll prevention
   useEffect(() => {
@@ -1425,6 +1438,13 @@ const Gallery = () => {
                     )}
 
                     {/* Comments Display */}
+                    {/* Debug info - remove after fixing */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <div style={{ fontSize: '10px', color: '#999', marginBottom: '8px' }}>
+                        Debug: Comments loaded: {comments[selectedPost._id] ? comments[selectedPost._id].length : 0}
+                      </div>
+                    )}
+                    
                     {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
                       <CommentsSection>
                         {comments[selectedPost._id].map((comment) => (
@@ -1494,6 +1514,13 @@ const Gallery = () => {
 
                     <Engagement>
                       {engagementStats[selectedPost._id]?.likeCount || 0} likes
+                      {/* Debug info - remove after fixing */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
+                          Debug: userLiked={String(engagementStats[selectedPost._id]?.userLiked)}, 
+                          isAuth={String(isAuthenticated)}
+                        </div>
+                      )}
                     </Engagement>
 
                     <Timestamp>
