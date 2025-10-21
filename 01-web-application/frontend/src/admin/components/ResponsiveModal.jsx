@@ -57,7 +57,7 @@ const ResponsiveModal = ({
         onClick={onHide}
       />
       
-      {/* Single Modal Container */}
+      {/* Single Modal Container - No Inner/Outer Structure */}
       <div 
         className={`admin-modal ${className}`}
         onClick={(e) => e.stopPropagation()}
@@ -66,10 +66,10 @@ const ResponsiveModal = ({
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+          background: '#ffffff',
           borderRadius: 'clamp(12px, 2vw, 20px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+          border: '1px solid #e9ecef',
+          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)',
           width: modalSize.width,
           maxWidth: modalSize.maxWidth,
           height: 'auto',
@@ -89,9 +89,8 @@ const ResponsiveModal = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: 'clamp(1rem, 2.5vw, 2rem) clamp(1.5rem, 3vw, 2rem)',
-          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-          borderRadius: 'clamp(12px, 2vw, 20px) clamp(12px, 2vw, 20px) 0 0',
-          borderBottom: '2px solid rgba(33, 44, 89, 0.1)',
+          background: '#ffffff',
+          borderBottom: '1px solid #e9ecef',
           flexShrink: 0
         }}>
           <h3 style={{
@@ -146,7 +145,8 @@ const ResponsiveModal = ({
           flex: 1,
           overflowY: 'auto',
           minHeight: 0,
-          maxHeight: 'calc(100vh - clamp(120px, 20vw, 200px))'
+          maxHeight: 'calc(100vh - clamp(120px, 20vw, 200px))',
+          background: '#ffffff'
         }}>
           {children}
         </div>
