@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
+import { useAuth } from '../contexts/AuthContext';
 
 // Function to mask email address for security
 const maskEmail = (email) => {
@@ -12,6 +13,7 @@ const maskEmail = (email) => {
 };
 
 const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = false }) => {
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -131,6 +133,8 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         if (!preventRedirect) {
           window.location.href = '/admin/home';
         }
+        // Update global auth state
+        login(data.user);
         onSubmit && onSubmit(data.user);
         } else {
           // Customer login successful
@@ -156,6 +160,8 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         if (!preventRedirect) {
           window.location.href = '/';
         }
+        // Update global auth state
+        login(data.user);
         onSubmit && onSubmit(data.user);
         }
       } catch (error) {
@@ -217,6 +223,8 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         if (!preventRedirect) {
           window.location.href = '/admin/home';
         }
+        // Update global auth state
+        login(data.user);
         onSubmit && onSubmit(data.user);
       } catch (error) {
 

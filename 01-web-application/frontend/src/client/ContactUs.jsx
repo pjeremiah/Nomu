@@ -393,33 +393,7 @@ const ContactUs = () => {
   });
 
 
-  // Function to fetch complete user data from server
-  const fetchCompleteUserData = async (token) => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
-      const response = await fetch(`${API_URL}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const userData = await response.json();
-        
-        // Update storage with complete user data
-        if (localStorage.getItem('token')) {
-          localStorage.setItem('user', JSON.stringify(userData));
-        } else if (sessionStorage.getItem('token')) {
-          sessionStorage.setItem('user', JSON.stringify(userData));
-        }
-        
-        return userData;
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    }
-    return null;
-  };
+  // No need for local user data fetching - using global auth context
 
   // Function to check auth status and update state
   // Pre-fill form when user is authenticated
@@ -450,16 +424,18 @@ const ContactUs = () => {
     return validDomains.some(domain => email.toLowerCase().endsWith(domain));
   };
 
-  const handleSignInSuccess = () => {
+  const handleSignInSuccess = (userData) => {
     setShowSignIn(false);
     setShowSignUp(false);
     // No need for alerts - user is already logged in
+    console.log('ContactUs: Sign in successful, userData:', userData);
   };
 
-  const handleSignUpSuccess = () => {
+  const handleSignUpSuccess = (userData) => {
     setShowSignIn(false);
     setShowSignUp(false);
     // No need for alerts - user is already logged in
+    console.log('ContactUs: Sign up successful, userData:', userData);
   };
 
   const handleSwitchToSignUp = () => {

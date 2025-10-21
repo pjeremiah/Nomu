@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import EnhancedGenderDropdown from './components/EnhancedGenderDropdown';
 import SuccessModal from '../components/SuccessModal';
 
@@ -13,6 +14,7 @@ const maskEmail = (email) => {
 };
 
 const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -287,6 +289,8 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
           });
           setInvalidFields([]);
           alert('Signup successful!');
+          // Update global auth state
+          login(data.user);
           onSubmit(data.user);
         }
       } catch (error) {
