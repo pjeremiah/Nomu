@@ -476,7 +476,7 @@ const DetailsSection = styled.div`
     border-top: 1px solid #e9ecef;
     min-height: 0;
     overflow: visible;
-    max-height: none;
+    max-height: 70vh;
     height: auto;
     display: flex;
     flex-direction: column;
@@ -605,10 +605,10 @@ const ScrollableContent = styled.div`
   
   @media (max-width: 768px) {
     flex: 1;
-    overflow-y: visible;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     min-height: 0;
-    max-height: none;
+    max-height: 300px;
   }
   
   /* Custom scrollbar for webkit browsers */
@@ -1062,6 +1062,7 @@ const Gallery = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Like response:', data);
         setEngagementStats(prev => ({
           ...prev,
           [postId]: {
@@ -1074,6 +1075,7 @@ const Gallery = () => {
           ...prev,
           [postId]: data.liked
         }));
+        console.log('Updated engagement stats for post', postId, ':', data);
       }
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -1488,24 +1490,48 @@ const Gallery = () => {
                           fontSize: '24px',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center'
+                          justifyContent: 'center',
+                          width: '40px',
+                          height: '40px',
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer'
                         }}
                       >
                         <FaHeart 
                           style={{ 
                             color: (engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : '#333',
-                            fontSize: '24px'
+                            fontSize: '24px',
+                            display: 'block',
+                            width: '24px',
+                            height: '24px'
                           }}
                           fill={(engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : 'none'}
                         />
                       </PostActionButton>
-                      <PostActionButton onClick={() => document.getElementById('commentInput').focus()}>
+                      <PostActionButton 
+                        onClick={() => document.getElementById('commentInput').focus()}
+                        style={{
+                          fontSize: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '40px',
+                          height: '40px',
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
                         <FaComment />
                       </PostActionButton>
                     </PostActions>
 
                     <Engagement>
                       {engagementStats[selectedPost._id]?.likeCount || 0} likes
+                      <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
+                        Debug: userLiked = {String(engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id] || false)}
+                      </div>
                     </Engagement>
 
                     <Timestamp>
