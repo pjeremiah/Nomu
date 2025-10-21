@@ -8,6 +8,7 @@ import ForContactUsPageImg from '../utils/Images/Contact Us/ForContactUsPage.jpg
 import SignInForm from './SignInForm';
 import SignUpForm from './SignUpForm';
 import FeedbackSuccessModal from '../components/FeedbackSuccessModal';
+import { useAuth } from '../contexts/AuthContext';
 
 // Styled Components
 const ContactContainer = styled.div`
@@ -302,11 +303,12 @@ const ContactUs = () => {
   const theme = useTheme();
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userData, setUserData] = useState(null);
   const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
   const [isFormPreFilled, setIsFormPreFilled] = useState(false);
   const [showFeedbackSuccessModal, setShowFeedbackSuccessModal] = useState(false);
+  
+  // Use global auth context
+  const { isAuthenticated, user } = useAuth();
 
   // Prevent body scrolling when modal is open
   useEffect(() => {
@@ -420,30 +422,9 @@ const ContactUs = () => {
   };
 
   // Function to check auth status and update state
-  const checkAuthStatus = async () => {
-    // Check both localStorage and sessionStorage for token and user data
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const userString = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
-    let user = JSON.parse(userString);
-    
-    if (token && user && Object.keys(user).length > 0) {
-      setIsLoggedIn(true);
-      setUserData(user);
-      
-      // Check if user data is incomplete (only has profilePicture)
-      const hasOnlyProfilePicture = Object.keys(user).length === 1 && user.profilePicture;
-      
-      if (hasOnlyProfilePicture) {
-        const completeUserData = await fetchCompleteUserData(token);
-        if (completeUserData) {
-          // Use the complete user data
-          setUserData(completeUserData);
-          user = completeUserData;
-        }
-      }
-      
-      // Pre-fill form with user data if available
-      // Try different possible field names for name and email
+  // Pre-fill form when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
       const userName = user.fullName || user.name || user.username || '';
       const userEmail = user.email || '';
       
@@ -454,34 +435,13 @@ const ContactUs = () => {
           email: userEmail
         }));
         setIsFormPreFilled(true);
-      } else {
-        setIsFormPreFilled(false);
       }
     } else {
-      setIsLoggedIn(false);
-      setUserData(null);
-      // Clear form when user is not logged in
-      setFormValues({
-        name: '',
-        email: '',
-        message: ''
-      });
       setIsFormPreFilled(false);
     }
-  };
+  }, [isAuthenticated, user]);
 
-  // Check authentication status on mount and when auth changes
-  useEffect(() => {
-    checkAuthStatus();
-
-    // Listen for auth changes (sign in/out)
-    const handleAuthChange = () => checkAuthStatus();
-    window.addEventListener('authChange', handleAuthChange);
-
-    return () => {
-      window.removeEventListener('authChange', handleAuthChange);
-    };
-  }, []);
+  // No need for auth checking - using global auth context
 
   // Debug form values changes
 
@@ -493,25 +453,13 @@ const ContactUs = () => {
   const handleSignInSuccess = () => {
     setShowSignIn(false);
     setShowSignUp(false);
-    // Trigger auth change event before checking status
-    window.dispatchEvent(new Event('authChange'));
-    // Wait a brief moment before checking auth status to ensure event has propagated
-    setTimeout(() => {
-      checkAuthStatus();
-      alert('Successfully signed in! Your information has been pre-filled in the form.');
-    }, 100);
+    // No need for alerts - user is already logged in
   };
 
   const handleSignUpSuccess = () => {
     setShowSignIn(false);
     setShowSignUp(false);
-    // Trigger auth change event before checking status
-    window.dispatchEvent(new Event('authChange'));
-    // Wait a brief moment before checking auth status to ensure event has propagated
-    setTimeout(() => {
-      checkAuthStatus();
-      alert('Successfully signed up! Your information has been pre-filled in the form.');
-    }, 100);
+    // No need for alerts - user is already logged in
   };
 
   const handleSwitchToSignUp = () => {
@@ -526,7 +474,7 @@ const ContactUs = () => {
 
   const handleFormChange = (e) => {
     // Prevent changes to name and email when logged in
-    if (isLoggedIn && (e.target.name === 'name' || e.target.name === 'email')) {
+    if (isAuthenticated && (e.target.name === 'name' || e.target.name === 'email')) {
       return;
     }
     setFormValues({ ...formValues, [e.target.name]: e.target.value });
@@ -534,7 +482,7 @@ const ContactUs = () => {
 
   const handleTextboxClick = (e, fieldName) => {
     // Show sign-in modal if user is not logged in
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       e.preventDefault();
       e.target.blur(); // Remove focus from the textbox
       setShowSignIn(true);
@@ -543,7 +491,7 @@ const ContactUs = () => {
 
   const handleTextboxFocus = (e, fieldName) => {
     // Show sign-in modal if user is not logged in
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       e.preventDefault();
       e.target.blur(); // Remove focus from the textbox
       setShowSignIn(true);
@@ -554,7 +502,7 @@ const ContactUs = () => {
     e.preventDefault();
 
     // Check if user is logged in
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       setShowSignIn(true);
       return;
     }
@@ -669,8 +617,8 @@ const ContactUs = () => {
                       onChange={handleFormChange}
                       onClick={(e) => handleTextboxClick(e, 'name')}
                       onFocus={(e) => handleTextboxFocus(e, 'name')}
-                      readOnly={isLoggedIn}
-                      style={isLoggedIn ? { 
+                      readOnly={isAuthenticated}
+                      style={isAuthenticated ? { 
                         backgroundColor: '#e9ecef', 
                         cursor: 'not-allowed',
                         borderColor: '#ced4da'
@@ -688,8 +636,8 @@ const ContactUs = () => {
                       onChange={handleFormChange}
                       onClick={(e) => handleTextboxClick(e, 'email')}
                       onFocus={(e) => handleTextboxFocus(e, 'email')}
-                      readOnly={isLoggedIn}
-                      style={isLoggedIn ? { 
+                      readOnly={isAuthenticated}
+                      style={isAuthenticated ? { 
                         backgroundColor: '#e9ecef', 
                         cursor: 'not-allowed',
                         borderColor: '#ced4da'
