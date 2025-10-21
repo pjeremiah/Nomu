@@ -19,7 +19,9 @@ router.get('/test-auth', authMiddleware, (req, res) => {
   res.json({ 
     message: 'Auth test successful',
     user: req.user,
-    userId: req.user?.userId
+    userId: req.user?.userId,
+    id: req.user?.id,
+    allFields: req.user
   });
 });
 
@@ -27,7 +29,7 @@ router.get('/test-auth', authMiddleware, (req, res) => {
 router.post('/like/:postId', authMiddleware, async (req, res) => {
   try {
     const { postId } = req.params;
-    const userId = req.user?.userId;
+    const userId = req.user?.userId || req.user?.id;
 
     // Log the request
     console.log('🔍 Like request - postId:', postId, 'userId:', userId, 'req.user:', req.user);
@@ -38,7 +40,7 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     }
     
     if (!userId) {
-      return res.status(400).json({ message: 'Missing user ID', debug: { reqUser: req.user } });
+      return res.status(400).json({ message: 'Missing user ID', debug: { reqUser: req.user, availableFields: req.user ? Object.keys(req.user) : 'req.user is null' } });
     }
 
     // Check if post exists
@@ -113,7 +115,7 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
   try {
     const { postId } = req.params;
     const { content } = req.body;
-    const userId = req.user?.userId;
+    const userId = req.user?.userId || req.user?.id;
 
     console.log('🔍 Comment request - postId:', postId, 'userId:', userId, 'content:', content);
     console.log('🔍 req.user:', req.user);
@@ -201,7 +203,7 @@ router.get('/comments/:postId', async (req, res) => {
 router.get('/stats/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
-    const userId = req.user?.userId; // Optional, for checking if user liked the post
+    const userId = req.user?.userId || req.user?.id; // Optional, for checking if user liked the post
 
     const [likeCount, commentCount, userLiked] = await Promise.all([
       Like.countDocuments({ post: postId }),
@@ -224,7 +226,7 @@ router.get('/stats/:postId', async (req, res) => {
 router.delete('/comment/:commentId', authMiddleware, async (req, res) => {
   try {
     const { commentId } = req.params;
-    const userId = req.user?.userId;
+    const userId = req.user?.userId || req.user?.id;
 
     console.log('🔍 Delete comment request - commentId:', commentId, 'userId:', userId);
 
