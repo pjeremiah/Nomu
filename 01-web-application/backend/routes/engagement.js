@@ -33,6 +33,8 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
 
     // Log the request
     console.log('🔍 Like request - postId:', postId, 'userId:', userId, 'req.user:', req.user);
+    console.log('🔍 Authorization header:', req.headers.authorization);
+    console.log('🔍 req.user keys:', req.user ? Object.keys(req.user) : 'req.user is null');
 
     // Basic validation
     if (!postId) {
@@ -40,7 +42,14 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     }
     
     if (!userId) {
-      return res.status(400).json({ message: 'Missing user ID', debug: { reqUser: req.user, availableFields: req.user ? Object.keys(req.user) : 'req.user is null' } });
+      return res.status(400).json({ 
+        message: 'Missing user ID', 
+        debug: { 
+          reqUser: req.user, 
+          availableFields: req.user ? Object.keys(req.user) : 'req.user is null',
+          authHeader: req.headers.authorization
+        } 
+      });
     }
 
     // Check if post exists
