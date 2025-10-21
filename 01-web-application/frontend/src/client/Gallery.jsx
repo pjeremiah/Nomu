@@ -801,6 +801,13 @@ const Gallery = () => {
     checkAuthentication();
   }, []);
 
+  // Re-check authentication when component mounts or when modals close
+  useEffect(() => {
+    if (!showSignInModal && !showSignUpModal) {
+      checkAuthentication();
+    }
+  }, [showSignInModal, showSignUpModal]);
+
   useEffect(() => {
     if (selectedPost) {
       fetchEngagementStats(selectedPost._id);
@@ -845,7 +852,44 @@ const Gallery = () => {
 
   const checkAuthentication = () => {
     const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
+    console.log('checkAuthentication called, token exists:', !!token);
+    
+    if (!token) {
+      console.log('No token found, setting isAuthenticated to false');
+      setIsAuthenticated(false);
+      return;
+    }
+
+    // Check if token has valid JWT format (3 parts separated by dots)
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      console.log('Invalid token format, removing token');
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      return;
+    }
+
+    // Check if token is expired
+    try {
+      const payload = JSON.parse(atob(tokenParts[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      if (payload.exp && payload.exp < currentTime) {
+        // Token is expired
+        console.log('Token expired, removing token');
+        localStorage.removeItem('token');
+        setIsAuthenticated(false);
+        return;
+      }
+      
+      console.log('Token is valid, setting isAuthenticated to true');
+      setIsAuthenticated(true);
+    } catch (error) {
+      // Invalid token format
+      console.log('Invalid token format, removing token');
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+    }
   };
 
   const fetchEngagementStats = async (postId) => {
@@ -902,7 +946,9 @@ const Gallery = () => {
   };
 
   const handleLike = async (postId) => {
+    console.log('handleLike called, isAuthenticated:', isAuthenticated);
     if (!isAuthenticated) {
+      console.log('User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
     }
@@ -1355,8 +1401,11 @@ const Gallery = () => {
             <SignInForm 
               onSuccess={() => {
                 setShowSignInModal(false);
-                setIsAuthenticated(true);
                 checkAuthentication();
+                // Refresh engagement data for the current post
+                if (selectedPost) {
+                  fetchEngagementStats(selectedPost._id);
+                }
               }}
               onSwitch={() => {
                 setShowSignInModal(false);
@@ -1380,8 +1429,11 @@ const Gallery = () => {
             <SignUpForm 
               onSuccess={() => {
                 setShowSignUpModal(false);
-                setIsAuthenticated(true);
                 checkAuthentication();
+                // Refresh engagement data for the current post
+                if (selectedPost) {
+                  fetchEngagementStats(selectedPost._id);
+                }
               }}
               onSwitch={() => {
                 setShowSignUpModal(false);
