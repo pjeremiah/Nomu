@@ -430,11 +430,11 @@ const OuterNavButton = styled.button`
 `;
 
 const OuterLeftArrow = styled(OuterNavButton)`
-  left: -25px;
+  left: -60px;
 `;
 
 const OuterRightArrow = styled(OuterNavButton)`
-  right: -25px;
+  right: -60px;
 `;
 
 const DetailsSection = styled.div`
@@ -460,11 +460,38 @@ const Username = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  
+  &:hover {
+    opacity: 0.7;
+  }
+`;
+
+const InstagramIcon = styled.div`
+  width: 20px;
+  height: 20px;
+  background: #b08d57;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #9a7a4a;
+    transform: scale(1.05);
+  }
 `;
 
 const VerifiedBadge = styled.span`
   color: #0095f6;
   font-size: 16px;
+  margin-left: 4px;
 `;
 
 const CloseButton = styled.button`
@@ -527,6 +554,28 @@ const ActionBar = styled.div`
 `;
 
 const ActionButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #333;
+  cursor: pointer;
+  padding: 5px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    color: #0095f6;
+    transform: scale(1.1);
+  }
+`;
+
+const PostActions = styled.div`
+  display: flex;
+  gap: 15px;
+  padding: 15px 0;
+  border-bottom: 1px solid #e9ecef;
+`;
+
+const PostActionButton = styled.button`
   background: none;
   border: none;
   font-size: 24px;
@@ -865,7 +914,8 @@ const Gallery = () => {
             {/* Right Side - Details Section */}
             <DetailsSection>
               <DetailsHeader>
-                <Username>
+                <Username onClick={() => window.open('https://www.instagram.com/nomu.ph/', '_blank')}>
+                  <InstagramIcon>IG</InstagramIcon>
                   nomu.ph
                   <VerifiedBadge>✓</VerifiedBadge>
                 </Username>
@@ -895,20 +945,14 @@ const Gallery = () => {
                   {Math.floor(Math.random() * 50) + 10} likes
                 </Engagement>
 
-                <ActionBar>
-                  <ActionButton>
+                <PostActions>
+                  <PostActionButton>
                     <FaHeart />
-                  </ActionButton>
-                  <ActionButton>
+                  </PostActionButton>
+                  <PostActionButton>
                     <FaComment />
-                  </ActionButton>
-                  <ActionButton>
-                    <FaShare />
-                  </ActionButton>
-                  <ActionButton>
-                    <FaBookmark />
-                  </ActionButton>
-                </ActionBar>
+                  </PostActionButton>
+                </PostActions>
               </DetailsBody>
             </DetailsSection>
           </ModalContent>
