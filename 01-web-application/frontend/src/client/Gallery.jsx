@@ -951,6 +951,21 @@ const Gallery = () => {
     }
   };
 
+  // Helper function to wait for token to be stored
+  const waitForToken = async (maxAttempts = 10) => {
+    for (let i = 0; i < maxAttempts; i++) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        console.log('✅ Token found after', i + 1, 'attempts');
+        return true;
+      }
+      console.log('⏳ Waiting for token, attempt', i + 1);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    console.log('❌ Token not found after', maxAttempts, 'attempts');
+    return false;
+  };
+
   const fetchEngagementStats = async (postId) => {
     try {
       const token = localStorage.getItem('token');
@@ -1508,19 +1523,29 @@ const Gallery = () => {
                 console.log('🎉 SignInForm onSubmit called with userData:', userData);
                 setShowSignInModal(false);
                 
-                // Wait a bit for the token to be set in localStorage
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Wait for token to be stored in localStorage
+                const tokenFound = await waitForToken();
+                console.log('🔄 Token found after login:', tokenFound);
                 
-                console.log('🔄 Checking authentication after login...');
-                checkAuthentication();
-                
-                // Wait for state to update, then refresh engagement data
-                setTimeout(() => {
-                  console.log('🔄 Refreshing engagement data...');
-                  if (selectedPost) {
-                    fetchEngagementStats(selectedPost._id);
-                  }
-                }, 200);
+                if (tokenFound) {
+                  console.log('🔄 Checking authentication after login...');
+                  const authResult = checkAuthentication();
+                  console.log('🔄 Authentication result:', authResult);
+                  
+                  // Force state update
+                  setIsAuthenticated(authResult);
+                  
+                  // Wait for state to update, then refresh engagement data
+                  setTimeout(() => {
+                    console.log('🔄 Refreshing engagement data...');
+                    if (selectedPost) {
+                      fetchEngagementStats(selectedPost._id);
+                    }
+                  }, 200);
+                } else {
+                  console.log('❌ Token not found, authentication failed');
+                  setIsAuthenticated(false);
+                }
               }}
               onSwitch={() => {
                 setShowSignInModal(false);
@@ -1546,19 +1571,29 @@ const Gallery = () => {
                 console.log('🎉 SignUpForm onSubmit called with userData:', userData);
                 setShowSignUpModal(false);
                 
-                // Wait a bit for the token to be set in localStorage
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Wait for token to be stored in localStorage
+                const tokenFound = await waitForToken();
+                console.log('🔄 Token found after signup:', tokenFound);
                 
-                console.log('🔄 Checking authentication after signup...');
-                checkAuthentication();
-                
-                // Wait for state to update, then refresh engagement data
-                setTimeout(() => {
-                  console.log('🔄 Refreshing engagement data...');
-                  if (selectedPost) {
-                    fetchEngagementStats(selectedPost._id);
-                  }
-                }, 200);
+                if (tokenFound) {
+                  console.log('🔄 Checking authentication after signup...');
+                  const authResult = checkAuthentication();
+                  console.log('🔄 Authentication result:', authResult);
+                  
+                  // Force state update
+                  setIsAuthenticated(authResult);
+                  
+                  // Wait for state to update, then refresh engagement data
+                  setTimeout(() => {
+                    console.log('🔄 Refreshing engagement data...');
+                    if (selectedPost) {
+                      fetchEngagementStats(selectedPost._id);
+                    }
+                  }, 200);
+                } else {
+                  console.log('❌ Token not found, authentication failed');
+                  setIsAuthenticated(false);
+                }
               }}
               onSwitch={() => {
                 setShowSignUpModal(false);
