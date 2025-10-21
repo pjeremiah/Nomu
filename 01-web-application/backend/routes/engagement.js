@@ -20,6 +20,18 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     console.log('🔍 Like request - postId:', postId, 'userId:', userId);
     console.log('🔍 User from token:', req.user);
 
+    // Validate postId format
+    if (!postId || postId.length !== 24) {
+      console.log('❌ Invalid postId format:', postId);
+      return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+
+    // Validate userId format
+    if (!userId || userId.length !== 24) {
+      console.log('❌ Invalid userId format:', userId);
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
+
     // Check if post exists
     const post = await GalleryPost.findById(postId);
     if (!post) {
@@ -103,6 +115,18 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
 
     console.log('🔍 Comment request - postId:', postId, 'userId:', userId, 'content:', content);
     console.log('🔍 User from token:', req.user);
+
+    // Validate postId format
+    if (!postId || postId.length !== 24) {
+      console.log('❌ Invalid postId format:', postId);
+      return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+
+    // Validate userId format
+    if (!userId || userId.length !== 24) {
+      console.log('❌ Invalid userId format:', userId);
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
 
     if (!content || content.trim().length === 0) {
       console.log('❌ Comment content is required');

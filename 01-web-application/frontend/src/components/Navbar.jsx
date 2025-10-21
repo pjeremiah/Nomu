@@ -901,15 +901,26 @@ const Navbar = () => {
         <ModalBackdrop>
           <ModalContent onClick={e => e.stopPropagation()}>
             {authMode === 'signin' ? (
-              <SignInForm onSubmit={() => {
-                closeModal();
-                window.dispatchEvent(new Event('authChange'));
-              }} onSwitch={() => setAuthMode('signup')} onOTPStateChange={setIsOTPFormShowing} />
+              <SignInForm 
+                preventRedirect={true}
+                onSubmit={(userData) => {
+                  console.log('Navbar: Sign in successful, userData:', userData);
+                  closeModal();
+                  // Global auth context will handle the login automatically
+                }} 
+                onSwitch={() => setAuthMode('signup')} 
+                onOTPStateChange={setIsOTPFormShowing} 
+              />
             ) : (
-              <SignUpForm onSubmit={() => {
-                closeModal();
-                window.dispatchEvent(new Event('authChange'));
-              }} onSwitch={() => setAuthMode('signin')} onOTPStateChange={setIsOTPFormShowing} />
+              <SignUpForm 
+                onSubmit={(userData) => {
+                  console.log('Navbar: Sign up successful, userData:', userData);
+                  closeModal();
+                  // Global auth context will handle the login automatically
+                }} 
+                onSwitch={() => setAuthMode('signin')} 
+                onOTPStateChange={setIsOTPFormShowing} 
+              />
             )}
             {!isOTPFormShowing && (
               <CloseModalButton onClick={closeModal}>
