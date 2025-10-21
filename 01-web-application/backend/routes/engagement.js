@@ -6,6 +6,11 @@ const Comment = require('../models/Comment');
 const GalleryPost = require('../models/GalleryPost');
 const User = require('../models/User');
 
+console.log('🔍 Engagement routes loaded');
+console.log('🔍 Like model:', Like);
+console.log('🔍 Comment model:', Comment);
+console.log('🔍 User model:', User);
+
 // Like/Unlike a post
 router.post('/like/:postId', authMiddleware, async (req, res) => {
   try {

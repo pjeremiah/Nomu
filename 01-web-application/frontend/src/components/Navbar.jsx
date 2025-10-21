@@ -8,6 +8,7 @@ import { X } from 'lucide-react';
 import SignInForm from '../client/SignInForm'; 
 import SignUpForm from '../client/SignUpForm';
 import MobileAppModal from './MobileAppModal';
+import { useAuth } from '../contexts/AuthContext';
 
 // --- Hook ---
 const useWindowResize = () => {
@@ -585,6 +586,9 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const isMountedRef = useRef(false);
   
+  // Use global auth context
+  const { isAuthenticated, user } = useAuth();
+  
   // Initialize component and ensure modal is closed
   useEffect(() => {
     isMountedRef.current = true;
@@ -669,74 +673,32 @@ const Navbar = () => {
   // Check if user is on account settings page
   const isAccountSettings = location.pathname === '/account-settings' || location.pathname === '/accountsettings';
   
-  // Helper function to get token from either localStorage or sessionStorage
-  const getToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
-  };
-
-  const [isLoggedIn, setIsLoggedIn] = useState(!!getToken());
   const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
   
   // API URL configuration
   const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
   
-  const [avatarUrl, setAvatarUrl] = useState(() => {
-    try {
-      const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-      if (u.profilePicture) {
-        // Handle both full URLs and relative paths
-        if (u.profilePicture.startsWith('http')) {
-          return u.profilePicture;
-        } else if (u.profilePicture.startsWith('/api/')) {
-          return `${API_URL}${u.profilePicture}`;
-        } else {
-          return `${API_URL}${u.profilePicture}`;
-        }
+  // Get avatar URL from global auth context
+  const getAvatarUrl = () => {
+    if (user && user.profilePicture) {
+      // Handle both full URLs and relative paths
+      if (user.profilePicture.startsWith('http')) {
+        return user.profilePicture;
+      } else if (user.profilePicture.startsWith('/api/')) {
+        return `${API_URL}${user.profilePicture}`;
+      } else {
+        return `${API_URL}${user.profilePicture}`;
       }
-      return '';
-    } catch {
-      return '';
     }
-  });
+    return '';
+  };
   const [imageLoadError, setImageLoadError] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [touchStartY, setTouchStartY] = useState(null);
   const [touchEndY, setTouchEndY] = useState(null);
 
-  useEffect(() => {
-    const updateAuthStatus = () => {
-      setIsLoggedIn(!!getToken());
-      try {
-        const userData = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
-        const u = JSON.parse(userData);
-        if (u.profilePicture) {
-          // Handle both full URLs and relative paths
-          let newAvatarUrl;
-          if (u.profilePicture.startsWith('http')) {
-            newAvatarUrl = u.profilePicture;
-          } else if (u.profilePicture.startsWith('/api/')) {
-            newAvatarUrl = `${API_URL}${u.profilePicture}`;
-          } else {
-            newAvatarUrl = `${API_URL}${u.profilePicture}`;
-          }
-          setAvatarUrl(newAvatarUrl);
-          setImageLoadError(false); // Reset error state when URL changes
-        } else {
-          setAvatarUrl('');
-          setImageLoadError(false);
-        }
-      } catch (error) {
-        setAvatarUrl('');
-      }
-    };
-
-    // Update immediately on mount
-    updateAuthStatus();
-
-    window.addEventListener('authChange', updateAuthStatus);
-    return () => window.removeEventListener('authChange', updateAuthStatus);
-  }, [API_URL]);
+  // No need for local auth state management - using global auth context
 
   useEffect(() => {
     if (!isMobile) {
@@ -782,12 +744,10 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
-      const token = getToken();
-      const userData = localStorage.getItem('user') || sessionStorage.getItem('user') || '{}';
-      const user = JSON.parse(userData);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       // If admin, call logout API to set status to inactive
-      if (token && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
+      if (token && user && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
         const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
         await fetch(`${API_URL}/api/auth/logout`, {
           method: 'POST',
@@ -892,15 +852,15 @@ const Navbar = () => {
 
         <NavRight>
           <ButtonContainer>
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <IconButton onClick={handleDropdownClick}>
-                {avatarUrl && !imageLoadError ? (
+                {getAvatarUrl() && !imageLoadError ? (
                   <img 
-                    src={avatarUrl} 
+                    src={getAvatarUrl()} 
                     alt="avatar" 
                     style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} 
                     onError={(e) => {
-                      console.error('Navbar - Image failed to load:', avatarUrl);
+                      console.error('Navbar - Image failed to load:', getAvatarUrl());
                       setImageLoadError(true);
                     }}
                     onLoad={() => {
@@ -910,11 +870,11 @@ const Navbar = () => {
                 ) : (
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#003466', fontWeight: 700 }}>
                     {(() => {
-                      try {
-                        const u = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-                        const name = u.fullName || u.username || 'U';
+                      if (user) {
+                        const name = user.fullName || user.username || 'U';
                         return String(name).trim().charAt(0).toUpperCase() || 'U';
-                      } catch { return 'U'; }
+                      }
+                      return 'U';
                     })()}
                   </div>
                 )}
@@ -1036,7 +996,7 @@ const Navbar = () => {
           </MobileAppIcon>
         </div>
 
-        {!isLoggedIn && (
+        {!isAuthenticated && (
           <div style={{ flexShrink: 0, paddingTop: '20px', paddingBottom: '40px' }}>
             <SignInButton 
               $isScrolled={isScrolled}
