@@ -15,7 +15,7 @@ console.log('🔍 User model:', User);
 router.post('/like/:postId', authMiddleware, async (req, res) => {
   try {
     const { postId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     console.log('🔍 Like request - postId:', postId, 'userId:', userId);
     console.log('🔍 req.user:', req.user);
@@ -98,7 +98,7 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
   try {
     const { postId } = req.params;
     const { content } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     console.log('🔍 Comment request - postId:', postId, 'userId:', userId, 'content:', content);
     console.log('🔍 req.user:', req.user);
@@ -186,7 +186,7 @@ router.get('/comments/:postId', async (req, res) => {
 router.get('/stats/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
-    const userId = req.user?.id; // Optional, for checking if user liked the post
+    const userId = req.user?.userId; // Optional, for checking if user liked the post
 
     const [likeCount, commentCount, userLiked] = await Promise.all([
       Like.countDocuments({ post: postId }),
