@@ -25,6 +25,14 @@ router.get('/test-auth', authMiddleware, (req, res) => {
   });
 });
 
+// Test route without authentication
+router.get('/test-no-auth', (req, res) => {
+  res.json({ 
+    message: 'No auth test successful',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Like/Unlike a post
 router.post('/like/:postId', authMiddleware, async (req, res) => {
   try {

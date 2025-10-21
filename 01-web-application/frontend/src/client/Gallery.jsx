@@ -948,8 +948,7 @@ const Gallery = () => {
       const response = await fetch(`${API_BASE}/api/engagement/like/${postId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
 
