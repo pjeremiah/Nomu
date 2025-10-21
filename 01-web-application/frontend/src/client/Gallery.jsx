@@ -818,7 +818,7 @@ const Gallery = () => {
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   
   // Use global auth context
-  const { isAuthenticated, checkAuthentication, login } = useAuth();
+  const { isAuthenticated, user, checkAuthentication, login } = useAuth();
 
   // API_BASE is already defined at the top of the file
 
