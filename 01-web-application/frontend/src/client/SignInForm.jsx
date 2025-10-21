@@ -116,17 +116,22 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
             localStorage.removeItem('rememberFor30Days');
+        } else {
+          // Store in localStorage for session-only login when preventRedirect is true
+          if (preventRedirect) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
           } else {
-            // Store in sessionStorage for session-only login
             sessionStorage.setItem('token', data.token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
-            localStorage.removeItem('rememberMe');
-            localStorage.removeItem('rememberFor30Days');
           }
-          if (!preventRedirect) {
-            window.location.href = '/admin/home';
-          }
-          onSubmit && onSubmit(data.user);
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('rememberFor30Days');
+        }
+        if (!preventRedirect) {
+          window.location.href = '/admin/home';
+        }
+        onSubmit && onSubmit(data.user);
         } else {
           // Customer login successful
           
@@ -136,17 +141,22 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
             localStorage.removeItem('rememberFor30Days');
+        } else {
+          // Store in localStorage for session-only login when preventRedirect is true
+          if (preventRedirect) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
           } else {
-            // Store in sessionStorage for session-only login
             sessionStorage.setItem('token', data.token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
-            localStorage.removeItem('rememberMe');
-            localStorage.removeItem('rememberFor30Days');
           }
-          if (!preventRedirect) {
-            window.location.href = '/';
-          }
-          onSubmit && onSubmit(data.user);
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('rememberFor30Days');
+        }
+        if (!preventRedirect) {
+          window.location.href = '/';
+        }
+        onSubmit && onSubmit(data.user);
         }
       } catch (error) {
 
@@ -193,9 +203,14 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           localStorage.setItem('rememberMe', 'true');
           localStorage.removeItem('rememberFor30Days');
         } else {
-          // Store in sessionStorage for session-only login
-          sessionStorage.setItem('token', data.token);
-          sessionStorage.setItem('user', JSON.stringify(data.user));
+          // Store in localStorage for session-only login when preventRedirect is true
+          if (preventRedirect) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+          } else {
+            sessionStorage.setItem('token', data.token);
+            sessionStorage.setItem('user', JSON.stringify(data.user));
+          }
           localStorage.removeItem('rememberMe');
           localStorage.removeItem('rememberFor30Days');
         }
