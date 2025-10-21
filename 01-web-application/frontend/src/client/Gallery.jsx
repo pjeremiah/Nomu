@@ -1503,8 +1503,8 @@ const Gallery = () => {
               <FaTimes />
             </button>
             <SignInForm 
-              onSuccess={async () => {
-                console.log('🎉 SignInForm onSuccess called');
+              onSubmit={async () => {
+                console.log('🎉 SignInForm onSubmit called');
                 setShowSignInModal(false);
                 
                 // Wait a bit for the token to be set in localStorage
@@ -1541,8 +1541,8 @@ const Gallery = () => {
               <FaTimes />
             </button>
             <SignUpForm 
-              onSuccess={async () => {
-                console.log('🎉 SignUpForm onSuccess called');
+              onSubmit={async () => {
+                console.log('🎉 SignUpForm onSubmit called');
                 setShowSignUpModal(false);
                 
                 // Wait a bit for the token to be set in localStorage
