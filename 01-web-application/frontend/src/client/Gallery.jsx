@@ -319,9 +319,7 @@ const ModalContent = styled.div`
     height: 100vh !important;
     border-radius: 0 !important;
     flex-direction: column !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    overflow: hidden !important;
   }
 `;
 
@@ -477,9 +475,10 @@ const DetailsSection = styled.div`
     border-left: none;
     border-top: 1px solid #e9ecef;
     min-height: 0;
-    overflow: visible;
-    max-height: none; /* Remove height restriction */
-    height: auto; /* Allow natural height */
+    overflow-y: auto;
+    max-height: 60vh; /* Give more space for comments */
+    display: flex;
+    flex-direction: column;
   }
 `;
 
@@ -604,9 +603,10 @@ const ScrollableContent = styled.div`
   scrollbar-width: thin; /* Thin scrollbar on Firefox */
   
   @media (max-width: 768px) {
-    max-height: 300px; /* Increased height for mobile */
+    flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    min-height: 0;
   }
   
   /* Custom scrollbar for webkit browsers */
@@ -889,7 +889,6 @@ const Gallery = () => {
 
   useEffect(() => {
     if (selectedPost) {
-      console.log('🔄 Modal opened for post:', selectedPost._id, 'isAuthenticated:', isAuthenticated);
       fetchEngagementStats(selectedPost._id);
       fetchComments(selectedPost._id);
       fetchLikes(selectedPost._id);
@@ -899,7 +898,6 @@ const Gallery = () => {
   // Additional effect to refresh like state when authentication changes
   useEffect(() => {
     if (selectedPost && isAuthenticated) {
-      console.log('🔄 Authentication changed, refreshing like state for post:', selectedPost._id);
       fetchLikes(selectedPost._id);
     }
   }, [isAuthenticated, selectedPost]);
@@ -907,7 +905,6 @@ const Gallery = () => {
   // Force refresh like state when modal opens
   useEffect(() => {
     if (showModal && selectedPost && isAuthenticated) {
-      console.log('🔄 Modal opened, force refreshing like state for post:', selectedPost._id);
       // Small delay to ensure token is available
       setTimeout(() => {
         fetchLikes(selectedPost._id);
@@ -1004,7 +1001,6 @@ const Gallery = () => {
   const fetchLikes = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      console.log('🔍 Fetching likes for post:', postId, 'with token:', !!token, 'isAuthenticated:', isAuthenticated);
       
       // Always try to fetch likes, even if not authenticated (to get like count)
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -1015,7 +1011,6 @@ const Gallery = () => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Likes data received:', data);
         
         setLikes(prev => ({
           ...prev,
@@ -1039,7 +1034,6 @@ const Gallery = () => {
             }
           }));
           
-          console.log('✅ Like state updated - userLiked:', data.userLiked);
         } else {
           // If not authenticated, just update like count
           setEngagementStats(prev => ({
@@ -1050,7 +1044,6 @@ const Gallery = () => {
               userLiked: false
             }
           }));
-          console.log('ℹ️ Not authenticated, only updating like count');
         }
       } else {
         console.error('❌ Failed to fetch likes:', response.status);
@@ -1078,7 +1071,6 @@ const Gallery = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('💖 Like response:', data);
         setEngagementStats(prev => ({
           ...prev,
           [postId]: {
@@ -1091,7 +1083,6 @@ const Gallery = () => {
           ...prev,
           [postId]: data.liked
         }));
-        console.log('✅ Like state updated - liked:', data.liked);
       }
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -1438,13 +1429,6 @@ const Gallery = () => {
                     )}
 
                     {/* Comments Display */}
-                    {/* Debug info - remove after fixing */}
-                    {process.env.NODE_ENV === 'development' && (
-                      <div style={{ fontSize: '10px', color: '#999', marginBottom: '8px' }}>
-                        Debug: Comments loaded: {comments[selectedPost._id] ? comments[selectedPost._id].length : 0}
-                      </div>
-                    )}
-                    
                     {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
                       <CommentsSection>
                         {comments[selectedPost._id].map((comment) => (
@@ -1503,9 +1487,16 @@ const Gallery = () => {
                     <PostActions>
                       <PostActionButton 
                         onClick={() => handleLike(selectedPost._id)}
-                        style={{ color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333' }}
+                        style={{ 
+                          color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333'
+                        }}
                       >
-                        <FaHeart />
+                        <FaHeart 
+                          style={{ 
+                            color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333'
+                          }}
+                          fill={engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : 'none'}
+                        />
                       </PostActionButton>
                       <PostActionButton onClick={() => document.getElementById('commentInput').focus()}>
                         <FaComment />
@@ -1514,13 +1505,6 @@ const Gallery = () => {
 
                     <Engagement>
                       {engagementStats[selectedPost._id]?.likeCount || 0} likes
-                      {/* Debug info - remove after fixing */}
-                      {process.env.NODE_ENV === 'development' && (
-                        <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                          Debug: userLiked={String(engagementStats[selectedPost._id]?.userLiked)}, 
-                          isAuth={String(isAuthenticated)}
-                        </div>
-                      )}
                     </Engagement>
 
                     <Timestamp>
