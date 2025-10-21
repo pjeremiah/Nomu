@@ -29,17 +29,16 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user?.userId;
 
-    console.log('🔍 Like request - postId:', postId, 'userId:', userId);
-    console.log('🔍 req.user:', req.user);
-    console.log('🔍 req.user type:', typeof req.user);
-    console.log('🔍 req.user keys:', req.user ? Object.keys(req.user) : 'req.user is null/undefined');
-    console.log('🔍 req.user.userId type:', typeof req.user?.userId);
-    console.log('🔍 req.user.userId value:', req.user?.userId);
+    // Log the request
+    console.log('🔍 Like request - postId:', postId, 'userId:', userId, 'req.user:', req.user);
 
     // Basic validation
-    if (!postId || !userId) {
-      console.log('❌ Missing postId or userId:', { postId, userId });
-      return res.status(400).json({ message: 'Missing post ID or user ID' });
+    if (!postId) {
+      return res.status(400).json({ message: 'Missing post ID' });
+    }
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'Missing user ID', debug: { reqUser: req.user } });
     }
 
     // Check if post exists
@@ -49,16 +48,12 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     }
 
     // Check if user already liked this post
-    console.log('🔍 Checking for existing like with userId:', userId, 'postId:', postId);
     const existingLike = await Like.findOne({ user: userId, post: postId });
-    console.log('🔍 Existing like found:', existingLike);
     
     if (existingLike) {
       // Unlike the post
-      console.log('🔄 Unliking post...');
       await Like.findByIdAndDelete(existingLike._id);
       const likeCount = await Like.countDocuments({ post: postId });
-      console.log('✅ Post unliked, new count:', likeCount);
       return res.json({ 
         message: 'Post unliked successfully',
         liked: false,
@@ -66,21 +61,13 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
       });
     } else {
       // Like the post
-      console.log('🔄 Liking post...');
-      try {
-        const newLike = await Like.create({ user: userId, post: postId });
-        console.log('✅ New like created:', newLike);
-        const likeCount = await Like.countDocuments({ post: postId });
-        console.log('✅ Post liked, new count:', likeCount);
-        return res.json({ 
-          message: 'Post liked successfully',
-          liked: true,
-          likeCount: likeCount
-        });
-      } catch (createError) {
-        console.error('❌ Error creating like:', createError);
-        return res.status(500).json({ message: 'Error creating like', error: createError.message });
-      }
+      const newLike = await Like.create({ user: userId, post: postId });
+      const likeCount = await Like.countDocuments({ post: postId });
+      return res.json({ 
+        message: 'Post liked successfully',
+        liked: true,
+        likeCount: likeCount
+      });
     }
   } catch (error) {
     console.error('❌ Error toggling like:', error);
