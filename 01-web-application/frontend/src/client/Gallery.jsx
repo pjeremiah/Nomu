@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { lightTheme } from '../utils/Themes';
-import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes, FaHeart, FaComment, FaShare, FaBookmark, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Logo from '../utils/Images/Logo.png';
 import ForGalleryPageImage from '../utils/Images/Gallery/ForGalleryPage.jpg';
 
@@ -269,7 +269,7 @@ const ErrorText = styled.p`
   margin: 0;
 `;
 
-// Modal styles
+// Instagram-style Modal styles
 const ModalOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -286,14 +286,166 @@ const ModalOverlay = styled.div`
 
 const ModalContent = styled.div`
   background: white;
-  border-radius: 15px;
+  border-radius: 8px;
   max-width: 90vw;
   max-height: 90vh;
   overflow: hidden;
   position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 1000px;
+  height: 80vh;
 `;
 
-const ModalHeader = styled.div`
+const MediaSection = styled.div`
+  flex: 1;
+  position: relative;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const MediaContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const MainMedia = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const MainImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+`;
+
+const MainVideo = styled.video`
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+`;
+
+const VideoPlayIcon = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+`;
+
+// Inner navigation arrows (for multiple media in same post)
+const InnerNavButton = styled.button`
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  color: #333;
+  transition: all 0.3s ease;
+  z-index: 10;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-50%) scale(1.1);
+  }
+  
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+`;
+
+const InnerLeftArrow = styled(InnerNavButton)`
+  left: 15px;
+`;
+
+const InnerRightArrow = styled(InnerNavButton)`
+  right: 15px;
+`;
+
+// Outer navigation arrows (for different posts)
+const OuterNavButton = styled.button`
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  color: #333;
+  transition: all 0.3s ease;
+  z-index: 20;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  
+  &:hover {
+    background: white;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  }
+  
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+`;
+
+const OuterLeftArrow = styled(OuterNavButton)`
+  left: -25px;
+`;
+
+const OuterRightArrow = styled(OuterNavButton)`
+  right: -25px;
+`;
+
+const DetailsSection = styled.div`
+  flex: 0 0 400px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-left: 1px solid #e9ecef;
+`;
+
+const DetailsHeader = styled.div`
   padding: 20px;
   border-bottom: 1px solid #e9ecef;
   display: flex;
@@ -301,11 +453,18 @@ const ModalHeader = styled.div`
   align-items: center;
 `;
 
-const ModalTitle = styled.h3`
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
+const Username = styled.div`
+  font-weight: 600;
+  font-size: 14px;
   color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const VerifiedBadge = styled.span`
+  color: #0095f6;
+  font-size: 16px;
 `;
 
 const CloseButton = styled.button`
@@ -324,55 +483,80 @@ const CloseButton = styled.button`
   }
 `;
 
-const ModalBody = styled.div`
+const DetailsBody = styled.div`
+  flex: 1;
   padding: 20px;
-  max-height: 70vh;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 `;
 
-const MediaCarousel = styled.div`
+const Caption = styled.div`
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+  margin-bottom: 10px;
+`;
+
+const Hashtags = styled.div`
+  font-size: 14px;
+  color: #00376b;
+  margin-bottom: 10px;
+`;
+
+const Timestamp = styled.div`
+  font-size: 12px;
+  color: #8e8e8e;
+  text-transform: uppercase;
+  margin-bottom: 15px;
+`;
+
+const Engagement = styled.div`
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 15px;
+`;
+
+const ActionBar = styled.div`
   display: flex;
   gap: 15px;
-  margin-bottom: 20px;
-  overflow-x: auto;
-  padding-bottom: 10px;
+  padding: 15px 0;
+  border-top: 1px solid #e9ecef;
+  border-bottom: 1px solid #e9ecef;
 `;
 
-const MediaItem = styled.div`
-  min-width: 200px;
-  height: 200px;
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-  background: #f8f9fa;
+const ActionButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #333;
+  cursor: pointer;
+  padding: 5px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    color: #0095f6;
+    transform: scale(1.1);
+  }
 `;
 
-const CarouselImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const CarouselVideo = styled.video`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const MediaPlayIcon = styled.div`
+const MediaIndicator = styled.div`
   position: absolute;
-  top: 50%;
+  bottom: 15px;
   left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
+  transform: translateX(-50%);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
+  gap: 5px;
+  z-index: 10;
+`;
+
+const Dot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${props => props.active ? 'white' : 'rgba(255, 255, 255, 0.5)'};
+  transition: all 0.3s ease;
 `;
 
 const Footer = styled.footer`
@@ -435,6 +619,8 @@ const Gallery = () => {
   const [error, setError] = useState('');
   const [selectedPost, setSelectedPost] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [currentPostIndex, setCurrentPostIndex] = useState(0);
 
   const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
@@ -460,14 +646,48 @@ const Gallery = () => {
     }
   };
 
-  const handlePostClick = (post) => {
+  const handlePostClick = (post, postIndex) => {
     setSelectedPost(post);
+    setCurrentPostIndex(postIndex);
+    setCurrentMediaIndex(0);
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setSelectedPost(null);
+    setCurrentMediaIndex(0);
+    setCurrentPostIndex(0);
+  };
+
+  const nextMedia = () => {
+    if (selectedPost && currentMediaIndex < selectedPost.media.length - 1) {
+      setCurrentMediaIndex(currentMediaIndex + 1);
+    }
+  };
+
+  const prevMedia = () => {
+    if (currentMediaIndex > 0) {
+      setCurrentMediaIndex(currentMediaIndex - 1);
+    }
+  };
+
+  const nextPost = () => {
+    if (currentPostIndex < posts.length - 1) {
+      const nextIndex = currentPostIndex + 1;
+      setCurrentPostIndex(nextIndex);
+      setSelectedPost(posts[nextIndex]);
+      setCurrentMediaIndex(0);
+    }
+  };
+
+  const prevPost = () => {
+    if (currentPostIndex > 0) {
+      const prevIndex = currentPostIndex - 1;
+      setCurrentPostIndex(prevIndex);
+      setSelectedPost(posts[prevIndex]);
+      setCurrentMediaIndex(0);
+    }
   };
 
   const renderMedia = (media, isModal = false) => {
@@ -475,9 +695,9 @@ const Gallery = () => {
       return (
         <>
           {isModal ? (
-            <CarouselVideo controls>
+            <MainVideo controls>
               <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
-            </CarouselVideo>
+            </MainVideo>
           ) : (
             <SlotVideo controls>
               <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
@@ -507,7 +727,7 @@ const Gallery = () => {
       
       if (post) {
         slots.push(
-          <GallerySlot key={post._id} onClick={() => handlePostClick(post)}>
+          <GallerySlot key={post._id} onClick={() => handlePostClick(post, i)}>
             <SlotMedia>
               {renderMedia(post.media[0])}
               
@@ -536,6 +756,18 @@ const Gallery = () => {
     }
     
     return slots;
+  };
+
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const postDate = new Date(date);
+    const diffInHours = Math.floor((now - postDate) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'now';
+    if (diffInHours < 24) return `${diffInHours}h`;
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d`;
+    if (diffInHours < 720) return `${Math.floor(diffInHours / 168)}w`;
+    return `${Math.floor(diffInHours / 720)}mo`;
   };
 
   return (
@@ -567,82 +799,118 @@ const Gallery = () => {
         )}
       </GalleryContent>
 
-      {/* Post Detail Modal */}
+      {/* Instagram-style Post Detail Modal */}
       {showModal && selectedPost && (
         <ModalOverlay onClick={closeModal}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>{selectedPost.title}</ModalTitle>
-              <CloseButton onClick={closeModal}>
-                <FaTimes />
-              </CloseButton>
-            </ModalHeader>
-            
-            <ModalBody>
-              {selectedPost.description && (
-                <p style={{ marginBottom: '20px', color: '#666' }}>
-                  {selectedPost.description}
-                </p>
-              )}
-              
-              {selectedPost.tags && selectedPost.tags.length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  {selectedPost.tags.map((tag, index) => (
-                    <span key={index} style={{
-                      display: 'inline-block',
-                      background: '#e9ecef',
-                      color: '#495057',
-                      padding: '4px 12px',
-                      borderRadius: '15px',
-                      fontSize: '0.8rem',
-                      marginRight: '8px',
-                      marginBottom: '4px'
-                    }}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-              
-              <MediaCarousel>
-                {selectedPost.media.map((media, index) => (
-                  <MediaItem key={index}>
-                    {media.type === 'video' ? (
-                      <>
-                        <CarouselVideo controls>
-                          <source src={`${API_BASE}${media.url}`} type={media.mimetype} />
-                        </CarouselVideo>
-                        <MediaPlayIcon>
-                          <FaPlay />
-                        </MediaPlayIcon>
-                      </>
-                    ) : (
-                      <CarouselImage 
-                        src={`${API_BASE}${media.url}`} 
-                        alt={`Media ${index + 1}`}
-                      />
-                    )}
-                  </MediaItem>
-                ))}
-              </MediaCarousel>
-              
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                paddingTop: '15px',
-                borderTop: '1px solid #e9ecef',
-                fontSize: '0.9rem',
-                color: '#666'
-              }}>
-                <span>
-                  {selectedPost.media.length} {selectedPost.media.length === 1 ? 'item' : 'items'}
-                </span>
-                <span>
-                  {new Date(selectedPost.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-            </ModalBody>
+            {/* Left Side - Media Section */}
+            <MediaSection>
+              <MediaContainer>
+                <MainMedia>
+                  {selectedPost.media[currentMediaIndex].type === 'video' ? (
+                    <MainVideo controls>
+                      <source src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`} type={selectedPost.media[currentMediaIndex].mimetype} />
+                    </MainVideo>
+                  ) : (
+                    <MainImage 
+                      src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`} 
+                      alt={`Media ${currentMediaIndex + 1}`}
+                    />
+                  )}
+                </MainMedia>
+
+                {/* Inner Navigation Arrows (for multiple media in same post) */}
+                {selectedPost.media.length > 1 && (
+                  <>
+                    <InnerLeftArrow 
+                      onClick={prevMedia}
+                      disabled={currentMediaIndex === 0}
+                    >
+                      <FaChevronLeft />
+                    </InnerLeftArrow>
+                    <InnerRightArrow 
+                      onClick={nextMedia}
+                      disabled={currentMediaIndex === selectedPost.media.length - 1}
+                    >
+                      <FaChevronRight />
+                    </InnerRightArrow>
+                  </>
+                )}
+
+                {/* Media Indicators */}
+                {selectedPost.media.length > 1 && (
+                  <MediaIndicator>
+                    {selectedPost.media.map((_, index) => (
+                      <Dot key={index} active={index === currentMediaIndex} />
+                    ))}
+                  </MediaIndicator>
+                )}
+              </MediaContainer>
+
+              {/* Outer Navigation Arrows (for different posts) */}
+              <OuterLeftArrow 
+                onClick={prevPost}
+                disabled={currentPostIndex === 0}
+              >
+                <FaChevronLeft />
+              </OuterLeftArrow>
+              <OuterRightArrow 
+                onClick={nextPost}
+                disabled={currentPostIndex === posts.length - 1}
+              >
+                <FaChevronRight />
+              </OuterRightArrow>
+            </MediaSection>
+
+            {/* Right Side - Details Section */}
+            <DetailsSection>
+              <DetailsHeader>
+                <Username>
+                  nomu.ph
+                  <VerifiedBadge>✓</VerifiedBadge>
+                </Username>
+                <CloseButton onClick={closeModal}>
+                  <FaTimes />
+                </CloseButton>
+              </DetailsHeader>
+
+              <DetailsBody>
+                <Caption>
+                  {selectedPost.description || selectedPost.title}
+                </Caption>
+
+                {selectedPost.tags && selectedPost.tags.length > 0 && (
+                  <Hashtags>
+                    {selectedPost.tags.map((tag, index) => (
+                      <span key={index}>#{tag} </span>
+                    ))}
+                  </Hashtags>
+                )}
+
+                <Timestamp>
+                  {formatTimeAgo(selectedPost.createdAt)}
+                </Timestamp>
+
+                <Engagement>
+                  {Math.floor(Math.random() * 50) + 10} likes
+                </Engagement>
+
+                <ActionBar>
+                  <ActionButton>
+                    <FaHeart />
+                  </ActionButton>
+                  <ActionButton>
+                    <FaComment />
+                  </ActionButton>
+                  <ActionButton>
+                    <FaShare />
+                  </ActionButton>
+                  <ActionButton>
+                    <FaBookmark />
+                  </ActionButton>
+                </ActionBar>
+              </DetailsBody>
+            </DetailsSection>
           </ModalContent>
         </ModalOverlay>
       )}
