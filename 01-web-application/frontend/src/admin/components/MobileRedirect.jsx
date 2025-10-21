@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Smartphone, Shield, AlertTriangle, Home, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MobileRedirectContainer = styled.div`
   min-height: 100vh;
@@ -225,6 +226,7 @@ const MobileRedirect = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
+  const { logout: globalLogout } = useAuth();
 
   useEffect(() => {
     // Get device information
@@ -274,12 +276,16 @@ const MobileRedirect = () => {
         }
       }
       
-      // Clear all stored authentication data
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Use global logout to update auth context
+      globalLogout();
+      
+      // Also clear sessionStorage (global logout only clears localStorage)
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
       sessionStorage.removeItem('bypassMobileCheck');
+      
+      // Trigger auth change event for other components
+      window.dispatchEvent(new CustomEvent('authChanged'));
       
       // Redirect to home page (client side)
       navigate('/', { replace: true });
@@ -287,11 +293,11 @@ const MobileRedirect = () => {
     } catch (error) {
       console.error('Logout error:', error);
       // Even if there's an error, clear local data and redirect
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      globalLogout();
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
       sessionStorage.removeItem('bypassMobileCheck');
+      window.dispatchEvent(new CustomEvent('authChanged'));
       navigate('/', { replace: true });
     }
   };
