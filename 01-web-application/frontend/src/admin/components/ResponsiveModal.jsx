@@ -40,49 +40,46 @@ const ResponsiveModal = ({
   const modalSize = getModalSize();
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        animation: 'fadeIn 0.3s ease-out',
-        padding: 'clamp(10px, 2vw, 30px)',
-        boxSizing: 'border-box',
-        overflow: 'auto',
-        minHeight: '100vh'
-      }}
-      onClick={onHide}
-    >
+    <>
+      {/* Overlay Background */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 9999,
+          animation: 'fadeIn 0.3s ease-out'
+        }}
+        onClick={onHide}
+      />
+      
+      {/* Single Modal Container */}
       <div 
         className={`admin-modal ${className}`}
         onClick={(e) => e.stopPropagation()}
         style={{
-          animation: 'slideIn 0.3s ease-out',
-          transform: 'scale(1)',
-          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-          height: 'auto',
-          maxHeight: 'calc(100vh - clamp(20px, 4vw, 60px))',
-          minHeight: 'auto',
-          width: modalSize.width,
-          maxWidth: modalSize.maxWidth,
-          display: 'flex',
-          flexDirection: 'column',
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
           background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
           borderRadius: 'clamp(12px, 2vw, 20px)',
           border: '1px solid rgba(255, 255, 255, 0.2)',
-          position: 'relative',
-          transformOrigin: 'center',
-          zIndex: 10001,
-          overflow: 'hidden',
-          margin: 'auto'
+          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+          width: modalSize.width,
+          maxWidth: modalSize.maxWidth,
+          height: 'auto',
+          maxHeight: 'calc(100vh - 40px)',
+          minHeight: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 10000,
+          animation: 'slideIn 0.3s ease-out',
+          overflow: 'hidden'
         }}
       >
         {/* Modal Header */}
@@ -152,10 +149,10 @@ const ResponsiveModal = ({
           maxHeight: 'calc(100vh - clamp(120px, 20vw, 200px))'
         }}>
           {children}
-</div>
+        </div>
       </div>
 
-      {/* Add CSS animations */}
+      {/* Add CSS animations and responsive styles */}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -175,12 +172,19 @@ const ResponsiveModal = ({
 
         /* Responsive adjustments for desktop/laptop screens and zoom levels */
         
+        /* Base modal styles - optimized for all zoom levels */
+        .admin-modal {
+          max-height: calc(100vh - 40px) !important;
+          width: clamp(400px, 60vw, 600px) !important;
+          max-width: 600px !important;
+        }
+
         /* Large desktop screens (1920px+) */
         @media (min-width: 1920px) {
           .admin-modal {
             width: clamp(500px, 50vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - clamp(40px, 5vw, 80px)) !important;
+            max-height: calc(100vh - 60px) !important;
           }
         }
 
@@ -189,7 +193,7 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(450px, 55vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - clamp(30px, 4vw, 60px)) !important;
+            max-height: calc(100vh - 50px) !important;
           }
         }
 
@@ -198,7 +202,7 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(400px, 60vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - clamp(25px, 3vw, 50px)) !important;
+            max-height: calc(100vh - 40px) !important;
           }
         }
 
@@ -207,30 +211,35 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(350px, 70vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - clamp(20px, 2.5vw, 40px)) !important;
-            margin: clamp(10px, 1.5vw, 20px);
+            max-height: calc(100vh - 30px) !important;
           }
         }
 
-        /* High DPI and zoom level adjustments for desktop/laptop */
-        @media (min-resolution: 2dppx) and (min-width: 768px) {
+        /* High zoom levels (150%, 170%, etc.) - ensure modal stays visible */
+        @media (min-resolution: 1.5dppx) {
           .admin-modal {
-            max-height: calc(100vh - clamp(25px, 4vw, 60px)) !important;
+            max-height: calc(100vh - 20px) !important;
+            width: clamp(350px, 65vw, 600px) !important;
+          }
+        }
+
+        @media (min-resolution: 2dppx) {
+          .admin-modal {
+            max-height: calc(100vh - 15px) !important;
+            width: clamp(320px, 70vw, 600px) !important;
           }
         }
 
         /* Very short screens or high zoom levels on desktop/laptop */
         @media (max-height: 600px) and (min-width: 768px) {
           .admin-modal {
-            max-height: calc(100vh - 15px) !important;
-            margin: 10px;
+            max-height: calc(100vh - 10px) !important;
           }
         }
 
         @media (max-height: 500px) and (min-width: 768px) {
           .admin-modal {
-            max-height: calc(100vh - 10px) !important;
-            margin: 5px;
+            max-height: calc(100vh - 5px) !important;
           }
         }
 
@@ -241,8 +250,14 @@ const ResponsiveModal = ({
             max-width: 700px !important;
           }
         }
+
+        /* Ensure modal content is scrollable when needed */
+        .admin-modal .modal-content {
+          overflow-y: auto;
+          max-height: calc(100vh - 120px);
+        }
       `}</style>
-    </div>
+    </>
   );
 };
 
