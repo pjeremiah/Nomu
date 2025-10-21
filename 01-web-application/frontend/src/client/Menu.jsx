@@ -752,76 +752,16 @@ import Navbar from '../components/Navbar';
   // Prevent body scrolling when modal is open
   useEffect(() => {
     if (selectedItem) {
-      // Store scroll position
-      const scrollY = window.scrollY;
-      
-      // Apply immediate styles
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.left = '0';
-      document.body.style.right = '0';
-      document.body.style.width = '100%';
-      document.body.style.height = '100%';
       document.body.classList.add('modal-open');
-      
-      // Prevent all scroll events
-      const preventScroll = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      };
-      
-      // Add event listeners
-      document.addEventListener('wheel', preventScroll, { passive: false });
-      document.addEventListener('touchmove', preventScroll, { passive: false });
-      document.addEventListener('scroll', preventScroll, { passive: false });
-      
-      // Store for cleanup
-      window.menuScrollPrevent = preventScroll;
-      
+      document.documentElement.classList.add('modal-open');
     } else {
-      // Restore scroll
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
       document.body.classList.remove('modal-open');
-      
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY.replace('-', '')));
-      }
-      
-      // Remove event listeners
-      if (window.menuScrollPrevent) {
-        document.removeEventListener('wheel', window.menuScrollPrevent);
-        document.removeEventListener('touchmove', window.menuScrollPrevent);
-        document.removeEventListener('scroll', window.menuScrollPrevent);
-        delete window.menuScrollPrevent;
-      }
+      document.documentElement.classList.remove('modal-open');
     }
 
-    // Cleanup on unmount
     return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
       document.body.classList.remove('modal-open');
-      
-      if (window.menuScrollPrevent) {
-        document.removeEventListener('wheel', window.menuScrollPrevent);
-        document.removeEventListener('touchmove', window.menuScrollPrevent);
-        document.removeEventListener('scroll', window.menuScrollPrevent);
-        delete window.menuScrollPrevent;
-      }
+      document.documentElement.classList.remove('modal-open');
     };
   }, [selectedItem]);
 
@@ -945,7 +885,7 @@ import Navbar from '../components/Navbar';
         </MenuContainer>
 
         {selectedItem && (
-          <ModalOverlay onClick={() => setSelectedItem(null)}>
+          <ModalOverlay>
             <ModalContent onClick={(e) => e.stopPropagation()}>
               <CloseButton onClick={handleCloseModal}>
                 <FaTimes />

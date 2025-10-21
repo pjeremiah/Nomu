@@ -286,6 +286,16 @@ const ModalOverlay = styled.div`
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  
+  @media (max-width: 768px) {
+    /* Mobile-specific improvements */
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    touch-action: none !important;
+    overscroll-behavior: none !important;
+    padding: 0 !important;
+  }
 `;
 
 const ModalContent = styled.div`
@@ -299,6 +309,19 @@ const ModalContent = styled.div`
   width: 100%;
   max-width: 1000px;
   height: 80vh;
+  
+  @media (max-width: 768px) {
+    /* Mobile-specific improvements */
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
 `;
 
 const MediaSection = styled.div`
@@ -816,9 +839,9 @@ const Gallery = () => {
     }
   }, [selectedPost, isAuthenticated]);
 
-  // Handle body class for modal consistency
+  // Handle body class for modal consistency and scroll prevention
   useEffect(() => {
-    if (showSignInModal || showSignUpModal) {
+    if (showModal || showSignInModal || showSignUpModal) {
       document.body.classList.add('modal-open');
       document.documentElement.classList.add('modal-open');
     } else {
@@ -830,7 +853,7 @@ const Gallery = () => {
       document.body.classList.remove('modal-open');
       document.documentElement.classList.remove('modal-open');
     };
-  }, [showSignInModal, showSignUpModal]);
+  }, [showModal, showSignInModal, showSignUpModal]);
 
   const fetchGalleryPosts = async () => {
     try {
@@ -1191,7 +1214,7 @@ const Gallery = () => {
 
       {/* Instagram-style Post Detail Modal */}
       {showModal && selectedPost && (
-        <ModalOverlay onClick={closeModal}>
+        <ModalOverlay>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             {/* Left Side - Media Section */}
             <MediaSection>
@@ -1390,7 +1413,7 @@ const Gallery = () => {
 
       {/* Sign In Modal */}
       {showSignInModal && (
-        <div className="signin-modal-overlay" onClick={() => setShowSignInModal(false)}>
+        <div className="signin-modal-overlay">
           <div className="signin-modal-content" onClick={(e) => e.stopPropagation()}>
             <button 
               className="signin-close-button" 
@@ -1418,7 +1441,7 @@ const Gallery = () => {
 
       {/* Sign Up Modal */}
       {showSignUpModal && (
-        <div className="signin-modal-overlay" onClick={() => setShowSignUpModal(false)}>
+        <div className="signin-modal-overlay">
           <div className="signin-modal-content" onClick={(e) => e.stopPropagation()}>
             <button 
               className="signin-close-button" 

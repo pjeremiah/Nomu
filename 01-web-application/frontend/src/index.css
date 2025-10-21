@@ -120,6 +120,71 @@ body.modal-open select {
   pointer-events: auto !important;
 }
 
+/* Mobile-specific modal improvements */
+@media (max-width: 768px) {
+  body.modal-open {
+    /* Prevent iOS bounce scrolling */
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: none !important;
+    overscroll-behavior-x: none !important;
+    /* Prevent zoom on double tap */
+    touch-action: manipulation !important;
+    /* Prevent pull-to-refresh */
+    overscroll-behavior: contain !important;
+  }
+  
+  html.modal-open {
+    overscroll-behavior-y: none !important;
+    overscroll-behavior-x: none !important;
+    overscroll-behavior: contain !important;
+  }
+  
+  /* Ensure modals are properly positioned on mobile */
+  .signin-modal-overlay,
+  .menu-modal-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    touch-action: none !important;
+  }
+  
+  /* Prevent any scrolling within modal content on mobile */
+  .signin-modal-content,
+  .menu-modal-content {
+    max-height: 100vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+}
+
+/* Additional mobile touch improvements */
+@media (max-width: 480px) {
+  body.modal-open {
+    /* Extra prevention for smaller screens */
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -khtml-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+  }
+  
+  /* Allow text selection in input fields */
+  body.modal-open input,
+  body.modal-open textarea {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 0px;
