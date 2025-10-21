@@ -22,6 +22,18 @@ const AccountContainer = styled.div`
   font-family: 'Montserrat', sans-serif;
   min-height: calc(100vh - 110px); /* Prevent scrolling by setting min-height */
   box-sizing: border-box;
+  
+  @media (max-width: 768px) {
+    padding: 100px 15px 20px 15px;
+    gap: 15px;
+    min-height: calc(100vh - 100px);
+  }
+  
+  @media (max-width: 480px) {
+    padding: 90px 10px 15px 10px;
+    gap: 12px;
+    min-height: calc(100vh - 90px);
+  }
 `;
 
 const Section = styled.div`
@@ -30,6 +42,18 @@ const Section = styled.div`
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   border: 1px solid #e9ecef;
   padding: 40px;
+  
+  @media (max-width: 768px) {
+    padding: 25px 20px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  }
+  
+  @media (max-width: 480px) {
+    padding: 20px 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+  }
 `;
 
 const Header = styled.div`
@@ -37,12 +61,34 @@ const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
 
   h2 {
     margin: 0;
     color: ${props => props.theme.brand};
     font-size: 2rem;
     font-weight: 700;
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 20px;
+    
+    h2 {
+      font-size: 1.8rem;
+      min-width: auto;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    h2 {
+      font-size: 1.6rem;
+    }
   }
 `;
 
@@ -76,10 +122,17 @@ const ProfileGrid = styled.div`
 
   @media (max-width: 1024px) {
     grid-template-columns: 180px 1fr;
+    gap: 25px;
   }
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
+    gap: 30px;
+    text-align: center;
+  }
+
+  @media (max-width: 480px) {
+    gap: 25px;
   }
 
   @media (min-width: 1600px) {
@@ -95,6 +148,7 @@ const AvatarSection = styled.div`
 
   @media (max-width: 768px) {
     align-items: center;
+    gap: 20px;
   }
 `;
 
@@ -122,6 +176,17 @@ const AvatarContainer = styled.div`
     color: #98A3B3;
     font-size: 0.9rem;
   }
+  
+  @media (max-width: 768px) {
+    width: 120px;
+    height: 120px;
+    border-width: 2px;
+  }
+  
+  @media (max-width: 480px) {
+    width: 100px;
+    height: 100px;
+  }
 `;
 
 const FileInput = styled.label`
@@ -146,6 +211,19 @@ const FileInput = styled.label`
   input {
     display: none;
   }
+  
+  @media (max-width: 768px) {
+    padding: 12px 18px;
+    font-size: 0.9rem;
+    width: 100%;
+    max-width: 200px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    max-width: 180px;
+  }
 `;
 
 const FormGrid = styled.div`
@@ -153,6 +231,15 @@ const FormGrid = styled.div`
   grid-template-columns: 1fr;
   row-gap: 20px;
   align-content: start;
+  
+  @media (max-width: 768px) {
+    row-gap: 18px;
+    text-align: left;
+  }
+  
+  @media (max-width: 480px) {
+    row-gap: 15px;
+  }
 `;
 
 const FieldGroup = styled.div`
@@ -165,6 +252,15 @@ const FieldLabel = styled.div`
   color: ${props => props.theme.brand};
   margin-bottom: 8px;
   font-size: 1rem;
+  
+  @media (max-width: 768px) {
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const FieldValue = styled.p`
@@ -172,6 +268,14 @@ const FieldValue = styled.p`
   margin: 0;
   font-size: 1rem;
   line-height: 1.5;
+  
+  @media (max-width: 768px) {
+    font-size: 0.95rem;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const FieldInput = styled.input`
@@ -182,6 +286,7 @@ const FieldInput = styled.input`
   font-size: 1rem;
   font-family: 'Montserrat', sans-serif;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
@@ -194,6 +299,16 @@ const FieldInput = styled.input`
     cursor: not-allowed;
     border-color: #ced4da;
   }
+  
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
 `;
 
 const FieldSelect = styled.select`
@@ -205,17 +320,38 @@ const FieldSelect = styled.select`
   font-family: 'Montserrat', sans-serif;
   background: white;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
     border-color: ${props => props.theme.brand};
     box-shadow: 0 0 0 3px rgba(33, 44, 89, 0.1);
   }
+  
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
   gap: 12px;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+  
+  @media (max-width: 480px) {
+    gap: 8px;
+  }
 `;
 
 const Button = styled.button`
@@ -229,6 +365,17 @@ const Button = styled.button`
   letter-spacing: 0.5px;
   transition: all 0.3s ease;
   font-family: 'Montserrat', sans-serif;
+  
+  @media (max-width: 768px) {
+    padding: 14px 20px;
+    font-size: 0.85rem;
+    width: 100%;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px 16px;
+    font-size: 0.8rem;
+  }
 
   ${props => props.variant === 'primary' ? `
     background: white;

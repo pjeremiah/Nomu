@@ -13,6 +13,35 @@ import { useAuth } from '../contexts/AuthContext';
 // Styled Components
 const ContactContainer = styled.div`
   font-family: 'Montserrat', sans-serif;
+  
+  /* Override Bootstrap container padding on mobile */
+  .container {
+    @media (max-width: 768px) {
+      padding-left: 15px !important;
+      padding-right: 15px !important;
+    }
+    
+    @media (max-width: 480px) {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+  }
+  
+  /* Ensure rows have no gutters on mobile */
+  .row {
+    @media (max-width: 768px) {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+  
+  /* Ensure columns have no padding on mobile */
+  .col, .col-md-6 {
+    @media (max-width: 768px) {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+  }
 `;
 
 const HeroSection = styled.div`
@@ -84,6 +113,58 @@ const ContactForm = styled.div`
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   border: 1px solid #e9ecef;
+  
+  @media (max-width: 768px) {
+    padding: 25px 20px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  }
+  
+  @media (max-width: 480px) {
+    padding: 20px 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Ensure form elements take full width and have proper spacing */
+  .form-control {
+    @media (max-width: 768px) {
+      width: 100% !important;
+      box-sizing: border-box;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+  
+  .form-group {
+    @media (max-width: 768px) {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+  
+  .btn {
+    @media (max-width: 768px) {
+      width: 100% !important;
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+    
+    @media (max-width: 480px) {
+      padding: 10px 16px;
+      font-size: 0.85rem;
+    }
+  }
+  
+  /* Ensure form labels are properly aligned */
+  .form-label {
+    @media (max-width: 768px) {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
 `;
 
 const ContactDescription = styled.div`
