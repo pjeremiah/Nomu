@@ -477,7 +477,8 @@ const DetailsSection = styled.div`
     border-left: none;
     border-top: 1px solid #e9ecef;
     min-height: 0; /* Allow flex item to shrink */
-    overflow: hidden; /* Enable scrolling within this section */
+    overflow: visible; /* Allow content to be visible */
+    max-height: 50vh; /* Limit height to half of viewport */
   }
 `;
 
@@ -600,6 +601,11 @@ const ScrollableContent = styled.div`
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   scrollbar-width: thin; /* Thin scrollbar on Firefox */
+  
+  @media (max-width: 768px) {
+    max-height: 200px; /* Limit height on mobile to ensure scrolling */
+    overflow-y: auto;
+  }
   
   /* Custom scrollbar for webkit browsers */
   &::-webkit-scrollbar {
@@ -888,6 +894,14 @@ const Gallery = () => {
     }
   }, [selectedPost, isAuthenticated]);
 
+  // Additional effect to refresh like state when authentication changes
+  useEffect(() => {
+    if (selectedPost && isAuthenticated) {
+      console.log('🔄 Authentication changed, refreshing like state for post:', selectedPost._id);
+      fetchLikes(selectedPost._id);
+    }
+  }, [isAuthenticated, selectedPost]);
+
   // Handle body class for modal consistency and scroll prevention
   useEffect(() => {
     if (showModal || showSignInModal || showSignUpModal) {
@@ -977,12 +991,13 @@ const Gallery = () => {
   const fetchLikes = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      console.log('🔍 Fetching likes for post:', postId, 'with token:', !!token);
+      console.log('🔍 Fetching likes for post:', postId, 'with token:', !!token, 'isAuthenticated:', isAuthenticated);
+      
+      // Always try to fetch likes, even if not authenticated (to get like count)
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       
       const response = await fetch(`${API_BASE}/api/engagement/likes/${postId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers
       });
       
       if (response.ok) {
@@ -994,23 +1009,36 @@ const Gallery = () => {
           [postId]: data.likes
         }));
         
-        // Update userLiked state
-        setUserLiked(prev => ({
-          ...prev,
-          [postId]: data.userLiked || false
-        }));
-        
-        // Update engagement stats with like count and user liked status
-        setEngagementStats(prev => ({
-          ...prev,
-          [postId]: {
-            ...prev[postId],
-            likeCount: data.totalLikes,
-            userLiked: data.userLiked || false
-          }
-        }));
-        
-        console.log('✅ Like state updated - userLiked:', data.userLiked);
+        // Update userLiked state (only if authenticated)
+        if (isAuthenticated && token) {
+          setUserLiked(prev => ({
+            ...prev,
+            [postId]: data.userLiked || false
+          }));
+          
+          // Update engagement stats with like count and user liked status
+          setEngagementStats(prev => ({
+            ...prev,
+            [postId]: {
+              ...prev[postId],
+              likeCount: data.totalLikes,
+              userLiked: data.userLiked || false
+            }
+          }));
+          
+          console.log('✅ Like state updated - userLiked:', data.userLiked);
+        } else {
+          // If not authenticated, just update like count
+          setEngagementStats(prev => ({
+            ...prev,
+            [postId]: {
+              ...prev[postId],
+              likeCount: data.totalLikes,
+              userLiked: false
+            }
+          }));
+          console.log('ℹ️ Not authenticated, only updating like count');
+        }
       } else {
         console.error('❌ Failed to fetch likes:', response.status);
       }
