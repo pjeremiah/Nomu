@@ -5,6 +5,7 @@ import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes, FaHeart,
 import Logo from '../utils/Images/Logo.png';
 import ForGalleryPageImage from '../utils/Images/Gallery/ForGalleryPage.jpg';
 import SignInForm from './SignInForm';
+import SignUpForm from './SignUpForm';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
@@ -547,7 +548,7 @@ const DetailsBody = styled.div`
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  justify-content: space-between;
 `;
 
 const Caption = styled.div`
@@ -790,6 +791,7 @@ const Gallery = () => {
   const [userLiked, setUserLiked] = useState({});
   const [newComment, setNewComment] = useState('');
   const [showSignInModal, setShowSignInModal] = useState(false);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
@@ -809,7 +811,7 @@ const Gallery = () => {
 
   // Handle body class for modal consistency
   useEffect(() => {
-    if (showSignInModal) {
+    if (showSignInModal || showSignUpModal) {
       document.body.classList.add('modal-open');
       document.documentElement.classList.add('modal-open');
     } else {
@@ -821,7 +823,7 @@ const Gallery = () => {
       document.body.classList.remove('modal-open');
       document.documentElement.classList.remove('modal-open');
     };
-  }, [showSignInModal]);
+  }, [showSignInModal, showSignUpModal]);
 
   const fetchGalleryPosts = async () => {
     try {
@@ -901,7 +903,7 @@ const Gallery = () => {
 
   const handleLike = async (postId) => {
     if (!isAuthenticated) {
-      setShowSignInModal(true);
+      setShowSignUpModal(true);
       return;
     }
 
@@ -937,7 +939,7 @@ const Gallery = () => {
 
   const handleComment = async (postId) => {
     if (!isAuthenticated) {
-      setShowSignInModal(true);
+      setShowSignUpModal(true);
       return;
     }
 
@@ -1212,7 +1214,7 @@ const Gallery = () => {
             <DetailsSection>
               <DetailsHeader>
                 <Username onClick={() => window.open('https://www.instagram.com/nomu.ph/', '_blank')}>
-                  <InstagramIcon />
+                  <FaInstagram style={{ color: '#E4405F', fontSize: '18px' }} />
                   nomu.ph
                   <VerifiedBadge>✓</VerifiedBadge>
                 </Username>
@@ -1222,93 +1224,97 @@ const Gallery = () => {
               </DetailsHeader>
 
               <DetailsBody>
-                <Caption>
-                  {selectedPost.description || selectedPost.title}
-                </Caption>
+                <div>
+                  <Caption>
+                    {selectedPost.description || selectedPost.title}
+                  </Caption>
 
-                {selectedPost.tags && selectedPost.tags.length > 0 && (
-                  <Hashtags>
-                    {selectedPost.tags.map((tag, index) => (
-                      <span key={index}>#{tag} </span>
-                    ))}
-                  </Hashtags>
-                )}
+                  {selectedPost.tags && selectedPost.tags.length > 0 && (
+                    <Hashtags>
+                      {selectedPost.tags.map((tag, index) => (
+                        <span key={index}>#{tag} </span>
+                      ))}
+                    </Hashtags>
+                  )}
 
-                <PostActions>
-                  <PostActionButton 
-                    onClick={() => handleLike(selectedPost._id)}
-                    style={{ color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333' }}
-                  >
-                    <FaHeart />
-                  </PostActionButton>
-                  <PostActionButton onClick={() => document.getElementById('commentInput').focus()}>
-                    <FaComment />
-                  </PostActionButton>
-                </PostActions>
+                  {/* Comments Display */}
+                  {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
+                    <CommentsSection>
+                      {comments[selectedPost._id].slice(0, 3).map((comment) => (
+                        <CommentItem key={comment.id}>
+                          <CommentUser>
+                            <CommentAvatar>
+                              {comment.user.profilePicture ? (
+                                <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user.name} />
+                              ) : (
+                                <div style={{ 
+                                  width: '100%', 
+                                  height: '100%', 
+                                  background: '#b08d57', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {comment.user.name.charAt(0)}
+                                </div>
+                              )}
+                            </CommentAvatar>
+                            <CommentContent>
+                              <CommentText>
+                                <strong>{comment.user.name}</strong> {comment.content}
+                              </CommentText>
+                              <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
+                            </CommentContent>
+                          </CommentUser>
+                        </CommentItem>
+                      ))}
+                      {comments[selectedPost._id].length > 3 && (
+                        <ViewMoreComments>
+                          View all {comments[selectedPost._id].length} comments
+                        </ViewMoreComments>
+                      )}
+                    </CommentsSection>
+                  )}
+                </div>
 
-                <Engagement>
-                  {engagementStats[selectedPost._id]?.likeCount || 0} likes
-                </Engagement>
+                <div>
+                  <PostActions>
+                    <PostActionButton 
+                      onClick={() => handleLike(selectedPost._id)}
+                      style={{ color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333' }}
+                    >
+                      <FaHeart />
+                    </PostActionButton>
+                    <PostActionButton onClick={() => document.getElementById('commentInput').focus()}>
+                      <FaComment />
+                    </PostActionButton>
+                  </PostActions>
 
-                <Timestamp>
-                  {formatTimeAgo(selectedPost.createdAt)}
-                </Timestamp>
+                  <Engagement>
+                    {engagementStats[selectedPost._id]?.likeCount || 0} likes
+                  </Engagement>
 
-                {/* Comments Display */}
-                {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
-                  <CommentsSection>
-                    {comments[selectedPost._id].slice(0, 3).map((comment) => (
-                      <CommentItem key={comment.id}>
-                        <CommentUser>
-                          <CommentAvatar>
-                            {comment.user.profilePicture ? (
-                              <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user.name} />
-                            ) : (
-                              <div style={{ 
-                                width: '100%', 
-                                height: '100%', 
-                                background: '#b08d57', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '12px',
-                                fontWeight: 'bold'
-                              }}>
-                                {comment.user.name.charAt(0)}
-                              </div>
-                            )}
-                          </CommentAvatar>
-                          <CommentContent>
-                            <CommentText>
-                              <strong>{comment.user.name}</strong> {comment.content}
-                            </CommentText>
-                            <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
-                          </CommentContent>
-                        </CommentUser>
-                      </CommentItem>
-                    ))}
-                    {comments[selectedPost._id].length > 3 && (
-                      <ViewMoreComments>
-                        View all {comments[selectedPost._id].length} comments
-                      </ViewMoreComments>
-                    )}
-                  </CommentsSection>
-                )}
+                  <Timestamp>
+                    {formatTimeAgo(selectedPost.createdAt)}
+                  </Timestamp>
 
-                <CommentInput>
-                  <CommentField 
-                    id="commentInput"
-                    placeholder="Add a comment..." 
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleComment(selectedPost._id);
-                      }
-                    }}
-                  />
-                </CommentInput>
+                  <CommentInput>
+                    <CommentField 
+                      id="commentInput"
+                      placeholder="Add a comment..." 
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleComment(selectedPost._id);
+                        }
+                      }}
+                    />
+                  </CommentInput>
+                </div>
               </DetailsBody>
             </DetailsSection>
           </ModalContent>
@@ -1351,6 +1357,35 @@ const Gallery = () => {
                 setShowSignInModal(false);
                 setIsAuthenticated(true);
                 checkAuthentication();
+              }}
+              onSwitch={() => {
+                setShowSignInModal(false);
+                setShowSignUpModal(true);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Sign Up Modal */}
+      {showSignUpModal && (
+        <div className="signin-modal-overlay" onClick={() => setShowSignUpModal(false)}>
+          <div className="signin-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="signin-close-button" 
+              onClick={() => setShowSignUpModal(false)}
+            >
+              ×
+            </button>
+            <SignUpForm 
+              onSuccess={() => {
+                setShowSignUpModal(false);
+                setIsAuthenticated(true);
+                checkAuthentication();
+              }}
+              onSwitch={() => {
+                setShowSignUpModal(false);
+                setShowSignInModal(true);
               }}
             />
           </div>
