@@ -1504,8 +1504,8 @@ const Gallery = () => {
             </button>
             <SignInForm 
               preventRedirect={true}
-              onSubmit={async () => {
-                console.log('🎉 SignInForm onSubmit called');
+              onSubmit={async (userData) => {
+                console.log('🎉 SignInForm onSubmit called with userData:', userData);
                 setShowSignInModal(false);
                 
                 // Wait a bit for the token to be set in localStorage
@@ -1542,8 +1542,8 @@ const Gallery = () => {
               <FaTimes />
             </button>
             <SignUpForm 
-              onSubmit={async () => {
-                console.log('🎉 SignUpForm onSubmit called');
+              onSubmit={async (userData) => {
+                console.log('🎉 SignUpForm onSubmit called with userData:', userData);
                 setShowSignUpModal(false);
                 
                 // Wait a bit for the token to be set in localStorage

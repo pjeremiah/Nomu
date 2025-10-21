@@ -287,7 +287,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
           });
           setInvalidFields([]);
           alert('Signup successful!');
-          onSubmit();
+          onSubmit(data.user);
         }
       } catch (error) {
 

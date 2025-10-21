@@ -126,7 +126,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           if (!preventRedirect) {
             window.location.href = '/admin/home';
           }
-          onSubmit && onSubmit();
+          onSubmit && onSubmit(data.user);
         } else {
           // Customer login successful
           
@@ -146,7 +146,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           if (!preventRedirect) {
             window.location.href = '/';
           }
-          onSubmit && onSubmit();
+          onSubmit && onSubmit(data.user);
         }
       } catch (error) {
 
@@ -202,7 +202,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         if (!preventRedirect) {
           window.location.href = '/admin/home';
         }
-        onSubmit && onSubmit();
+        onSubmit && onSubmit(data.user);
       } catch (error) {
 
         setError(error.message || 'OTP verification failed');
