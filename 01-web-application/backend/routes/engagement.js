@@ -205,4 +205,41 @@ router.get('/stats/:postId', async (req, res) => {
   }
 });
 
+// Delete a comment
+router.delete('/comment/:commentId', authMiddleware, async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user?.userId;
+
+    console.log('🔍 Delete comment request - commentId:', commentId, 'userId:', userId);
+
+    // Basic validation
+    if (!commentId || !userId) {
+      console.log('❌ Missing commentId or userId:', { commentId, userId });
+      return res.status(400).json({ message: 'Missing comment ID or user ID' });
+    }
+
+    // Find the comment
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Check if user owns the comment
+    if (comment.user.toString() !== userId) {
+      return res.status(403).json({ message: 'Not authorized to delete this comment' });
+    }
+
+    // Delete the comment
+    await Comment.findByIdAndDelete(commentId);
+
+    res.json({ 
+      message: 'Comment deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting comment:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 module.exports = router;

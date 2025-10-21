@@ -1013,6 +1013,42 @@ const Gallery = () => {
     }
   };
 
+  const handleDeleteComment = async (commentId, postId) => {
+    if (!isAuthenticated) {
+      setShowSignInModal(true);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/engagement/comment/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setComments(prev => ({
+          ...prev,
+          [postId]: (prev[postId] || []).filter(comment => comment.id !== commentId)
+        }));
+        setEngagementStats(prev => ({
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            commentCount: Math.max((prev[postId]?.commentCount || 1) - 1, 0)
+          }
+        }));
+      } else {
+        console.error('Failed to delete comment');
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
+  };
+
   const formatTimeAgo = (dateString) => {
     const now = new Date();
     const date = new Date(dateString);
@@ -1306,6 +1342,23 @@ const Gallery = () => {
                               </CommentText>
                               <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
                             </CommentContent>
+                            {isAuthenticated && user && user.id === comment.user.id && (
+                              <button
+                                onClick={() => handleDeleteComment(comment.id, selectedPost._id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#999',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  padding: '4px',
+                                  marginLeft: '8px'
+                                }}
+                                title="Delete comment"
+                              >
+                                ✕
+                              </button>
+                            )}
                           </CommentUser>
                         </CommentItem>
                       ))}
