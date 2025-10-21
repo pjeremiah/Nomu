@@ -910,9 +910,11 @@ const Gallery = () => {
   // Force refresh like state when modal opens
   useEffect(() => {
     if (showModal && selectedPost) {
+      console.log('Modal opened, refreshing like state for post:', selectedPost._id);
       // Small delay to ensure token is available
       setTimeout(() => {
         fetchLikes(selectedPost._id);
+        fetchEngagementStats(selectedPost._id);
       }, 100);
     }
   }, [showModal, selectedPost]);
@@ -1063,18 +1065,26 @@ const Gallery = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('Like response:', data);
-        setEngagementStats(prev => ({
-          ...prev,
-          [postId]: {
-            ...prev[postId],
-            likeCount: data.likeCount,
-            userLiked: data.liked
-          }
-        }));
-        setUserLiked(prev => ({
-          ...prev,
-          [postId]: data.liked
-        }));
+        setEngagementStats(prev => {
+          const newStats = {
+            ...prev,
+            [postId]: {
+              ...prev[postId],
+              likeCount: data.likeCount,
+              userLiked: data.liked
+            }
+          };
+          console.log('Setting engagementStats:', newStats);
+          return newStats;
+        });
+        setUserLiked(prev => {
+          const newUserLiked = {
+            ...prev,
+            [postId]: data.liked
+          };
+          console.log('Setting userLiked:', newUserLiked);
+          return newUserLiked;
+        });
         console.log('Updated engagement stats for post', postId, ':', data);
       }
     } catch (error) {
@@ -1427,8 +1437,15 @@ const Gallery = () => {
                         display: 'block',
                         visibility: 'visible',
                         opacity: 1,
-                        minHeight: '50px'
+                        minHeight: '50px',
+                        backgroundColor: '#f8f9fa',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        margin: '10px 0'
                       }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>
+                          Comments ({comments[selectedPost._id].length})
+                        </div>
                         {comments[selectedPost._id].map((comment) => (
                           <CommentItem key={comment.id}>
                             <CommentUser>
@@ -1504,7 +1521,9 @@ const Gallery = () => {
                             fontSize: '24px',
                             display: 'block',
                             width: '24px',
-                            height: '24px'
+                            height: '24px',
+                            visibility: 'visible',
+                            opacity: 1
                           }}
                           fill={(engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : 'none'}
                         />
