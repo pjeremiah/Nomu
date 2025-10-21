@@ -1095,17 +1095,6 @@ const Gallery = () => {
     return slots;
   };
 
-  const formatTimeAgo = (date) => {
-    const now = new Date();
-    const postDate = new Date(date);
-    const diffInHours = Math.floor((now - postDate) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'now';
-    if (diffInHours < 24) return `${diffInHours}h`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d`;
-    if (diffInHours < 720) return `${Math.floor(diffInHours / 168)}w`;
-    return `${Math.floor(diffInHours / 720)}mo`;
-  };
 
   return (
     <GalleryContainer>
