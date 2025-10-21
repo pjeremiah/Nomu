@@ -57,7 +57,7 @@ const ResponsiveModal = ({
         onClick={onHide}
       />
       
-      {/* Single Modal Container - No Inner/Outer Structure */}
+      {/* Single Modal Container - No Visual Layers */}
       <div 
         className={`admin-modal ${className}`}
         onClick={(e) => e.stopPropagation()}
@@ -255,6 +255,15 @@ const ResponsiveModal = ({
         .admin-modal .modal-content {
           overflow-y: auto;
           max-height: calc(100vh - 120px);
+        }
+
+        /* Remove any visual layering effects */
+        .admin-modal * {
+          box-shadow: none !important;
+        }
+        
+        .admin-modal {
+          box-shadow: 0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1) !important;
         }
       `}</style>
     </>
