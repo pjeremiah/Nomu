@@ -6,6 +6,7 @@ import Logo from '../utils/Images/Logo.png';
 import ForGalleryPageImage from '../utils/Images/Gallery/ForGalleryPage.jpg';
 import SignInForm from './SignInForm';
 import SignUpForm from './SignUpForm';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
@@ -815,49 +816,15 @@ const Gallery = () => {
   const [newComment, setNewComment] = useState('');
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Use global auth context
+  const { isAuthenticated, checkAuthentication, login } = useAuth();
 
   const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
   useEffect(() => {
     fetchGalleryPosts();
-    checkAuthentication();
   }, []);
-
-  // Re-check authentication when component mounts or when modals close
-  useEffect(() => {
-    if (!showSignInModal && !showSignUpModal) {
-      checkAuthentication();
-    }
-  }, [showSignInModal, showSignUpModal]);
-
-  // Listen for storage changes (token updates from other tabs)
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'token') {
-        console.log('🔄 Token changed in localStorage, rechecking authentication...');
-        checkAuthentication();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  // Additional check when component mounts
-  useEffect(() => {
-    console.log('🚀 Gallery component mounted, checking authentication...');
-    checkAuthentication();
-  }, []);
-
-  // Check authentication on every render (for debugging)
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token && !isAuthenticated) {
-      console.log('🔄 Token exists but isAuthenticated is false, forcing check...');
-      checkAuthentication(true);
-    }
-  });
 
   useEffect(() => {
     if (selectedPost) {
@@ -898,56 +865,6 @@ const Gallery = () => {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkAuthentication = (force = false) => {
-    const token = localStorage.getItem('token');
-    console.log('🔐 checkAuthentication called, token exists:', !!token);
-    console.log('🔐 Current isAuthenticated state:', isAuthenticated);
-    console.log('🔐 Force check:', force);
-    
-    if (!token) {
-      console.log('❌ No token found, setting isAuthenticated to false');
-      setIsAuthenticated(false);
-      return false;
-    }
-
-    // Check if token has valid JWT format (3 parts separated by dots)
-    const tokenParts = token.split('.');
-    if (tokenParts.length !== 3) {
-      console.log('❌ Invalid token format, removing token');
-      localStorage.removeItem('token');
-      setIsAuthenticated(false);
-      return false;
-    }
-
-    // Check if token is expired
-    try {
-      const payload = JSON.parse(atob(tokenParts[1]));
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      console.log('🔐 Token payload:', payload);
-      console.log('🔐 Current time:', currentTime);
-      console.log('🔐 Token expires at:', payload.exp);
-      
-      if (payload.exp && payload.exp < currentTime) {
-        // Token is expired
-        console.log('❌ Token expired, removing token');
-        localStorage.removeItem('token');
-        setIsAuthenticated(false);
-        return false;
-      }
-      
-      console.log('✅ Token is valid, setting isAuthenticated to true');
-      setIsAuthenticated(true);
-      return true;
-    } catch (error) {
-      // Invalid token format
-      console.log('❌ Invalid token format, removing token:', error);
-      localStorage.removeItem('token');
-      setIsAuthenticated(false);
-      return false;
     }
   };
 
@@ -1024,11 +941,7 @@ const Gallery = () => {
     console.log('❤️ Current isAuthenticated state:', isAuthenticated);
     console.log('❤️ Token in localStorage:', !!localStorage.getItem('token'));
     
-    // Force a fresh authentication check
-    const isAuth = checkAuthentication(true);
-    console.log('❤️ Fresh auth check result:', isAuth);
-    
-    if (!isAuth) {
+    if (!isAuthenticated) {
       console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
@@ -1071,11 +984,7 @@ const Gallery = () => {
     console.log('💬 Current isAuthenticated state:', isAuthenticated);
     console.log('💬 Token in localStorage:', !!localStorage.getItem('token'));
     
-    // Force a fresh authentication check
-    const isAuth = checkAuthentication(true);
-    console.log('💬 Fresh auth check result:', isAuth);
-    
-    if (!isAuth) {
+    if (!isAuthenticated) {
       console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
@@ -1528,12 +1437,11 @@ const Gallery = () => {
                 console.log('🔄 Token found after login:', tokenFound);
                 
                 if (tokenFound) {
-                  console.log('🔄 Checking authentication after login...');
-                  const authResult = checkAuthentication();
-                  console.log('🔄 Authentication result:', authResult);
+                  console.log('🔄 Updating global auth state...');
+                  login(userData);
                   
-                  // Force state update
-                  setIsAuthenticated(authResult);
+                  // Trigger auth change event for other components
+                  window.dispatchEvent(new CustomEvent('authChanged'));
                   
                   // Wait for state to update, then refresh engagement data
                   setTimeout(() => {
@@ -1544,7 +1452,6 @@ const Gallery = () => {
                   }, 200);
                 } else {
                   console.log('❌ Token not found, authentication failed');
-                  setIsAuthenticated(false);
                 }
               }}
               onSwitch={() => {
@@ -1576,12 +1483,11 @@ const Gallery = () => {
                 console.log('🔄 Token found after signup:', tokenFound);
                 
                 if (tokenFound) {
-                  console.log('🔄 Checking authentication after signup...');
-                  const authResult = checkAuthentication();
-                  console.log('🔄 Authentication result:', authResult);
+                  console.log('🔄 Updating global auth state...');
+                  login(userData);
                   
-                  // Force state update
-                  setIsAuthenticated(authResult);
+                  // Trigger auth change event for other components
+                  window.dispatchEvent(new CustomEvent('authChanged'));
                   
                   // Wait for state to update, then refresh engagement data
                   setTimeout(() => {
@@ -1592,7 +1498,6 @@ const Gallery = () => {
                   }, 200);
                 } else {
                   console.log('❌ Token not found, authentication failed');
-                  setIsAuthenticated(false);
                 }
               }}
               onSwitch={() => {
