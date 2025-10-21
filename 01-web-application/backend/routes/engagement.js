@@ -11,6 +11,18 @@ console.log('🔍 Like model:', Like);
 console.log('🔍 Comment model:', Comment);
 console.log('🔍 User model:', User);
 
+// Test route to check JWT token
+router.get('/test-auth', authMiddleware, (req, res) => {
+  console.log('🔍 Test auth route - req.user:', req.user);
+  console.log('🔍 req.user type:', typeof req.user);
+  console.log('🔍 req.user keys:', req.user ? Object.keys(req.user) : 'req.user is null/undefined');
+  res.json({ 
+    message: 'Auth test successful',
+    user: req.user,
+    userId: req.user?.userId
+  });
+});
+
 // Like/Unlike a post
 router.post('/like/:postId', authMiddleware, async (req, res) => {
   try {
