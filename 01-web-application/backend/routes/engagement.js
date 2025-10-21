@@ -15,10 +15,14 @@ console.log('🔍 User model:', User);
 router.post('/like/:postId', authMiddleware, async (req, res) => {
   try {
     const { postId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user?.id;
+
+    console.log('🔍 Like request - postId:', postId, 'userId:', userId);
+    console.log('🔍 req.user:', req.user);
 
     // Basic validation
     if (!postId || !userId) {
+      console.log('❌ Missing postId or userId:', { postId, userId });
       return res.status(400).json({ message: 'Missing post ID or user ID' });
     }
 
@@ -94,10 +98,14 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
   try {
     const { postId } = req.params;
     const { content } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id;
+
+    console.log('🔍 Comment request - postId:', postId, 'userId:', userId, 'content:', content);
+    console.log('🔍 req.user:', req.user);
 
     // Basic validation
     if (!postId || !userId) {
+      console.log('❌ Missing postId or userId:', { postId, userId });
       return res.status(400).json({ message: 'Missing post ID or user ID' });
     }
 

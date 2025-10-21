@@ -1161,30 +1161,6 @@ const Gallery = () => {
             Discover the beauty of Nomu Cafe through our collection of drinks, pastries, and cozy ambiance
           </GallerySubtitle>
           {/* Debug button - remove in production */}
-          <button 
-            onClick={() => {
-              console.log('🔧 Manual auth check triggered');
-              const result = checkAuthentication(true);
-              console.log('🔧 Manual auth check result:', result);
-              console.log('🔧 Current isAuthenticated state:', isAuthenticated);
-              console.log('🔧 Token in localStorage:', !!localStorage.getItem('token'));
-            }}
-            style={{
-              position: 'absolute',
-              top: '20px',
-              right: '20px',
-              background: '#212c59',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              zIndex: 1000
-            }}
-          >
-            Debug Auth
-          </button>
         </GalleryHeroOverlay>
       </GalleryHeader>
 
