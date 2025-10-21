@@ -33,12 +33,16 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     }
 
     // Check if user already liked this post
+    console.log('🔍 Checking for existing like with userId:', userId, 'postId:', postId);
     const existingLike = await Like.findOne({ user: userId, post: postId });
+    console.log('🔍 Existing like found:', existingLike);
     
     if (existingLike) {
       // Unlike the post
+      console.log('🔄 Unliking post...');
       await Like.findByIdAndDelete(existingLike._id);
       const likeCount = await Like.countDocuments({ post: postId });
+      console.log('✅ Post unliked, new count:', likeCount);
       return res.json({ 
         message: 'Post unliked successfully',
         liked: false,
@@ -46,13 +50,21 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
       });
     } else {
       // Like the post
-      const newLike = await Like.create({ user: userId, post: postId });
-      const likeCount = await Like.countDocuments({ post: postId });
-      return res.json({ 
-        message: 'Post liked successfully',
-        liked: true,
-        likeCount: likeCount
-      });
+      console.log('🔄 Liking post...');
+      try {
+        const newLike = await Like.create({ user: userId, post: postId });
+        console.log('✅ New like created:', newLike);
+        const likeCount = await Like.countDocuments({ post: postId });
+        console.log('✅ Post liked, new count:', likeCount);
+        return res.json({ 
+          message: 'Post liked successfully',
+          liked: true,
+          likeCount: likeCount
+        });
+      } catch (createError) {
+        console.error('❌ Error creating like:', createError);
+        return res.status(500).json({ message: 'Error creating like', error: createError.message });
+      }
     }
   } catch (error) {
     console.error('❌ Error toggling like:', error);
