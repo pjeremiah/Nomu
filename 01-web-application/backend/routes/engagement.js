@@ -88,6 +88,7 @@ router.get('/likes/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
     const { page = 1, limit = 20 } = req.query;
+    const userId = req.user?.userId || req.user?.id; // Get current user ID if authenticated
 
     const likes = await Like.find({ post: postId })
       .populate('user', 'fullName profilePicture')
@@ -96,6 +97,13 @@ router.get('/likes/:postId', async (req, res) => {
       .skip((page - 1) * limit);
 
     const totalLikes = await Like.countDocuments({ post: postId });
+    
+    // Check if current user has liked this post
+    let userLiked = false;
+    if (userId) {
+      const userLike = await Like.findOne({ post: postId, user: userId });
+      userLiked = !!userLike;
+    }
 
     res.json({
       likes: likes.map(like => ({
@@ -108,6 +116,7 @@ router.get('/likes/:postId', async (req, res) => {
         createdAt: like.createdAt
       })),
       totalLikes,
+      userLiked,
       hasMore: totalLikes > page * limit
     });
   } catch (error) {

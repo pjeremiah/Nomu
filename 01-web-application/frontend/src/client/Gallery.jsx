@@ -471,6 +471,14 @@ const DetailsSection = styled.div`
   flex-direction: column;
   background: white;
   border-left: 1px solid #e9ecef;
+  
+  @media (max-width: 768px) {
+    flex: 1;
+    border-left: none;
+    border-top: 1px solid #e9ecef;
+    min-height: 0; /* Allow flex item to shrink */
+    overflow: hidden; /* Enable scrolling within this section */
+  }
 `;
 
 const DetailsHeader = styled.div`
@@ -573,6 +581,12 @@ const DetailsBody = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  
+  @media (max-width: 768px) {
+    min-height: 0; /* Allow flex item to shrink */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    padding: 15px;
+  }
 `;
 
 const Caption = styled.div`
@@ -669,6 +683,32 @@ const CommentsSection = styled.div`
   margin: 15px 0;
   max-height: 200px;
   overflow-y: auto;
+  
+  /* Mobile-specific scrolling improvements */
+  @media (max-width: 768px) {
+    max-height: 150px;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    scrollbar-width: thin; /* Thin scrollbar on Firefox */
+    
+    /* Custom scrollbar for webkit browsers */
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 2px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 2px;
+    }
+    
+    &::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+  }
 `;
 
 const CommentItem = styled.div`
@@ -922,13 +962,34 @@ const Gallery = () => {
 
   const fetchLikes = async (postId) => {
     try {
-      const response = await fetch(`${API_BASE}/api/engagement/likes/${postId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/engagement/likes/${postId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (response.ok) {
         const data = await response.json();
         setLikes(prev => ({
           ...prev,
           [postId]: data.likes
+        }));
+        
+        // Update userLiked state
+        setUserLiked(prev => ({
+          ...prev,
+          [postId]: data.userLiked || false
+        }));
+        
+        // Update engagement stats with like count and user liked status
+        setEngagementStats(prev => ({
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            likeCount: data.totalLikes,
+            userLiked: data.userLiked || false
+          }
         }));
       }
     } catch (error) {
