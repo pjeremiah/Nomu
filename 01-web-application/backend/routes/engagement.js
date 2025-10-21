@@ -19,16 +19,18 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
 
     console.log('🔍 Like request - postId:', postId, 'userId:', userId);
     console.log('🔍 User from token:', req.user);
+    console.log('🔍 postId type:', typeof postId, 'length:', postId?.length);
+    console.log('🔍 userId type:', typeof userId, 'length:', userId?.length);
 
     // Validate postId format
     if (!postId || postId.length !== 24) {
-      console.log('❌ Invalid postId format:', postId);
+      console.log('❌ Invalid postId format:', postId, 'length:', postId?.length);
       return res.status(400).json({ message: 'Invalid post ID format' });
     }
 
     // Validate userId format
     if (!userId || userId.length !== 24) {
-      console.log('❌ Invalid userId format:', userId);
+      console.log('❌ Invalid userId format:', userId, 'length:', userId?.length);
       return res.status(400).json({ message: 'Invalid user ID format' });
     }
 
@@ -115,16 +117,18 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
 
     console.log('🔍 Comment request - postId:', postId, 'userId:', userId, 'content:', content);
     console.log('🔍 User from token:', req.user);
+    console.log('🔍 postId type:', typeof postId, 'length:', postId?.length);
+    console.log('🔍 userId type:', typeof userId, 'length:', userId?.length);
 
     // Validate postId format
     if (!postId || postId.length !== 24) {
-      console.log('❌ Invalid postId format:', postId);
+      console.log('❌ Invalid postId format:', postId, 'length:', postId?.length);
       return res.status(400).json({ message: 'Invalid post ID format' });
     }
 
     // Validate userId format
     if (!userId || userId.length !== 24) {
-      console.log('❌ Invalid userId format:', userId);
+      console.log('❌ Invalid userId format:', userId, 'length:', userId?.length);
       return res.status(400).json({ message: 'Invalid user ID format' });
     }
 

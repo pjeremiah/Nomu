@@ -675,12 +675,14 @@ const ContactUs = () => {
           <ModalContent onClick={e => e.stopPropagation()}>
             {showSignIn ? (
               <SignInForm
+                preventRedirect={true}
                 onSubmit={handleSignInSuccess}
                 onSwitch={handleSwitchToSignUp}
                 onOTPStateChange={setIsOTPFormShowing}
               />
             ) : (
               <SignUpForm
+                preventRedirect={true}
                 onSubmit={handleSignUpSuccess}
                 onSwitch={handleSwitchToSignIn}
                 onOTPStateChange={setIsOTPFormShowing}

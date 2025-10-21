@@ -13,7 +13,7 @@ const maskEmail = (email) => {
   return `${maskedLocal}@${domain}`;
 };
 
-const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange }) => {
+const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = false }) => {
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     fullName: '',
