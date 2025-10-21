@@ -51,7 +51,7 @@ router.get('/likes/:postId', async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
 
     const likes = await Like.find({ post: postId })
-      .populate('user', 'firstName lastName profilePicture')
+      .populate('user', 'fullName profilePicture')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -63,7 +63,7 @@ router.get('/likes/:postId', async (req, res) => {
         id: like._id,
         user: {
           id: like.user._id,
-          name: `${like.user.firstName} ${like.user.lastName}`,
+          name: like.user.fullName,
           profilePicture: like.user.profilePicture
         },
         createdAt: like.createdAt
@@ -102,7 +102,7 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
     });
 
     // Populate user details
-    await comment.populate('user', 'firstName lastName profilePicture');
+    await comment.populate('user', 'fullName profilePicture');
 
     res.status(201).json({
       message: 'Comment added successfully',
@@ -111,7 +111,7 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
         content: comment.content,
         user: {
           id: comment.user._id,
-          name: `${comment.user.firstName} ${comment.user.lastName}`,
+          name: comment.user.fullName,
           profilePicture: comment.user.profilePicture
         },
         createdAt: comment.createdAt
@@ -130,7 +130,7 @@ router.get('/comments/:postId', async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
 
     const comments = await Comment.find({ post: postId })
-      .populate('user', 'firstName lastName profilePicture')
+      .populate('user', 'fullName profilePicture')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -143,7 +143,7 @@ router.get('/comments/:postId', async (req, res) => {
         content: comment.content,
         user: {
           id: comment.user._id,
-          name: `${comment.user.firstName} ${comment.user.lastName}`,
+          name: comment.user.fullName,
           profilePicture: comment.user.profilePicture
         },
         createdAt: comment.createdAt
