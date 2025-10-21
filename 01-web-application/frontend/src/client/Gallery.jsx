@@ -4,6 +4,9 @@ import { lightTheme } from '../utils/Themes';
 import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes, FaHeart, FaComment, FaShare, FaBookmark, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Logo from '../utils/Images/Logo.png';
 import ForGalleryPageImage from '../utils/Images/Gallery/ForGalleryPage.jpg';
+import SignInForm from './SignInForm';
+
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
 const GalleryContainer = styled.div`
   min-height: 100vh;
@@ -471,20 +474,40 @@ const Username = styled.div`
 const InstagramIcon = styled.div`
   width: 20px;
   height: 20px;
-  background: #b08d57;
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 2px;
+    top: 2px;
+    left: 2px;
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 7px;
+  }
   
   &:hover {
-    background: #9a7a4a;
     transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(225, 48, 108, 0.3);
   }
 `;
 
@@ -494,19 +517,27 @@ const VerifiedBadge = styled.span`
   margin-left: 4px;
 `;
 
+// Close button styled to match sign-in modal
 const CloseButton = styled.button`
-  background: none;
+  background: rgba(33, 44, 89, 0.1);
   border: none;
-  font-size: 1.5rem;
-  color: #666;
+  font-size: 1.1rem;
   cursor: pointer;
-  padding: 5px;
+  color: #212c59;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
   
   &:hover {
-    background: #f8f9fa;
-    color: #333;
+    background: #212c59;
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
   }
 `;
 
@@ -590,6 +621,87 @@ const PostActionButton = styled.button`
   }
 `;
 
+const CommentInput = styled.div`
+  padding: 15px 0;
+  border-top: 1px solid #e9ecef;
+  margin-top: 15px;
+`;
+
+const CommentField = styled.input`
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #333;
+  background: transparent;
+  
+  &::placeholder {
+    color: #999;
+  }
+`;
+
+const CommentsSection = styled.div`
+  margin: 15px 0;
+  max-height: 200px;
+  overflow-y: auto;
+`;
+
+const CommentItem = styled.div`
+  margin-bottom: 12px;
+`;
+
+const CommentUser = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+`;
+
+const CommentAvatar = styled.div`
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`;
+
+const CommentContent = styled.div`
+  flex: 1;
+`;
+
+const CommentText = styled.div`
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+  
+  strong {
+    font-weight: 600;
+    margin-right: 5px;
+  }
+`;
+
+const CommentTime = styled.div`
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+`;
+
+const ViewMoreComments = styled.div`
+  font-size: 14px;
+  color: #999;
+  cursor: pointer;
+  margin-top: 8px;
+  
+  &:hover {
+    color: #666;
+  }
+`;
+
 const MediaIndicator = styled.div`
   position: absolute;
   bottom: 15px;
@@ -670,12 +782,30 @@ const Gallery = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
+  
+  // Engagement state
+  const [engagementStats, setEngagementStats] = useState({});
+  const [comments, setComments] = useState({});
+  const [likes, setLikes] = useState({});
+  const [userLiked, setUserLiked] = useState({});
+  const [newComment, setNewComment] = useState('');
+  const [showSignInModal, setShowSignInModal] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
 
   useEffect(() => {
     fetchGalleryPosts();
+    checkAuthentication();
   }, []);
+
+  useEffect(() => {
+    if (selectedPost) {
+      fetchEngagementStats(selectedPost._id);
+      fetchComments(selectedPost._id);
+      fetchLikes(selectedPost._id);
+    }
+  }, [selectedPost, isAuthenticated]);
 
   const fetchGalleryPosts = async () => {
     try {
@@ -692,6 +822,164 @@ const Gallery = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAuthentication = () => {
+    const token = localStorage.getItem('token');
+    setIsAuthenticated(!!token);
+  };
+
+  const fetchEngagementStats = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/engagement/stats/${postId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setEngagementStats(prev => ({
+          ...prev,
+          [postId]: data
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching engagement stats:', error);
+    }
+  };
+
+  const fetchComments = async (postId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/engagement/comments/${postId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setComments(prev => ({
+          ...prev,
+          [postId]: data.comments
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
+  const fetchLikes = async (postId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/engagement/likes/${postId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLikes(prev => ({
+          ...prev,
+          [postId]: data.likes
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching likes:', error);
+    }
+  };
+
+  const handleLike = async (postId) => {
+    if (!isAuthenticated) {
+      setShowSignInModal(true);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/engagement/like/${postId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEngagementStats(prev => ({
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            likeCount: data.likeCount,
+            userLiked: data.liked
+          }
+        }));
+        setUserLiked(prev => ({
+          ...prev,
+          [postId]: data.liked
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  const handleComment = async (postId) => {
+    if (!isAuthenticated) {
+      setShowSignInModal(true);
+      return;
+    }
+
+    if (!newComment.trim()) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/engagement/comment/${postId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: newComment })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setComments(prev => ({
+          ...prev,
+          [postId]: [data.comment, ...(prev[postId] || [])]
+        }));
+        setEngagementStats(prev => ({
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            commentCount: (prev[postId]?.commentCount || 0) + 1
+          }
+        }));
+        setNewComment('');
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds}s`;
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes}m`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours}h`;
+    } else if (diffInSeconds < 2592000) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days}d`;
+    } else if (diffInSeconds < 31536000) {
+      const months = Math.floor(diffInSeconds / 2592000);
+      return `${months}mo`;
+    } else {
+      const years = Math.floor(diffInSeconds / 31536000);
+      return `${years}y`;
     }
   };
 
@@ -897,25 +1185,29 @@ const Gallery = () => {
               </MediaContainer>
 
               {/* Outer Navigation Arrows (for different posts) */}
-              <OuterLeftArrow 
-                onClick={prevPost}
-                disabled={currentPostIndex === 0}
-              >
-                <FaChevronLeft />
-              </OuterLeftArrow>
-              <OuterRightArrow 
-                onClick={nextPost}
-                disabled={currentPostIndex === posts.length - 1}
-              >
-                <FaChevronRight />
-              </OuterRightArrow>
+              {posts.length > 1 && (
+                <>
+                  <OuterLeftArrow 
+                    onClick={prevPost}
+                    disabled={currentPostIndex === 0}
+                  >
+                    <FaChevronLeft />
+                  </OuterLeftArrow>
+                  <OuterRightArrow 
+                    onClick={nextPost}
+                    disabled={currentPostIndex === posts.length - 1}
+                  >
+                    <FaChevronRight />
+                  </OuterRightArrow>
+                </>
+              )}
             </MediaSection>
 
             {/* Right Side - Details Section */}
             <DetailsSection>
               <DetailsHeader>
                 <Username onClick={() => window.open('https://www.instagram.com/nomu.ph/', '_blank')}>
-                  <InstagramIcon>IG</InstagramIcon>
+                  <InstagramIcon />
                   nomu.ph
                   <VerifiedBadge>✓</VerifiedBadge>
                 </Username>
@@ -937,22 +1229,81 @@ const Gallery = () => {
                   </Hashtags>
                 )}
 
+                <PostActions>
+                  <PostActionButton 
+                    onClick={() => handleLike(selectedPost._id)}
+                    style={{ color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333' }}
+                  >
+                    <FaHeart />
+                  </PostActionButton>
+                  <PostActionButton onClick={() => document.getElementById('commentInput').focus()}>
+                    <FaComment />
+                  </PostActionButton>
+                </PostActions>
+
+                <Engagement>
+                  {engagementStats[selectedPost._id]?.likeCount || 0} likes
+                </Engagement>
+
                 <Timestamp>
                   {formatTimeAgo(selectedPost.createdAt)}
                 </Timestamp>
 
-                <Engagement>
-                  {Math.floor(Math.random() * 50) + 10} likes
-                </Engagement>
+                {/* Comments Display */}
+                {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
+                  <CommentsSection>
+                    {comments[selectedPost._id].slice(0, 3).map((comment) => (
+                      <CommentItem key={comment.id}>
+                        <CommentUser>
+                          <CommentAvatar>
+                            {comment.user.profilePicture ? (
+                              <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user.name} />
+                            ) : (
+                              <div style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                background: '#b08d57', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                              }}>
+                                {comment.user.name.charAt(0)}
+                              </div>
+                            )}
+                          </CommentAvatar>
+                          <CommentContent>
+                            <CommentText>
+                              <strong>{comment.user.name}</strong> {comment.content}
+                            </CommentText>
+                            <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
+                          </CommentContent>
+                        </CommentUser>
+                      </CommentItem>
+                    ))}
+                    {comments[selectedPost._id].length > 3 && (
+                      <ViewMoreComments>
+                        View all {comments[selectedPost._id].length} comments
+                      </ViewMoreComments>
+                    )}
+                  </CommentsSection>
+                )}
 
-                <PostActions>
-                  <PostActionButton>
-                    <FaHeart />
-                  </PostActionButton>
-                  <PostActionButton>
-                    <FaComment />
-                  </PostActionButton>
-                </PostActions>
+                <CommentInput>
+                  <CommentField 
+                    id="commentInput"
+                    placeholder="Add a comment..." 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleComment(selectedPost._id);
+                      }
+                    }}
+                  />
+                </CommentInput>
               </DetailsBody>
             </DetailsSection>
           </ModalContent>
@@ -979,6 +1330,27 @@ const Gallery = () => {
           </div>
         </nav>
       </Footer>
+
+      {/* Sign In Modal */}
+      {showSignInModal && (
+        <div className="signin-modal-overlay" onClick={() => setShowSignInModal(false)}>
+          <div className="signin-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="signin-close-button" 
+              onClick={() => setShowSignInModal(false)}
+            >
+              ×
+            </button>
+            <SignInForm 
+              onSuccess={() => {
+                setShowSignInModal(false);
+                setIsAuthenticated(true);
+                checkAuthentication();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </GalleryContainer>
   );
 };
