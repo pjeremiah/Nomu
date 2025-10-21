@@ -850,6 +850,15 @@ const Gallery = () => {
     checkAuthentication();
   }, []);
 
+  // Check authentication on every render (for debugging)
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && !isAuthenticated) {
+      console.log('🔄 Token exists but isAuthenticated is false, forcing check...');
+      checkAuthentication(true);
+    }
+  });
+
   useEffect(() => {
     if (selectedPost) {
       fetchEngagementStats(selectedPost._id);
@@ -892,15 +901,16 @@ const Gallery = () => {
     }
   };
 
-  const checkAuthentication = () => {
+  const checkAuthentication = (force = false) => {
     const token = localStorage.getItem('token');
     console.log('🔐 checkAuthentication called, token exists:', !!token);
     console.log('🔐 Current isAuthenticated state:', isAuthenticated);
+    console.log('🔐 Force check:', force);
     
     if (!token) {
       console.log('❌ No token found, setting isAuthenticated to false');
       setIsAuthenticated(false);
-      return;
+      return false;
     }
 
     // Check if token has valid JWT format (3 parts separated by dots)
@@ -909,7 +919,7 @@ const Gallery = () => {
       console.log('❌ Invalid token format, removing token');
       localStorage.removeItem('token');
       setIsAuthenticated(false);
-      return;
+      return false;
     }
 
     // Check if token is expired
@@ -926,16 +936,18 @@ const Gallery = () => {
         console.log('❌ Token expired, removing token');
         localStorage.removeItem('token');
         setIsAuthenticated(false);
-        return;
+        return false;
       }
       
       console.log('✅ Token is valid, setting isAuthenticated to true');
       setIsAuthenticated(true);
+      return true;
     } catch (error) {
       // Invalid token format
       console.log('❌ Invalid token format, removing token:', error);
       localStorage.removeItem('token');
       setIsAuthenticated(false);
+      return false;
     }
   };
 
@@ -997,7 +1009,11 @@ const Gallery = () => {
     console.log('❤️ Current isAuthenticated state:', isAuthenticated);
     console.log('❤️ Token in localStorage:', !!localStorage.getItem('token'));
     
-    if (!isAuthenticated) {
+    // Force a fresh authentication check
+    const isAuth = checkAuthentication(true);
+    console.log('❤️ Fresh auth check result:', isAuth);
+    
+    if (!isAuth) {
       console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
@@ -1040,7 +1056,11 @@ const Gallery = () => {
     console.log('💬 Current isAuthenticated state:', isAuthenticated);
     console.log('💬 Token in localStorage:', !!localStorage.getItem('token'));
     
-    if (!isAuthenticated) {
+    // Force a fresh authentication check
+    const isAuth = checkAuthentication(true);
+    console.log('💬 Fresh auth check result:', isAuth);
+    
+    if (!isAuth) {
       console.log('❌ User not authenticated, showing sign-in modal');
       setShowSignInModal(true);
       return;
@@ -1228,6 +1248,31 @@ const Gallery = () => {
           <GallerySubtitle>
             Discover the beauty of Nomu Cafe through our collection of drinks, pastries, and cozy ambiance
           </GallerySubtitle>
+          {/* Debug button - remove in production */}
+          <button 
+            onClick={() => {
+              console.log('🔧 Manual auth check triggered');
+              const result = checkAuthentication(true);
+              console.log('🔧 Manual auth check result:', result);
+              console.log('🔧 Current isAuthenticated state:', isAuthenticated);
+              console.log('🔧 Token in localStorage:', !!localStorage.getItem('token'));
+            }}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: '#212c59',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              zIndex: 1000
+            }}
+          >
+            Debug Auth
+          </button>
         </GalleryHeroOverlay>
       </GalleryHeader>
 
