@@ -903,7 +903,7 @@ const Gallery = () => {
 
   const handleLike = async (postId) => {
     if (!isAuthenticated) {
-      setShowSignUpModal(true);
+      setShowSignInModal(true);
       return;
     }
 
@@ -939,7 +939,7 @@ const Gallery = () => {
 
   const handleComment = async (postId) => {
     if (!isAuthenticated) {
-      setShowSignUpModal(true);
+      setShowSignInModal(true);
       return;
     }
 
@@ -1350,7 +1350,7 @@ const Gallery = () => {
               className="signin-close-button" 
               onClick={() => setShowSignInModal(false)}
             >
-              ×
+              <FaTimes />
             </button>
             <SignInForm 
               onSuccess={() => {
@@ -1375,7 +1375,7 @@ const Gallery = () => {
               className="signin-close-button" 
               onClick={() => setShowSignUpModal(false)}
             >
-              ×
+              <FaTimes />
             </button>
             <SignUpForm 
               onSuccess={() => {
