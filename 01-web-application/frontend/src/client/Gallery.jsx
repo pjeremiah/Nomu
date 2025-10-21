@@ -319,7 +319,9 @@ const ModalContent = styled.div`
     height: 100vh !important;
     border-radius: 0 !important;
     flex-direction: column !important;
-    overflow: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
   }
 `;
 
@@ -474,12 +476,8 @@ const DetailsSection = styled.div`
     flex: 1;
     border-left: none;
     border-top: 1px solid #e9ecef;
-    min-height: 0;
-    overflow: visible;
-    max-height: 70vh;
-    height: auto;
-    display: flex;
-    flex-direction: column;
+    min-height: 0; /* Allow flex item to shrink */
+    overflow: hidden; /* Enable scrolling within this section */
   }
 `;
 
@@ -579,61 +577,16 @@ const CloseButton = styled.button`
 const DetailsBody = styled.div`
   flex: 1;
   padding: 20px;
-  overflow: hidden; /* Prevent body from scrolling */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Allow flex item to shrink */
+  justify-content: space-between;
   
   @media (max-width: 768px) {
+    min-height: 0; /* Allow flex item to shrink */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
     padding: 15px;
   }
-`;
-
-const DetailsContent = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* Allow flex item to shrink */
-  overflow: hidden;
-`;
-
-const ScrollableContent = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-  scrollbar-width: thin; /* Thin scrollbar on Firefox */
-  
-  @media (max-width: 768px) {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    min-height: 0;
-    max-height: 300px;
-  }
-  
-  /* Custom scrollbar for webkit browsers */
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 2px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 2px;
-  }
-  
-  &::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-  }
-`;
-
-const EngagementSection = styled.div`
-  flex-shrink: 0; /* Don't shrink this section */
-  margin-top: auto; /* Push to bottom */
 `;
 
 const Caption = styled.div`
@@ -728,12 +681,33 @@ const CommentField = styled.input`
 
 const CommentsSection = styled.div`
   margin: 15px 0;
+  max-height: 200px;
+  overflow-y: auto;
   
+  /* Mobile-specific scrolling improvements */
   @media (max-width: 768px) {
-    margin: 12px 0;
-    display: block;
-    visibility: visible;
-    opacity: 1;
+    max-height: 150px;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    scrollbar-width: thin; /* Thin scrollbar on Firefox */
+    
+    /* Custom scrollbar for webkit browsers */
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 2px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 2px;
+    }
+    
+    &::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
   }
 `;
 
@@ -900,25 +874,6 @@ const Gallery = () => {
     }
   }, [selectedPost, isAuthenticated]);
 
-  // Additional effect to refresh like state when authentication changes
-  useEffect(() => {
-    if (selectedPost && isAuthenticated) {
-      fetchLikes(selectedPost._id);
-    }
-  }, [isAuthenticated, selectedPost]);
-
-  // Force refresh like state when modal opens
-  useEffect(() => {
-    if (showModal && selectedPost) {
-      console.log('Modal opened, refreshing like state for post:', selectedPost._id);
-      // Small delay to ensure token is available
-      setTimeout(() => {
-        fetchLikes(selectedPost._id);
-        fetchEngagementStats(selectedPost._id);
-      }, 100);
-    }
-  }, [showModal, selectedPost]);
-
   // Handle body class for modal consistency and scroll prevention
   useEffect(() => {
     if (showModal || showSignInModal || showSignUpModal) {
@@ -1008,28 +963,26 @@ const Gallery = () => {
   const fetchLikes = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      
-      // Always try to fetch likes, even if not authenticated (to get like count)
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      
       const response = await fetch(`${API_BASE}/api/engagement/likes/${postId}`, {
-        headers
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (response.ok) {
         const data = await response.json();
-        
         setLikes(prev => ({
           ...prev,
           [postId]: data.likes
         }));
         
-        // Always update both states for consistency
+        // Update userLiked state
         setUserLiked(prev => ({
           ...prev,
           [postId]: data.userLiked || false
         }));
         
+        // Update engagement stats with like count and user liked status
         setEngagementStats(prev => ({
           ...prev,
           [postId]: {
@@ -1038,8 +991,6 @@ const Gallery = () => {
             userLiked: data.userLiked || false
           }
         }));
-      } else {
-        console.error('❌ Failed to fetch likes:', response.status);
       }
     } catch (error) {
       console.error('Error fetching likes:', error);
@@ -1064,28 +1015,18 @@ const Gallery = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Like response:', data);
-        setEngagementStats(prev => {
-          const newStats = {
-            ...prev,
-            [postId]: {
-              ...prev[postId],
-              likeCount: data.likeCount,
-              userLiked: data.liked
-            }
-          };
-          console.log('Setting engagementStats:', newStats);
-          return newStats;
-        });
-        setUserLiked(prev => {
-          const newUserLiked = {
-            ...prev,
-            [postId]: data.liked
-          };
-          console.log('Setting userLiked:', newUserLiked);
-          return newUserLiked;
-        });
-        console.log('Updated engagement stats for post', postId, ':', data);
+        setEngagementStats(prev => ({
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            likeCount: data.likeCount,
+            userLiked: data.liked
+          }
+        }));
+        setUserLiked(prev => ({
+          ...prev,
+          [postId]: data.liked
+        }));
       }
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -1417,161 +1358,114 @@ const Gallery = () => {
               </DetailsHeader>
 
               <DetailsBody>
-                <DetailsContent>
-                  <ScrollableContent>
-                    <Caption>
-                      {selectedPost.description || selectedPost.title}
-                    </Caption>
+                <div>
+                  <Caption>
+                    {selectedPost.description || selectedPost.title}
+                  </Caption>
 
-                    {selectedPost.tags && selectedPost.tags.length > 0 && (
-                      <Hashtags>
-                        {selectedPost.tags.map((tag, index) => (
-                          <span key={index}>#{tag} </span>
-                        ))}
-                      </Hashtags>
-                    )}
+                  {selectedPost.tags && selectedPost.tags.length > 0 && (
+                    <Hashtags>
+                      {selectedPost.tags.map((tag, index) => (
+                        <span key={index}>#{tag} </span>
+                      ))}
+                    </Hashtags>
+                  )}
 
-                    {/* Comments Display */}
-                    {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
-                      <CommentsSection style={{ 
-                        display: 'block',
-                        visibility: 'visible',
-                        opacity: 1,
-                        minHeight: '50px',
-                        backgroundColor: '#f8f9fa',
-                        padding: '10px',
-                        borderRadius: '8px',
-                        margin: '10px 0'
-                      }}>
-                        <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '14px' }}>
-                          Comments ({comments[selectedPost._id].length})
-                        </div>
-                        {comments[selectedPost._id].map((comment) => (
-                          <CommentItem key={comment.id}>
-                            <CommentUser>
-                              <CommentAvatar>
-                                {comment.user.profilePicture ? (
-                                  <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user.name} />
-                                ) : (
-                                  <div style={{ 
-                                    width: '100%', 
-                                    height: '100%', 
-                                    background: '#b08d57', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold'
-                                  }}>
-                                    {comment.user.name.charAt(0)}
-                                  </div>
-                                )}
-                              </CommentAvatar>
-                              <CommentContent>
-                                <CommentText>
-                                  <strong>{comment.user.name}</strong> {comment.content}
-                                </CommentText>
-                                <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
-                              </CommentContent>
-                              {isAuthenticated && user && user.id === comment.user.id && (
-                                <button
-                                  onClick={() => handleDeleteComment(comment.id, selectedPost._id)}
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#999',
-                                    cursor: 'pointer',
-                                    fontSize: '12px',
-                                    padding: '4px',
-                                    marginLeft: '8px'
-                                  }}
-                                  title="Delete comment"
-                                >
-                                  ✕
-                                </button>
+                  {/* Comments Display */}
+                  {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
+                    <CommentsSection>
+                      {comments[selectedPost._id].slice(0, 3).map((comment) => (
+                        <CommentItem key={comment.id}>
+                          <CommentUser>
+                            <CommentAvatar>
+                              {comment.user.profilePicture ? (
+                                <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user.name} />
+                              ) : (
+                                <div style={{ 
+                                  width: '100%', 
+                                  height: '100%', 
+                                  background: '#b08d57', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {comment.user.name.charAt(0)}
+                                </div>
                               )}
-                            </CommentUser>
-                          </CommentItem>
-                        ))}
-                      </CommentsSection>
-                    )}
-                  </ScrollableContent>
+                            </CommentAvatar>
+                            <CommentContent>
+                              <CommentText>
+                                <strong>{comment.user.name}</strong> {comment.content}
+                              </CommentText>
+                              <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
+                            </CommentContent>
+                            {isAuthenticated && user && user.id === comment.user.id && (
+                              <button
+                                onClick={() => handleDeleteComment(comment.id, selectedPost._id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#999',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  padding: '4px',
+                                  marginLeft: '8px'
+                                }}
+                                title="Delete comment"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </CommentUser>
+                        </CommentItem>
+                      ))}
+                      {comments[selectedPost._id].length > 3 && (
+                        <ViewMoreComments>
+                          View all {comments[selectedPost._id].length} comments
+                        </ViewMoreComments>
+                      )}
+                    </CommentsSection>
+                  )}
+                </div>
 
-                  <EngagementSection>
-                    <PostActions>
-                      <PostActionButton 
-                        onClick={() => handleLike(selectedPost._id)}
-                        style={{ 
-                          color: (engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : '#333',
-                          fontSize: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '40px',
-                          height: '40px',
-                          border: 'none',
-                          background: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <FaHeart 
-                          style={{ 
-                            color: (engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : '#333',
-                            fontSize: '24px',
-                            display: 'block',
-                            width: '24px',
-                            height: '24px',
-                            visibility: 'visible',
-                            opacity: 1
-                          }}
-                          fill={(engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : 'none'}
-                        />
-                      </PostActionButton>
-                      <PostActionButton 
-                        onClick={() => document.getElementById('commentInput').focus()}
-                        style={{
-                          fontSize: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '40px',
-                          height: '40px',
-                          border: 'none',
-                          background: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <FaComment />
-                      </PostActionButton>
-                    </PostActions>
+                <div>
+                  <PostActions>
+                    <PostActionButton 
+                      onClick={() => handleLike(selectedPost._id)}
+                      style={{ color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333' }}
+                    >
+                      <FaHeart />
+                    </PostActionButton>
+                    <PostActionButton onClick={() => document.getElementById('commentInput').focus()}>
+                      <FaComment />
+                    </PostActionButton>
+                  </PostActions>
 
-                    <Engagement>
-                      {engagementStats[selectedPost._id]?.likeCount || 0} likes
-                      <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                        Debug: userLiked = {String(engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id] || false)}
-                      </div>
-                    </Engagement>
+                  <Engagement>
+                    {engagementStats[selectedPost._id]?.likeCount || 0} likes
+                  </Engagement>
 
-                    <Timestamp>
-                      {formatTimeAgo(selectedPost.createdAt)}
-                    </Timestamp>
+                  <Timestamp>
+                    {formatTimeAgo(selectedPost.createdAt)}
+                  </Timestamp>
 
-                    <CommentInput>
-                      <CommentField 
-                        id="commentInput"
-                        placeholder="Add a comment..." 
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            handleComment(selectedPost._id);
-                          }
-                        }}
-                      />
-                    </CommentInput>
-                  </EngagementSection>
-                </DetailsContent>
+                  <CommentInput>
+                    <CommentField 
+                      id="commentInput"
+                      placeholder="Add a comment..." 
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleComment(selectedPost._id);
+                        }
+                      }}
+                    />
+                  </CommentInput>
+                </div>
               </DetailsBody>
             </DetailsSection>
           </ModalContent>
