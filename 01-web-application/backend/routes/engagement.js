@@ -19,6 +19,10 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
 
     console.log('🔍 Like request - postId:', postId, 'userId:', userId);
     console.log('🔍 req.user:', req.user);
+    console.log('🔍 req.user type:', typeof req.user);
+    console.log('🔍 req.user keys:', req.user ? Object.keys(req.user) : 'req.user is null/undefined');
+    console.log('🔍 req.user.userId type:', typeof req.user?.userId);
+    console.log('🔍 req.user.userId value:', req.user?.userId);
 
     // Basic validation
     if (!postId || !userId) {
