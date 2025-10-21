@@ -31,26 +31,15 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user?.userId || req.user?.id;
 
-    // Log the request
-    console.log('🔍 Like request - postId:', postId, 'userId:', userId, 'req.user:', req.user);
-    console.log('🔍 Authorization header:', req.headers.authorization);
-    console.log('🔍 req.user keys:', req.user ? Object.keys(req.user) : 'req.user is null');
+    console.log('🔍 Like request - postId:', postId, 'userId:', userId, 'content:', 'like');
+    console.log('🔍 req.user:', req.user);
 
     // Basic validation
-    if (!postId) {
-      return res.status(400).json({ message: 'Missing post ID' });
+    if (!postId || !userId) {
+      console.log('❌ Missing postId or userId:', { postId, userId });
+      return res.status(400).json({ message: 'Missing post ID or user ID' });
     }
-    
-    if (!userId) {
-      return res.status(400).json({ 
-        message: 'Missing user ID', 
-        debug: { 
-          reqUser: req.user, 
-          availableFields: req.user ? Object.keys(req.user) : 'req.user is null',
-          authHeader: req.headers.authorization
-        } 
-      });
-    }
+
 
     // Check if post exists
     const post = await GalleryPost.findById(postId);
