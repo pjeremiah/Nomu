@@ -16,23 +16,23 @@ const ResponsiveModal = ({
     switch (size) {
       case 'small':
         return {
-          maxWidth: 'clamp(400px, 50vw, 500px)',
-          width: 'clamp(85vw, 50vw, 90vw)'
+          maxWidth: 'clamp(400px, 45vw, 500px)',
+          width: 'clamp(70vw, 45vw, 80vw)'
         };
       case 'large':
         return {
-          maxWidth: 'clamp(700px, 80vw, 800px)',
-          width: 'clamp(90vw, 80vw, 95vw)'
+          maxWidth: 'clamp(650px, 70vw, 800px)',
+          width: 'clamp(80vw, 70vw, 90vw)'
         };
       case 'extra-large':
         return {
-          maxWidth: 'clamp(900px, 95vw, 1000px)',
-          width: 'clamp(95vw, 95vw, 98vw)'
+          maxWidth: 'clamp(800px, 85vw, 1000px)',
+          width: 'clamp(85vw, 85vw, 95vw)'
         };
-      default: // medium
+      default: // medium - optimized for desktop/laptop
         return {
-          maxWidth: 'clamp(500px, 60vw, 600px)',
-          width: 'clamp(85vw, 60vw, 90vw)'
+          maxWidth: 'clamp(450px, 55vw, 600px)',
+          width: 'clamp(75vw, 55vw, 85vw)'
         };
     }
   };
@@ -173,56 +173,72 @@ const ResponsiveModal = ({
           }
         }
 
-        /* Responsive adjustments for different screen sizes and zoom levels */
-        @media (max-width: 1200px) {
+        /* Responsive adjustments for desktop/laptop screens and zoom levels */
+        
+        /* Large desktop screens (1920px+) */
+        @media (min-width: 1920px) {
           .admin-modal {
-            width: 92vw !important;
-            max-width: 92vw !important;
-            max-height: calc(100vh - clamp(15px, 3vw, 40px)) !important;
+            width: clamp(500px, 50vw, 600px) !important;
+            max-width: 600px !important;
+            max-height: calc(100vh - clamp(40px, 5vw, 80px)) !important;
           }
         }
 
-        @media (max-width: 768px) {
+        /* Standard desktop screens (1200px - 1919px) */
+        @media (min-width: 1200px) and (max-width: 1919px) {
           .admin-modal {
-            width: 95vw !important;
-            max-width: 95vw !important;
-            margin: clamp(5px, 1vw, 15px);
-            max-height: calc(100vh - clamp(10px, 2vw, 30px)) !important;
+            width: clamp(450px, 55vw, 600px) !important;
+            max-width: 600px !important;
+            max-height: calc(100vh - clamp(30px, 4vw, 60px)) !important;
           }
         }
 
-        @media (max-width: 480px) {
+        /* Small desktop/large laptop screens (1024px - 1199px) */
+        @media (min-width: 1024px) and (max-width: 1199px) {
           .admin-modal {
-            width: 98vw !important;
-            max-width: 98vw !important;
-            margin: clamp(3px, 0.5vw, 10px);
-            max-height: calc(100vh - clamp(5px, 1vw, 20px)) !important;
-          }
-          
-          .admin-modal h3 {
-            font-size: clamp(1.1rem, 2vw, 1.25rem) !important;
+            width: clamp(400px, 60vw, 600px) !important;
+            max-width: 600px !important;
+            max-height: calc(100vh - clamp(25px, 3vw, 50px)) !important;
           }
         }
 
-        /* High DPI and zoom level adjustments */
-        @media (min-resolution: 2dppx) {
+        /* Laptop screens (768px - 1023px) - minimum admin access */
+        @media (min-width: 768px) and (max-width: 1023px) {
           .admin-modal {
-            max-height: calc(100vh - clamp(20px, 4vw, 50px)) !important;
+            width: clamp(350px, 70vw, 600px) !important;
+            max-width: 600px !important;
+            max-height: calc(100vh - clamp(20px, 2.5vw, 40px)) !important;
+            margin: clamp(10px, 1.5vw, 20px);
           }
         }
 
-        /* Very small screens or high zoom levels */
-        @media (max-height: 600px) {
+        /* High DPI and zoom level adjustments for desktop/laptop */
+        @media (min-resolution: 2dppx) and (min-width: 768px) {
+          .admin-modal {
+            max-height: calc(100vh - clamp(25px, 4vw, 60px)) !important;
+          }
+        }
+
+        /* Very short screens or high zoom levels on desktop/laptop */
+        @media (max-height: 600px) and (min-width: 768px) {
+          .admin-modal {
+            max-height: calc(100vh - 15px) !important;
+            margin: 10px;
+          }
+        }
+
+        @media (max-height: 500px) and (min-width: 768px) {
           .admin-modal {
             max-height: calc(100vh - 10px) !important;
             margin: 5px;
           }
         }
 
-        @media (max-height: 400px) {
+        /* Ultra-wide screens */
+        @media (min-width: 2560px) {
           .admin-modal {
-            max-height: calc(100vh - 5px) !important;
-            margin: 2px;
+            width: clamp(500px, 40vw, 700px) !important;
+            max-width: 700px !important;
           }
         }
       `}</style>
