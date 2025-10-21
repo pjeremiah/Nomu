@@ -576,7 +576,7 @@ const ContactUs = () => {
                   <li>Just want to say hello? We love that too!</li>
                 </ul>
 
-                {!isLoggedIn && (
+                {!isAuthenticated && (
                   <div className="alert alert-info" role="alert" style={{ marginTop: '0', marginBottom: '0' }}>
                     <h5>Why Sign In?</h5>
                     <p className="mb-2">Signing in helps us:</p>
@@ -663,7 +663,7 @@ const ContactUs = () => {
                     className="contact-button-blue" 
                     type="submit"
                   >
-                    {isLoggedIn ? 'Send Feedback' : 'Send Feedback'}
+                    Send Feedback
                   </Button>
                 </Form>
               </ContactForm>

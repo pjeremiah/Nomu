@@ -721,7 +721,7 @@ const Navbar = () => {
   const closeModal = () => {
     setShowSignInModal(false);
     setAuthMode('signin');
-    setIsLoggedIn(!!getToken());
+    // No need to update local auth state - using global auth context
   };
 
   const handleLogoutClick = () => {
@@ -765,7 +765,7 @@ const Navbar = () => {
       localStorage.removeItem('rememberMe');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
-      setIsLoggedIn(false);
+      // No need to update local auth state - using global auth context
       setShowDropdown(false);
       setShowLogoutConfirm(false);
       window.dispatchEvent(new Event('authChange'));
