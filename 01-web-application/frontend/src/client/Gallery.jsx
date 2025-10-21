@@ -475,8 +475,9 @@ const DetailsSection = styled.div`
     border-left: none;
     border-top: 1px solid #e9ecef;
     min-height: 0;
-    overflow-y: auto;
-    max-height: 60vh; /* Give more space for comments */
+    overflow: visible;
+    max-height: none;
+    height: auto;
     display: flex;
     flex-direction: column;
   }
@@ -604,9 +605,10 @@ const ScrollableContent = styled.div`
   
   @media (max-width: 768px) {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     min-height: 0;
+    max-height: none;
   }
   
   /* Custom scrollbar for webkit browsers */
@@ -729,6 +731,9 @@ const CommentsSection = styled.div`
   
   @media (max-width: 768px) {
     margin: 12px 0;
+    display: block;
+    visibility: visible;
+    opacity: 1;
   }
 `;
 
@@ -904,13 +909,13 @@ const Gallery = () => {
 
   // Force refresh like state when modal opens
   useEffect(() => {
-    if (showModal && selectedPost && isAuthenticated) {
+    if (showModal && selectedPost) {
       // Small delay to ensure token is available
       setTimeout(() => {
         fetchLikes(selectedPost._id);
       }, 100);
     }
-  }, [showModal, selectedPost, isAuthenticated]);
+  }, [showModal, selectedPost]);
 
   // Handle body class for modal consistency and scroll prevention
   useEffect(() => {
@@ -1017,34 +1022,20 @@ const Gallery = () => {
           [postId]: data.likes
         }));
         
-        // Update userLiked state (only if authenticated)
-        if (isAuthenticated && token) {
-          setUserLiked(prev => ({
-            ...prev,
-            [postId]: data.userLiked || false
-          }));
-          
-          // Update engagement stats with like count and user liked status
-          setEngagementStats(prev => ({
-            ...prev,
-            [postId]: {
-              ...prev[postId],
-              likeCount: data.totalLikes,
-              userLiked: data.userLiked || false
-            }
-          }));
-          
-        } else {
-          // If not authenticated, just update like count
-          setEngagementStats(prev => ({
-            ...prev,
-            [postId]: {
-              ...prev[postId],
-              likeCount: data.totalLikes,
-              userLiked: false
-            }
-          }));
-        }
+        // Always update both states for consistency
+        setUserLiked(prev => ({
+          ...prev,
+          [postId]: data.userLiked || false
+        }));
+        
+        setEngagementStats(prev => ({
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            likeCount: data.totalLikes,
+            userLiked: data.userLiked || false
+          }
+        }));
       } else {
         console.error('❌ Failed to fetch likes:', response.status);
       }
@@ -1430,7 +1421,12 @@ const Gallery = () => {
 
                     {/* Comments Display */}
                     {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
-                      <CommentsSection>
+                      <CommentsSection style={{ 
+                        display: 'block',
+                        visibility: 'visible',
+                        opacity: 1,
+                        minHeight: '50px'
+                      }}>
                         {comments[selectedPost._id].map((comment) => (
                           <CommentItem key={comment.id}>
                             <CommentUser>
@@ -1488,14 +1484,19 @@ const Gallery = () => {
                       <PostActionButton 
                         onClick={() => handleLike(selectedPost._id)}
                         style={{ 
-                          color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333'
+                          color: (engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : '#333',
+                          fontSize: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
                         }}
                       >
                         <FaHeart 
                           style={{ 
-                            color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333'
+                            color: (engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : '#333',
+                            fontSize: '24px'
                           }}
-                          fill={engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : 'none'}
+                          fill={(engagementStats[selectedPost._id]?.userLiked || userLiked[selectedPost._id]) ? '#ff3040' : 'none'}
                         />
                       </PostActionButton>
                       <PostActionButton onClick={() => document.getElementById('commentInput').focus()}>
