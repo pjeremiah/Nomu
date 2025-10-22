@@ -6,16 +6,9 @@ const Comment = require('../models/Comment');
 const GalleryPost = require('../models/GalleryPost');
 const User = require('../models/User');
 
-console.log('🔍 Engagement routes loaded');
-console.log('🔍 Like model:', Like);
-console.log('🔍 Comment model:', Comment);
-console.log('🔍 User model:', User);
 
 // Test route to check JWT token
 router.get('/test-auth', authMiddleware, (req, res) => {
-  console.log('🔍 Test auth route - req.user:', req.user);
-  console.log('🔍 req.user type:', typeof req.user);
-  console.log('🔍 req.user keys:', req.user ? Object.keys(req.user) : 'req.user is null/undefined');
   res.json({ 
     message: 'Auth test successful',
     user: req.user,
@@ -39,12 +32,9 @@ router.post('/like/:postId', authMiddleware, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user?.userId || req.user?.id;
 
-    console.log('🔍 Like request - postId:', postId, 'userId:', userId, 'content:', 'like');
-    console.log('🔍 req.user:', req.user);
 
     // Basic validation
     if (!postId || !userId) {
-      console.log('❌ Missing postId or userId:', { postId, userId });
       return res.status(400).json({ message: 'Missing post ID or user ID' });
     }
 
@@ -132,12 +122,9 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
     const { content } = req.body;
     const userId = req.user?.userId || req.user?.id;
 
-    console.log('🔍 Comment request - postId:', postId, 'userId:', userId, 'content:', content);
-    console.log('🔍 req.user:', req.user);
 
     // Basic validation
     if (!postId || !userId) {
-      console.log('❌ Missing postId or userId:', { postId, userId });
       return res.status(400).json({ message: 'Missing post ID or user ID' });
     }
 
@@ -243,11 +230,9 @@ router.delete('/comment/:commentId', authMiddleware, async (req, res) => {
     const { commentId } = req.params;
     const userId = req.user?.userId || req.user?.id;
 
-    console.log('🔍 Delete comment request - commentId:', commentId, 'userId:', userId);
 
     // Basic validation
     if (!commentId || !userId) {
-      console.log('❌ Missing commentId or userId:', { commentId, userId });
       return res.status(400).json({ message: 'Missing comment ID or user ID' });
     }
 

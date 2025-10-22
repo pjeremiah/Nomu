@@ -149,7 +149,6 @@ app.use('/uploads', (req, res, next) => {
 // Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
-  console.log('✅ MongoDB connected successfully');
   
   // Initialize GridFS buckets for image serving
   const db = mongoose.connection.db;
@@ -158,13 +157,6 @@ mongoose.connect(process.env.MONGO_URI)
   app.locals.gfsInventory = new GridFSBucket(db, { bucketName: 'inventory_images' });
   app.locals.gfsProfile = new GridFSBucket(db, { bucketName: 'profile_images' });
   
-  console.log('✅ GridFS buckets initialized successfully');
-  console.log('📁 Available buckets:', {
-    promo: !!app.locals.gfsPromo,
-    menu: !!app.locals.gfsMenu,
-    inventory: !!app.locals.gfsInventory,
-    profile: !!app.locals.gfsProfile
-  });
 })
 .catch(err => {
   console.error('❌ MongoDB connection error:', err);
@@ -209,20 +201,16 @@ app.get('/api/images/promo/:id', async (req, res) => {
   }
   
   const fileId = req.params.id;
-  console.log('🔍 Requesting promo image:', fileId);
   
   // Validate ObjectId format
   if (!mongoose.Types.ObjectId.isValid(fileId)) {
-    console.log('❌ Invalid ObjectId format:', fileId);
     return res.status(400).json({ message: 'Invalid image ID format' });
   }
   
   try {
     const files = await gfs.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
-    console.log('📁 Found files:', files.length);
     
     if (!files || files.length === 0) {
-      console.log('❌ No files found for ID:', fileId);
       return res.status(404).json({ message: 'Image not found' });
     }
     
