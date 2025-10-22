@@ -88,7 +88,7 @@ const ResponsiveModal = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: 'clamp(1rem, 2vw, 1.5rem) clamp(1.25rem, 2.5vw, 1.75rem)',
+          padding: 'clamp(0.75rem, 1.5vw, 1rem) clamp(1.25rem, 2.5vw, 1.75rem)',
           background: '#ffffff',
           borderBottom: '1px solid #e9ecef',
           flexShrink: 0
@@ -142,11 +142,11 @@ const ResponsiveModal = ({
 
         {/* Modal Content */}
         <div style={{
-          padding: 'clamp(1.25rem, 2.5vw, 1.75rem) clamp(1.5rem, 3vw, 2rem)',
+          padding: 'clamp(0.75rem, 1.5vw, 1rem) clamp(1.5rem, 3vw, 2rem)',
           flex: 1,
           overflowY: 'auto',
           minHeight: 'auto',
-          maxHeight: 'calc(90vh - 140px)',
+          maxHeight: 'calc(90vh - 120px)',
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column'
@@ -258,7 +258,37 @@ const ResponsiveModal = ({
         /* Ensure modal content is scrollable when needed */
         .admin-modal .modal-content {
           overflow-y: auto;
-          max-height: calc(90vh - 140px);
+          max-height: calc(90vh - 120px);
+        }
+
+        /* Rectangle shapes for all form elements - like Confirm Logout modal */
+        .admin-modal input[type="text"],
+        .admin-modal input[type="email"],
+        .admin-modal input[type="password"],
+        .admin-modal select,
+        .admin-modal textarea {
+          border-radius: 4px !important;
+        }
+        
+        .admin-modal button {
+          border-radius: 4px !important;
+        }
+        
+        /* Reduce spacing between form elements */
+        .admin-modal .form-group {
+          margin-bottom: 0.75rem !important;
+        }
+        
+        .admin-modal .form-group:last-child {
+          margin-bottom: 0 !important;
+        }
+        
+        .admin-modal .form-row {
+          margin-bottom: 0.5rem !important;
+        }
+        
+        .admin-modal .form-row:last-child {
+          margin-bottom: 0 !important;
         }
 
         /* Remove any visual layering effects */
