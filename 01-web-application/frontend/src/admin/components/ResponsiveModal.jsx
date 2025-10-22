@@ -73,7 +73,7 @@ const ResponsiveModal = ({
           width: modalSize.width,
           maxWidth: modalSize.maxWidth,
           height: 'auto',
-          maxHeight: 'calc(100vh - 100px)', // Perfect modal height for Edit Admin - all content visible
+          maxHeight: 'calc(100vh - 100px)',
           minHeight: 'auto',
           display: 'flex',
           flexDirection: 'column',
@@ -176,7 +176,7 @@ const ResponsiveModal = ({
         
         /* Base modal styles - optimized for all zoom levels */
         .admin-modal {
-          max-height: calc(100vh - 20px) !important;
+          max-height: calc(100vh - 100px) !important;
           width: clamp(400px, 60vw, 600px) !important;
           max-width: 600px !important;
         }
@@ -186,7 +186,7 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(500px, 50vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - 20px) !important;
+            max-height: calc(100vh - 100px) !important;
           }
         }
 
@@ -195,7 +195,7 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(450px, 55vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - 20px) !important;
+            max-height: calc(100vh - 100px) !important;
           }
         }
 
@@ -204,7 +204,7 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(400px, 60vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - 40px) !important;
+            max-height: calc(100vh - 100px) !important;
           }
         }
 
@@ -213,21 +213,21 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(350px, 70vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - 30px) !important;
+            max-height: calc(100vh - 100px) !important;
           }
         }
 
         /* High zoom levels (150%, 170%, etc.) - ensure modal stays visible */
         @media (min-resolution: 1.5dppx) {
           .admin-modal {
-            max-height: calc(100vh - 20px) !important;
+            max-height: calc(100vh - 100px) !important;
             width: clamp(350px, 65vw, 600px) !important;
           }
         }
 
         @media (min-resolution: 2dppx) {
           .admin-modal {
-            max-height: calc(100vh - 15px) !important;
+            max-height: calc(100vh - 100px) !important;
             width: clamp(320px, 70vw, 600px) !important;
           }
         }
@@ -235,13 +235,13 @@ const ResponsiveModal = ({
         /* Very short screens or high zoom levels on desktop/laptop */
         @media (max-height: 600px) and (min-width: 768px) {
           .admin-modal {
-            max-height: calc(100vh - 10px) !important;
+            max-height: calc(100vh - 100px) !important;
           }
         }
 
         @media (max-height: 500px) and (min-width: 768px) {
           .admin-modal {
-            max-height: calc(100vh - 5px) !important;
+            max-height: calc(100vh - 100px) !important;
           }
         }
 
