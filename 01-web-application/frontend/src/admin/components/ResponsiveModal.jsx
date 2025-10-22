@@ -73,7 +73,7 @@ const ResponsiveModal = ({
           width: modalSize.width,
           maxWidth: modalSize.maxWidth,
           height: 'auto',
-          maxHeight: 'calc(100vh - 40px)',
+          maxHeight: 'calc(100vh - 100px)', // Perfect modal height for Edit Admin - all content visible
           minHeight: 'auto',
           display: 'flex',
           flexDirection: 'column',
@@ -145,8 +145,10 @@ const ResponsiveModal = ({
           flex: 1,
           overflowY: 'auto',
           minHeight: 0,
-          maxHeight: 'calc(100vh - clamp(120px, 20vw, 200px))',
-          background: '#ffffff'
+          maxHeight: 'calc(100vh - clamp(100px, 15vw, 150px))',
+          background: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
           {children}
         </div>
@@ -174,7 +176,7 @@ const ResponsiveModal = ({
         
         /* Base modal styles - optimized for all zoom levels */
         .admin-modal {
-          max-height: calc(100vh - 40px) !important;
+          max-height: calc(100vh - 20px) !important;
           width: clamp(400px, 60vw, 600px) !important;
           max-width: 600px !important;
         }
@@ -184,7 +186,7 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(500px, 50vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - 60px) !important;
+            max-height: calc(100vh - 20px) !important;
           }
         }
 
@@ -193,7 +195,7 @@ const ResponsiveModal = ({
           .admin-modal {
             width: clamp(450px, 55vw, 600px) !important;
             max-width: 600px !important;
-            max-height: calc(100vh - 50px) !important;
+            max-height: calc(100vh - 20px) !important;
           }
         }
 
