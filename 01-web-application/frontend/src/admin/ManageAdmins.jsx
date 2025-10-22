@@ -847,7 +847,7 @@ const ManageAdmins = () => {
           show={showAddModal}
           onHide={() => setShowAddModal(false)}
           title="Add New Admin"
-          size="medium"
+          size="large"
         >
             <form onSubmit={handleAddAdmin} className="admin-form">
               {/* Error Display inside Add Modal */}
@@ -1409,23 +1409,12 @@ const ManageAdmins = () => {
       {/* Bottom spacer to prevent content cutoff */}
       <div style={{ height: '100px' }}></div>
 
-      {/* Custom styles for Edit Admin Modal */}
+      {/* Custom styles for Edit Admin Modal - removed conflicting sizing */}
       <style>{`
-        .edit-admin-modal {
-          max-height: calc(100vh - 20px) !important;
-          min-height: 400px !important;
-        }
-        
-        .edit-admin-modal .admin-modal {
-          max-height: calc(100vh - 20px) !important;
-          min-height: 400px !important;
-        }
-        
         .edit-admin-modal .admin-form {
           display: flex;
           flex-direction: column;
           height: 100%;
-          min-height: 350px;
         }
         
         .edit-admin-modal .admin-form-actions {
