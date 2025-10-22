@@ -88,7 +88,7 @@ const ResponsiveModal = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(0.75rem, 1.5vw, 1rem)',
+          padding: 'clamp(0.4rem, 0.8vw, 0.6rem) clamp(0.6rem, 1.2vw, 0.8rem)',
           background: '#ffffff',
           borderBottom: '1px solid #e9ecef',
           flexShrink: 0
@@ -97,7 +97,7 @@ const ResponsiveModal = ({
             margin: 0,
             color: '#212c59',
             fontWeight: '700',
-            fontSize: 'clamp(0.9rem, 1.8vw, 1.1rem)',
+            fontSize: 'clamp(0.85rem, 1.6vw, 1rem)',
             fontFamily: "'Montserrat', sans-serif",
             letterSpacing: '-0.025em'
           }}>
@@ -135,14 +135,14 @@ const ResponsiveModal = ({
                 e.target.style.boxShadow = 'none';
               }}
             >
-              <FaTimes color="#212c59" size={16} />
+              <FaTimes color="#212c59" size={18} />
             </button>
           )}
         </div>
 
         {/* Modal Content */}
         <div style={{
-          padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(0.75rem, 1.5vw, 1rem)',
+          padding: 'clamp(0.4rem, 0.8vw, 0.6rem) clamp(0.6rem, 1.2vw, 0.8rem)',
           flex: 1,
           overflowY: 'auto',
           minHeight: 'auto',
@@ -178,16 +178,16 @@ const ResponsiveModal = ({
         /* Base modal styles - professional design */
         .admin-modal {
           max-height: 90vh !important;
-          width: clamp(360px, 40vw, 480px) !important; /* even tighter overall width */
-          max-width: 480px !important;
+          width: clamp(340px, 38vw, 450px) !important; /* ultra-tight width */
+          max-width: 450px !important;
           overflow: visible !important;
         }
 
         /* Large desktop screens (1920px+) */
         @media (min-width: 1920px) {
           .admin-modal {
-            width: clamp(420px, 44vw, 600px) !important;
-            max-width: 600px !important;
+            width: clamp(400px, 40vw, 560px) !important;
+            max-width: 560px !important;
             max-height: 90vh !important;
           }
         }
@@ -195,8 +195,8 @@ const ResponsiveModal = ({
         /* Standard desktop screens (1200px - 1919px) */
         @media (min-width: 1200px) and (max-width: 1919px) {
           .admin-modal {
-            width: clamp(400px, 42vw, 560px) !important;
-            max-width: 560px !important;
+            width: clamp(380px, 38vw, 520px) !important;
+            max-width: 520px !important;
             max-height: 90vh !important;
           }
         }
@@ -204,8 +204,8 @@ const ResponsiveModal = ({
         /* Small desktop/large laptop screens (1024px - 1199px) */
         @media (min-width: 1024px) and (max-width: 1199px) {
           .admin-modal {
-            width: clamp(380px, 44vw, 540px) !important;
-            max-width: 540px !important;
+            width: clamp(360px, 40vw, 500px) !important;
+            max-width: 500px !important;
             max-height: 90vh !important;
           }
         }
@@ -213,8 +213,8 @@ const ResponsiveModal = ({
         /* Laptop screens (768px - 1023px) - minimum admin access */
         @media (min-width: 768px) and (max-width: 1023px) {
           .admin-modal {
-            width: clamp(360px, 48vw, 500px) !important;
-            max-width: 500px !important;
+            width: clamp(340px, 44vw, 460px) !important;
+            max-width: 460px !important;
             max-height: 90vh !important;
           }
         }
@@ -223,14 +223,14 @@ const ResponsiveModal = ({
         @media (min-resolution: 1.5dppx) {
           .admin-modal {
             max-height: 90vh !important;
-            width: clamp(340px, 42vw, 480px) !important;
+            width: clamp(320px, 38vw, 440px) !important;
           }
         }
 
         @media (min-resolution: 2dppx) {
           .admin-modal {
             max-height: 90vh !important;
-            width: clamp(320px, 44vw, 460px) !important;
+            width: clamp(300px, 40vw, 420px) !important;
           }
         }
 
@@ -250,8 +250,8 @@ const ResponsiveModal = ({
         /* Ultra-wide screens */
         @media (min-width: 2560px) {
           .admin-modal {
-            width: clamp(440px, 36vw, 640px) !important;
-            max-width: 640px !important;
+            width: clamp(400px, 32vw, 580px) !important;
+            max-width: 580px !important;
           }
         }
 
@@ -268,14 +268,14 @@ const ResponsiveModal = ({
         .admin-modal select,
         .admin-modal textarea {
           border-radius: 4px !important;
-          font-size: 0.85rem !important;  /* even smaller fonts */
-          height: 32px !important;       /* even shorter controls */
+          font-size: 0.8rem !important;   /* ultra-small fonts */
+          height: 30px !important;       /* ultra-short controls */
         }
         
         .admin-modal button {
           border-radius: 4px !important;
-          font-size: 0.85rem !important;  /* even smaller buttons */
-          padding: 6px 12px !important;
+          font-size: 0.8rem !important;   /* ultra-small buttons */
+          padding: 5px 10px !important;
         }
 
         /* Normalize margins inside modal to remove extra top/bottom whitespace */
