@@ -88,7 +88,7 @@ const ResponsiveModal = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: 'clamp(0.4rem, 0.8vw, 0.6rem) clamp(0.6rem, 1.2vw, 0.8rem)',
+          padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(0.6rem, 1.2vw, 0.8rem)',
           background: '#ffffff',
           borderBottom: '1px solid #e9ecef',
           flexShrink: 0
@@ -135,14 +135,14 @@ const ResponsiveModal = ({
                 e.target.style.boxShadow = 'none';
               }}
             >
-              <FaTimes color="#212c59" size={18} />
+              <FaTimes color="#212c59" size={20} />
             </button>
           )}
         </div>
 
         {/* Modal Content */}
         <div style={{
-          padding: 'clamp(0.4rem, 0.8vw, 0.6rem) clamp(0.6rem, 1.2vw, 0.8rem)',
+          padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(0.6rem, 1.2vw, 0.8rem)',
           flex: 1,
           overflowY: 'auto',
           minHeight: 'auto',
@@ -178,16 +178,16 @@ const ResponsiveModal = ({
         /* Base modal styles - professional design */
         .admin-modal {
           max-height: 90vh !important;
-          width: clamp(340px, 38vw, 450px) !important; /* ultra-tight width */
-          max-width: 450px !important;
+          width: clamp(300px, 32vw, 380px) !important; /* much narrower, card-like */
+          max-width: 380px !important;
           overflow: visible !important;
         }
 
         /* Large desktop screens (1920px+) */
         @media (min-width: 1920px) {
           .admin-modal {
-            width: clamp(400px, 40vw, 560px) !important;
-            max-width: 560px !important;
+            width: clamp(350px, 35vw, 420px) !important;
+            max-width: 420px !important;
             max-height: 90vh !important;
           }
         }
@@ -195,8 +195,8 @@ const ResponsiveModal = ({
         /* Standard desktop screens (1200px - 1919px) */
         @media (min-width: 1200px) and (max-width: 1919px) {
           .admin-modal {
-            width: clamp(380px, 38vw, 520px) !important;
-            max-width: 520px !important;
+            width: clamp(330px, 33vw, 400px) !important;
+            max-width: 400px !important;
             max-height: 90vh !important;
           }
         }
@@ -204,8 +204,8 @@ const ResponsiveModal = ({
         /* Small desktop/large laptop screens (1024px - 1199px) */
         @media (min-width: 1024px) and (max-width: 1199px) {
           .admin-modal {
-            width: clamp(360px, 40vw, 500px) !important;
-            max-width: 500px !important;
+            width: clamp(320px, 35vw, 380px) !important;
+            max-width: 380px !important;
             max-height: 90vh !important;
           }
         }
@@ -213,8 +213,8 @@ const ResponsiveModal = ({
         /* Laptop screens (768px - 1023px) - minimum admin access */
         @media (min-width: 768px) and (max-width: 1023px) {
           .admin-modal {
-            width: clamp(340px, 44vw, 460px) !important;
-            max-width: 460px !important;
+            width: clamp(300px, 38vw, 360px) !important;
+            max-width: 360px !important;
             max-height: 90vh !important;
           }
         }
@@ -223,14 +223,14 @@ const ResponsiveModal = ({
         @media (min-resolution: 1.5dppx) {
           .admin-modal {
             max-height: 90vh !important;
-            width: clamp(320px, 38vw, 440px) !important;
+            width: clamp(280px, 32vw, 340px) !important;
           }
         }
 
         @media (min-resolution: 2dppx) {
           .admin-modal {
             max-height: 90vh !important;
-            width: clamp(300px, 40vw, 420px) !important;
+            width: clamp(260px, 35vw, 320px) !important;
           }
         }
 
@@ -250,8 +250,8 @@ const ResponsiveModal = ({
         /* Ultra-wide screens */
         @media (min-width: 2560px) {
           .admin-modal {
-            width: clamp(400px, 32vw, 580px) !important;
-            max-width: 580px !important;
+            width: clamp(360px, 28vw, 480px) !important;
+            max-width: 480px !important;
           }
         }
 
@@ -278,11 +278,16 @@ const ResponsiveModal = ({
           padding: 5px 10px !important;
         }
 
-        /* Normalize margins inside modal to remove extra top/bottom whitespace */
-        .admin-modal h1, .admin-modal h2, .admin-modal h3,
-        .admin-modal p, .admin-modal hr,
-        .admin-modal .divider { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
-        .admin-modal hr { border: none; border-top: 1px solid #e9ecef; }
+        /* Ensure perfect equal top/bottom padding */
+        .admin-modal > div:first-child {
+          padding-top: clamp(0.5rem, 1vw, 0.75rem) !important;
+          padding-bottom: clamp(0.5rem, 1vw, 0.75rem) !important;
+        }
+        
+        .admin-modal > div:last-child {
+          padding-top: clamp(0.5rem, 1vw, 0.75rem) !important;
+          padding-bottom: clamp(0.5rem, 1vw, 0.75rem) !important;
+        }
         
         /* Reduce spacing between form elements */
         .admin-modal .form-group {
