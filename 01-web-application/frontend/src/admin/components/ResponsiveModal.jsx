@@ -29,7 +29,7 @@ const ResponsiveModal = ({
           maxWidth: '600px',
           width: '90%'
         };
-      default: // medium - Sign In modal size
+      default: // medium - EXACT Sign In modal size
         return {
           maxWidth: '420px',
           width: '90%'
@@ -41,25 +41,21 @@ const ResponsiveModal = ({
 
   return (
     <>
-      {/* Overlay Background - exactly like Sign In modal */}
+      {/* Overlay Background */}
       <div
-        className="signin-modal-overlay"
+        className="admin-modal-overlay"
         onClick={onHide}
       />
       
-      {/* Modal Container - exactly like Sign In modal */}
+      {/* Modal Container */}
       <div 
-        className={`signin-modal-content ${className}`}
+        className={`admin-modal-content ${className}`}
         onClick={(e) => e.stopPropagation()}
-        style={{
-          maxWidth: modalSize.maxWidth,
-          width: modalSize.width
-        }}
       >
-        {/* Close Button - exactly like Sign In modal */}
+        {/* Close Button */}
         {showCloseButton && (
           <button 
-            className="signin-close-button" 
+            className="admin-close-button" 
             onClick={onHide}
           >
             <FaTimes />
@@ -92,7 +88,7 @@ const ResponsiveModal = ({
 
       {/* Add CSS animations and responsive styles - exactly like Sign In modal */}
       <style>{`
-        .signin-modal-overlay {
+        .admin-modal-overlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -109,11 +105,13 @@ const ResponsiveModal = ({
           animation: fadeIn 0.3s ease-out;
         }
 
-        .signin-modal-content {
+        .admin-modal-content {
           background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
           padding: 2.5rem;
           border-radius: 20px;
           position: relative;
+          max-width: 420px;
+          width: 90%;
           box-shadow: 
             0 20px 60px rgba(33, 44, 89, 0.3),
             0 8px 25px rgba(0, 0, 0, 0.1),
@@ -123,7 +121,7 @@ const ResponsiveModal = ({
           transform-origin: center;
         }
 
-        .signin-close-button {
+        .admin-close-button {
           position: absolute;
           top: 16px;
           right: 16px;
@@ -143,7 +141,7 @@ const ResponsiveModal = ({
           font-weight: 600;
         }
 
-        .signin-close-button:hover {
+        .admin-close-button:hover {
           background: #212c59;
           color: white;
           transform: scale(1.1);
@@ -172,9 +170,9 @@ const ResponsiveModal = ({
           }
         }
 
-        /* Responsive adjustments - exactly like Sign In modal */
+        /* Responsive adjustments - EXACTLY like Sign In modal */
         @media (max-width: 768px) {
-          .signin-modal-content {
+          .admin-modal-content {
             width: 96% !important;
             max-width: none !important;
             padding: 1rem !important;
@@ -183,7 +181,7 @@ const ResponsiveModal = ({
         }
 
         @media (max-width: 480px) {
-          .signin-modal-content {
+          .admin-modal-content {
             width: 98% !important;
             max-width: none !important;
             padding: 0.75rem !important;
@@ -192,11 +190,11 @@ const ResponsiveModal = ({
         }
 
         /* Form styling to match Sign In modal */
-        .signin-modal-content input[type="text"],
-        .signin-modal-content input[type="email"],
-        .signin-modal-content input[type="password"],
-        .signin-modal-content select,
-        .signin-modal-content textarea {
+        .admin-modal-content input[type="text"],
+        .admin-modal-content input[type="email"],
+        .admin-modal-content input[type="password"],
+        .admin-modal-content select,
+        .admin-modal-content textarea {
           font-size: 13px !important;
           padding: 8px 12px !important;
           height: 36px !important;
@@ -217,12 +215,12 @@ const ResponsiveModal = ({
           font-family: 'Montserrat', sans-serif !important;
         }
 
-        .signin-modal-content input::placeholder {
+        .admin-modal-content input::placeholder {
           color: #a0a0a0 !important;
           opacity: 1 !important;
         }
 
-        .signin-modal-content button {
+        .admin-modal-content button {
           background: #212c59 !important;
           color: white !important;
           border: 2px solid #212c59 !important;
@@ -242,19 +240,19 @@ const ResponsiveModal = ({
           font-family: 'Montserrat', sans-serif !important;
         }
 
-        .signin-modal-content button:hover:not(:disabled) {
+        .admin-modal-content button:hover:not(:disabled) {
           background: #1a2447 !important;
           border-color: #1a2447 !important;
           transform: translateY(-1px) !important;
           box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
         }
 
-        .signin-modal-content button:disabled {
+        .admin-modal-content button:disabled {
           opacity: 0.6 !important;
           cursor: not-allowed !important;
         }
 
-        .signin-modal-content label {
+        .admin-modal-content label {
           color: #212c59 !important;
           font-size: 13px !important;
           font-weight: 500 !important;
@@ -263,7 +261,7 @@ const ResponsiveModal = ({
         }
 
         /* Cancel button styling */
-        .signin-modal-content .cancel-button {
+        .admin-modal-content .cancel-button {
           background: white !important;
           color: #b08d57 !important;
           border: 2px solid #b08d57 !important;
@@ -282,7 +280,7 @@ const ResponsiveModal = ({
           box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
         }
 
-        .signin-modal-content .cancel-button:hover:not(:disabled) {
+        .admin-modal-content .cancel-button:hover:not(:disabled) {
           background: #f8f6f0 !important;
           border-color: #b08d57 !important;
           color: #b08d57 !important;
