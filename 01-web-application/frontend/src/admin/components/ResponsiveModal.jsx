@@ -176,19 +176,15 @@ const ResponsiveModal = ({
 
         /* Responsive adjustments for desktop/laptop screens and zoom levels */
         
-        /* Base modal styles - professional design */
+        /* Base modal styles - will be overridden by size-specific rules */
         .admin-modal {
           max-height: 90vh !important;
-          width: clamp(350px, 40vw, 450px) !important; /* Sign In modal size */
-          max-width: 450px !important;
           overflow: visible !important;
         }
 
         /* Large desktop screens (1920px+) */
         @media (min-width: 1920px) {
           .admin-modal {
-            width: clamp(400px, 42vw, 500px) !important;
-            max-width: 500px !important;
             max-height: 90vh !important;
           }
         }
@@ -196,8 +192,6 @@ const ResponsiveModal = ({
         /* Standard desktop screens (1200px - 1919px) */
         @media (min-width: 1200px) and (max-width: 1919px) {
           .admin-modal {
-            width: clamp(380px, 40vw, 480px) !important;
-            max-width: 480px !important;
             max-height: 90vh !important;
           }
         }
@@ -205,8 +199,6 @@ const ResponsiveModal = ({
         /* Small desktop/large laptop screens (1024px - 1199px) */
         @media (min-width: 1024px) and (max-width: 1199px) {
           .admin-modal {
-            width: clamp(360px, 42vw, 450px) !important;
-            max-width: 450px !important;
             max-height: 90vh !important;
           }
         }
@@ -214,8 +206,6 @@ const ResponsiveModal = ({
         /* Laptop screens (768px - 1023px) - minimum admin access */
         @media (min-width: 768px) and (max-width: 1023px) {
           .admin-modal {
-            width: clamp(340px, 45vw, 420px) !important;
-            max-width: 420px !important;
             max-height: 90vh !important;
           }
         }
@@ -224,14 +214,12 @@ const ResponsiveModal = ({
         @media (min-resolution: 1.5dppx) {
           .admin-modal {
             max-height: 90vh !important;
-            width: clamp(320px, 38vw, 400px) !important;
           }
         }
 
         @media (min-resolution: 2dppx) {
           .admin-modal {
             max-height: 90vh !important;
-            width: clamp(300px, 40vw, 380px) !important;
           }
         }
 
@@ -251,8 +239,7 @@ const ResponsiveModal = ({
         /* Ultra-wide screens */
         @media (min-width: 2560px) {
           .admin-modal {
-            width: clamp(420px, 35vw, 550px) !important;
-            max-width: 550px !important;
+            max-height: 90vh !important;
           }
         }
 
