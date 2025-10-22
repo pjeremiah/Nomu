@@ -10,29 +10,30 @@ const ResponsiveModal = ({
   className = '',
   showCloseButton = true 
 }) => {
+  // FORCE SYNC TO GITHUB - Sign In modal styling applied - DEPLOYMENT FIX
   if (!show) return null;
 
   const getModalSize = () => {
     switch (size) {
       case 'small':
         return {
-          maxWidth: '320px',
-          width: '90%'
+          maxWidth: 'clamp(320px, 35vw, 400px)',
+          width: 'clamp(60vw, 35vw, 70vw)'
         };
       case 'large':
         return {
-          maxWidth: '500px',
-          width: '90%'
+          maxWidth: 'clamp(450px, 50vw, 600px)',
+          width: 'clamp(70vw, 50vw, 80vw)'
         };
       case 'extra-large':
         return {
-          maxWidth: '600px',
-          width: '90%'
+          maxWidth: 'clamp(550px, 60vw, 700px)',
+          width: 'clamp(75vw, 60vw, 85vw)'
         };
-      default: // medium - EXACT Sign In modal size
+      default: // medium - Sign In modal size
         return {
-          maxWidth: '420px',
-          width: '90%'
+          maxWidth: 'clamp(350px, 40vw, 450px)',
+          width: 'clamp(65vw, 40vw, 75vw)'
         };
     }
   };
@@ -43,249 +44,277 @@ const ResponsiveModal = ({
     <>
       {/* Overlay Background */}
       <div
-        className="admin-modal-overlay"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 9999,
+          animation: 'fadeIn 0.3s ease-out'
+        }}
         onClick={onHide}
       />
       
-      {/* Modal Container */}
+      {/* Single Modal Container - No Visual Layers */}
       <div 
-        className={`admin-modal-content ${className}`}
+        className={`admin-modal ${className}`}
+        data-size={size}
         onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button */}
-        {showCloseButton && (
-          <button 
-            className="admin-close-button" 
-            onClick={onHide}
-          >
-            <FaTimes />
-          </button>
-        )}
-        
-        {/* Title - exactly like Sign In modal */}
-        <h2 style={{
-          color: '#212c59',
-          fontSize: '1.5rem',
-          fontWeight: '700',
-          marginBottom: '1.5rem',
-          textAlign: 'center',
-          fontFamily: "'Montserrat', sans-serif",
-          borderBottom: '2px solid #212c59',
-          paddingBottom: '0.5rem'
-        }}>
-          {title}
-        </h2>
-        
-        {/* Content */}
-        <div style={{
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: '#ffffff',
+          borderRadius: 'clamp(12px, 2vw, 20px)',
+          border: '1px solid #e9ecef',
+          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)',
+          width: modalSize.width,
+          maxWidth: modalSize.maxWidth,
+          height: 'auto',
+          maxHeight: '90vh',
+          minHeight: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1rem'
+          zIndex: 10000,
+          animation: 'slideIn 0.3s ease-out',
+          overflow: 'visible'
+        }}
+      >
+        {/* Modal Header */}
+        <div style={{ 
+          position: 'relative', 
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(0.6rem, 1.2vw, 0.8rem)',
+          background: '#ffffff',
+          borderBottom: '1px solid #e9ecef',
+          flexShrink: 0
+        }}>
+          <h3 style={{
+            margin: 0,
+            color: '#212c59',
+            fontWeight: '700',
+            fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)',
+            fontFamily: "'Montserrat', sans-serif",
+            letterSpacing: '-0.025em'
+          }}>
+            {title}
+          </h3>
+          {showCloseButton && (
+            <button
+              onClick={onHide}
+              style={{
+                background: '#212c59',
+                border: 'none',
+                fontSize: '1rem',
+                cursor: 'pointer',
+                color: '#ffffff',
+                padding: '8px',
+                borderRadius: '50%',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: '500'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#212c59';
+                e.target.style.color = 'white';
+                e.target.style.transform = 'scale(1.1)';
+                e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'rgba(33, 44, 89, 0.1)';
+                e.target.style.color = '#212c59';
+                e.target.style.transform = 'scale(1)';
+                e.target.style.boxShadow = 'none';
+              }}
+            >
+              <FaTimes color="#ffffff" size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Modal Content */}
+        <div style={{
+          padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(0.6rem, 1.2vw, 0.8rem)',
+          flex: 1,
+          overflowY: 'auto',
+          minHeight: 'auto',
+          maxHeight: 'calc(90vh - 120px)',
+          background: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
           {children}
         </div>
       </div>
 
-      {/* Add CSS animations and responsive styles - exactly like Sign In modal */}
+      {/* Add CSS animations and responsive styles - FINAL SYNC TO GITHUB */}
       <style>{`
-        .admin-modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.5);
-          backdrop-filter: blur(8px);
-          z-index: 9999;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 1rem;
-          box-sizing: border-box;
-          animation: fadeIn 0.3s ease-out;
-        }
-
-        .admin-modal-content {
-          background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-          padding: 2.5rem;
-          border-radius: 20px;
-          position: relative;
-          max-width: 420px;
-          width: 90%;
-          box-shadow: 
-            0 20px 60px rgba(33, 44, 89, 0.3),
-            0 8px 25px rgba(0, 0, 0, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-          transform-origin: center;
-        }
-
-        .admin-close-button {
-          position: absolute;
-          top: 16px;
-          right: 16px;
-          background: rgba(33, 44, 89, 0.1);
-          border: none;
-          font-size: 1.1rem;
-          cursor: pointer;
-          color: #212c59;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          z-index: 1;
-          font-weight: 600;
-        }
-
-        .admin-close-button:hover {
-          background: #212c59;
-          color: white;
-          transform: scale(1.1);
-          box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
-        }
-
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            backdrop-filter: blur(0px);
-          }
-          to {
-            opacity: 1;
-            backdrop-filter: blur(8px);
-          }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-
-        @keyframes modalSlideIn {
-          from {
+        
+        @keyframes slideIn {
+          from { 
             opacity: 0;
-            transform: scale(0.8) translateY(-20px);
+            transform: scale(0.9) translateY(-20px);
           }
-          to {
+          to { 
             opacity: 1;
             transform: scale(1) translateY(0);
           }
         }
 
-        /* Responsive adjustments - EXACTLY like Sign In modal */
-        @media (max-width: 768px) {
-          .admin-modal-content {
-            width: 96% !important;
-            max-width: none !important;
-            padding: 1rem !important;
-            border-radius: 16px !important;
+        /* Responsive adjustments for desktop/laptop screens and zoom levels */
+        
+        /* Base modal styles - will be overridden by size-specific rules */
+        .admin-modal {
+          max-height: 90vh !important;
+          overflow: visible !important;
+        }
+
+        /* Large desktop screens (1920px+) */
+        @media (min-width: 1920px) {
+          .admin-modal {
+            max-height: 90vh !important;
           }
         }
 
-        @media (max-width: 480px) {
-          .admin-modal-content {
-            width: 98% !important;
-            max-width: none !important;
-            padding: 0.75rem !important;
-            border-radius: 12px !important;
+        /* Standard desktop screens (1200px - 1919px) */
+        @media (min-width: 1200px) and (max-width: 1919px) {
+          .admin-modal {
+            max-height: 90vh !important;
           }
         }
 
-        /* Form styling to match Sign In modal */
-        .admin-modal-content input[type="text"],
-        .admin-modal-content input[type="email"],
-        .admin-modal-content input[type="password"],
-        .admin-modal-content select,
-        .admin-modal-content textarea {
-          font-size: 13px !important;
-          padding: 8px 12px !important;
-          height: 36px !important;
-          box-sizing: border-box !important;
-          line-height: 1.2 !important;
-          vertical-align: top !important;
-          display: flex !important;
-          align-items: center !important;
+        /* Small desktop/large laptop screens (1024px - 1199px) */
+        @media (min-width: 1024px) and (max-width: 1199px) {
+          .admin-modal {
+            max-height: 90vh !important;
+          }
+        }
+
+        /* Laptop screens (768px - 1023px) - minimum admin access */
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .admin-modal {
+            max-height: 90vh !important;
+          }
+        }
+
+        /* High zoom levels (150%, 170%, etc.) - ensure modal stays visible */
+        @media (min-resolution: 1.5dppx) {
+          .admin-modal {
+            max-height: 90vh !important;
+          }
+        }
+
+        @media (min-resolution: 2dppx) {
+          .admin-modal {
+            max-height: 90vh !important;
+          }
+        }
+
+        /* Very short screens or high zoom levels on desktop/laptop */
+        @media (max-height: 600px) and (min-width: 768px) {
+          .admin-modal {
+            max-height: 85vh !important;
+          }
+        }
+
+        @media (max-height: 500px) and (min-width: 768px) {
+          .admin-modal {
+            max-height: 80vh !important;
+          }
+        }
+
+        /* Ultra-wide screens */
+        @media (min-width: 2560px) {
+          .admin-modal {
+            max-height: 90vh !important;
+          }
+        }
+
+        /* Ensure modal content is scrollable when needed */
+        .admin-modal .modal-content {
+          overflow-y: auto;
+          max-height: calc(90vh - 120px);
+        }
+
+        /* Rectangle shapes for all form elements - like Confirm Logout modal */
+        .admin-modal input[type="text"],
+        .admin-modal input[type="email"],
+        .admin-modal input[type="password"],
+        .admin-modal select,
+        .admin-modal textarea {
+          border-radius: 8px !important;
+          font-size: 1rem !important;
+          height: 44px !important;
+          padding: 12px 16px !important;
           border: 1px solid #e9ecef !important;
-          border-radius: 10px !important;
-          border-top: 1px solid #e9ecef !important;
-          border-right: 1px solid #e9ecef !important;
-          border-bottom: 2px solid #e9ecef !important;
-          border-left: 1px solid #e9ecef !important;
-          outline: none !important;
-          background: white !important;
-          color: #212c59 !important;
-          font-family: 'Montserrat', sans-serif !important;
+          background: #ffffff !important;
         }
-
-        .admin-modal-content input::placeholder {
-          color: #a0a0a0 !important;
-          opacity: 1 !important;
-        }
-
-        .admin-modal-content button {
-          background: #212c59 !important;
-          color: white !important;
-          border: 2px solid #212c59 !important;
-          padding: 14px 24px !important;
-          border-radius: 12px !important;
+        
+        .admin-modal button {
+          border-radius: 8px !important;
+          font-size: 1rem !important;
+          padding: 12px 24px !important;
           font-weight: 600 !important;
-          cursor: pointer !important;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-          width: 100% !important;
-          font-size: 16px !important;
-          height: 48px !important;
-          box-sizing: border-box !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
-          font-family: 'Montserrat', sans-serif !important;
         }
 
-        .admin-modal-content button:hover:not(:disabled) {
-          background: #1a2447 !important;
-          border-color: #1a2447 !important;
-          transform: translateY(-1px) !important;
-          box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
+        /* Sign In modal style - compact for simple forms */
+        .admin-modal.size-small,
+        .admin-modal[data-size="small"] {
+          width: clamp(320px, 35vw, 400px) !important;
+          max-width: 400px !important;
+        }
+        
+        /* Sign Up modal style - larger for forms with more content */
+        .admin-modal.size-large,
+        .admin-modal[data-size="large"] {
+          width: clamp(450px, 50vw, 600px) !important;
+          max-width: 600px !important;
+        }
+        
+        .admin-modal.size-extra-large,
+        .admin-modal[data-size="extra-large"] {
+          width: clamp(550px, 60vw, 700px) !important;
+          max-width: 700px !important;
+        }
+        
+        /* Reduce spacing between form elements */
+        .admin-modal .form-group {
+          margin-bottom: 0.75rem !important;
+        }
+        
+        .admin-modal .form-group:last-child {
+          margin-bottom: 0 !important;
+        }
+        
+        .admin-modal .form-row {
+          margin-bottom: 0.5rem !important;
+        }
+        
+        .admin-modal .form-row:last-child {
+          margin-bottom: 0 !important;
         }
 
-        .admin-modal-content button:disabled {
-          opacity: 0.6 !important;
-          cursor: not-allowed !important;
+        /* Remove any visual layering effects */
+        .admin-modal * {
+          box-shadow: none !important;
         }
-
-        .admin-modal-content label {
-          color: #212c59 !important;
-          font-size: 13px !important;
-          font-weight: 500 !important;
-          margin-bottom: 4px !important;
-          font-family: 'Montserrat', sans-serif !important;
-        }
-
-        /* Cancel button styling */
-        .admin-modal-content .cancel-button {
-          background: white !important;
-          color: #b08d57 !important;
-          border: 2px solid #b08d57 !important;
-          padding: 14px 24px !important;
-          border-radius: 12px !important;
-          font-weight: 600 !important;
-          cursor: pointer !important;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-          width: 100% !important;
-          font-size: 16px !important;
-          height: 48px !important;
-          box-sizing: border-box !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-        }
-
-        .admin-modal-content .cancel-button:hover:not(:disabled) {
-          background: #f8f6f0 !important;
-          border-color: #b08d57 !important;
-          color: #b08d57 !important;
-          transform: translateY(-1px) !important;
-          box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+        
+        .admin-modal {
+          box-shadow: 0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1) !important;
         }
       `}</style>
     </>
