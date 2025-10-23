@@ -147,6 +147,20 @@ const AnalyticsDisplay = () => {
             {analyticsData.totalOrders.toLocaleString()}
           </div>
         </div>
+
+        <div style={{
+          background: '#fff',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <FaChartLine style={{ fontSize: '2rem', color: '#2e7d32', marginBottom: '0.5rem' }} />
+          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Average Spent Per Order</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#003466' }}>
+            ₦{analyticsData.averageSpentPerUser.toFixed(2)}
+          </div>
+        </div>
       </div>
 
       {/* Highest Spenders by Employment Status */}
