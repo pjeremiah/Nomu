@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaChartLine, FaUsers, FaBriefcase, FaGraduationCap } from 'react-icons/fa';
+import { FaBriefcase, FaGraduationCap } from 'react-icons/fa';
 
 const AnalyticsDisplay = () => {
   const [analyticsData, setAnalyticsData] = useState({
@@ -9,6 +9,7 @@ const AnalyticsDisplay = () => {
     usersList: []
   });
   const [employmentSpendingData, setEmploymentSpendingData] = useState([]);
+  const [topSpendersData, setTopSpendersData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -37,18 +38,22 @@ const AnalyticsDisplay = () => {
       const totalUsers = dashboardStats.totalCustomers || 0;
       const totalOrders = dashboardStats.totalOrders || 0; // Real total orders from orders collection
 
-      // Fetch users with spending data and employment spending data in parallel
-      const [usersRes, employmentRes] = await Promise.all([
+      // Fetch users with spending data, employment spending data, and top spenders in parallel
+      const [usersRes, employmentRes, topSpendersRes] = await Promise.all([
         fetch(`${API_BASE}/api/analytics/users-with-spending`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
         fetch(`${API_BASE}/api/analytics/highest-spenders-by-employment`, {
-        headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE}/api/analytics/top-spenders-by-employment`, {
+          headers: { Authorization: `Bearer ${token}` }
         })
       ]);
 
       let usersList = [];
       let employmentData = [];
+      let topSpenders = [];
       
       if (usersRes.ok) {
         usersList = await usersRes.json();
@@ -61,6 +66,13 @@ const AnalyticsDisplay = () => {
         console.error('Employment data fetch failed:', employmentRes.status);
       }
 
+      if (topSpendersRes.ok) {
+        topSpenders = await topSpendersRes.json();
+        console.log('Top spenders data:', topSpenders);
+      } else {
+        console.error('Top spenders fetch failed:', topSpendersRes.status);
+      }
+
       setAnalyticsData({
         averageSpentPerUser,
         totalUsers,
@@ -68,6 +80,7 @@ const AnalyticsDisplay = () => {
         usersList
       });
       setEmploymentSpendingData(employmentData);
+      setTopSpendersData(topSpenders);
 
     } catch (err) {
       console.error('Analytics fetch error:', err);
@@ -113,58 +126,8 @@ const AnalyticsDisplay = () => {
 
   return (
     <div className="analytics-display">
-      {/* Key Metrics Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
-        marginBottom: '2rem'
-      }}>
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <FaUsers style={{ fontSize: '2rem', color: '#1976d2', marginBottom: '0.5rem' }} />
-          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Total Users</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#003466' }}>
-            {analyticsData.totalUsers.toLocaleString()}
-          </div>
-        </div>
-
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <FaChartLine style={{ fontSize: '2rem', color: '#7b1fa2', marginBottom: '0.5rem' }} />
-          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Est. Total Orders</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#003466' }}>
-            {analyticsData.totalOrders.toLocaleString()}
-          </div>
-        </div>
-
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <FaChartLine style={{ fontSize: '2rem', color: '#2e7d32', marginBottom: '0.5rem' }} />
-          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Average Spent Per Order</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#003466' }}>
-            ₦{analyticsData.averageSpentPerUser.toFixed(2)}
-          </div>
-        </div>
-      </div>
-
-      {/* Highest Spenders by Employment Status */}
-      {employmentSpendingData.length > 0 ? (
+      {/* Highest Individual Spenders by Employment Status */}
+      {topSpendersData.length > 0 ? (
         <div style={{
           background: '#fff',
           padding: '1.5rem',
@@ -172,80 +135,33 @@ const AnalyticsDisplay = () => {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           marginBottom: '2rem'
         }}>
-          <h4 style={{ margin: '0 0 1rem 0', color: '#003466' }}>Spending Analysis: Employed vs Students</h4>
+          <h4 style={{ margin: '0 0 1rem 0', color: '#003466' }}>Highest Individual Amount Spent: Employed vs Students</h4>
           
-          {/* Summary Comparison */}
-          {employmentSpendingData.length >= 2 && (
-            <div style={{
-              background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
-              padding: '1rem',
-              borderRadius: '6px',
-              marginBottom: '1rem',
-              border: '1px solid #e1bee7'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <h5 style={{ margin: 0, color: '#003466' }}>Total Spending Comparison</h5>
-                <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
-                  {employmentSpendingData[0].totalSpent > employmentSpendingData[1].totalSpent ? (
-                    <span style={{ color: '#1976d2', fontWeight: '600' }}>
-                      {employmentSpendingData[0].employmentStatus} spend {((employmentSpendingData[0].totalSpent / employmentSpendingData[1].totalSpent) * 100).toFixed(0)}% more
-                    </span>
-                  ) : (
-                    <span style={{ color: '#7b1fa2', fontWeight: '600' }}>
-                      {employmentSpendingData[1].employmentStatus} spend {((employmentSpendingData[1].totalSpent / employmentSpendingData[0].totalSpent) * 100).toFixed(0)}% more
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                {employmentSpendingData.map((category, index) => (
-                  <div key={index} style={{
-                    background: '#fff',
-                    padding: '0.75rem',
-                    borderRadius: '4px',
-                    border: '1px solid #e9ecef'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      {category.employmentStatus === 'Employed' ? (
-                        <FaBriefcase style={{ color: '#1976d2' }} />
-                      ) : (
-                        <FaGraduationCap style={{ color: '#7b1fa2' }} />
-                      )}
-                      <span style={{ fontWeight: '600', color: '#003466' }}>{category.employmentStatus}</span>
-                    </div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2e7d32' }}>
-                      ₦{category.totalSpent.toLocaleString()}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
-                      {category.userCount} users • {category.totalOrders} orders • Avg: ₦{category.averageSpent.toFixed(0)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Total Spending by Employment Status */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-            {employmentSpendingData.map((category, index) => (
+            {topSpendersData.map((item, index) => (
               <div key={index} style={{
                 background: '#fff',
                 padding: '2rem',
                 borderRadius: '8px',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 textAlign: 'center',
-                border: '1px solid #e9ecef'
+                border: '2px solid',
+                borderColor: item.employmentStatus === 'Employed' ? '#1976d2' : '#7b1fa2'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  {category.employmentStatus === 'Employed' ? (
+                  {item.employmentStatus === 'Employed' ? (
                     <FaBriefcase style={{ color: '#1976d2', fontSize: '1.5rem' }} />
                   ) : (
                     <FaGraduationCap style={{ color: '#7b1fa2', fontSize: '1.5rem' }} />
                   )}
-                  <h5 style={{ margin: 0, color: '#003466', fontSize: '1.1rem' }}>{category.employmentStatus}</h5>
+                  <h5 style={{ margin: 0, color: '#003466', fontSize: '1.1rem' }}>{item.employmentStatus}</h5>
                 </div>
                 
-                <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2e7d32' }}>
-                  ₦{category.totalSpent.toLocaleString()}
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: item.employmentStatus === 'Employed' ? '#1976d2' : '#7b1fa2', marginBottom: '0.5rem' }}>
+                  ₱{item.topSpender.totalSpent.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#6c757d' }}>
+                  Highest individual amount
                 </div>
               </div>
             ))}
@@ -260,7 +176,7 @@ const AnalyticsDisplay = () => {
           marginBottom: '2rem',
           textAlign: 'center'
         }}>
-          <h4 style={{ margin: '0 0 1rem 0', color: '#003466' }}>Spending Analysis: Employed vs Students</h4>
+          <h4 style={{ margin: '0 0 1rem 0', color: '#003466' }}>Highest Individual Amount Spent: Employed vs Students</h4>
           <div style={{ color: '#6c757d', fontSize: '0.9rem' }}>
             No spending data available for employed users or students yet.
             <br />
