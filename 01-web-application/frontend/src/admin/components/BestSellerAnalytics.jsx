@@ -93,12 +93,14 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
       // Check if we have data for the selected period
       const hasData = bestSellersData.bestSellers && bestSellersData.bestSellers.length > 0;
       
-      if (!hasData && (period === 'daily' || period === 'weekly' || period === 'monthly')) {
+      if (!hasData && (period === 'daily' || period === 'weekly' || period === 'monthly' || period === 'yearly')) {
         let noDataMessage = '';
         if (period === 'daily' || period === 'weekly') {
           noDataMessage = `No sales data available for ${period} period. This might be because there were no orders during this time. Try selecting Monthly or Yearly for more comprehensive data.`;
         } else if (period === 'monthly') {
           noDataMessage = `No sales data available for monthly period. This might be because there were no orders during this time. Try selecting Yearly for more comprehensive data.`;
+        } else if (period === 'yearly') {
+          noDataMessage = `No sales data available for yearly period. This might be because there were no orders during this year.`;
         }
         
         setAnalyticsData({
