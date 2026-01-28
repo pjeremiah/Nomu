@@ -16,8 +16,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const checkAuthentication = () => {
-    const token = localStorage.getItem('token');
-    console.log('🔐 Global auth check - token exists:', !!token);
+    // Check both localStorage and sessionStorage for token
+    const localToken = localStorage.getItem('token');
+    const sessionToken = sessionStorage.getItem('token');
+    const token = localToken || sessionToken;
+    const isSessionStorage = !localToken && !!sessionToken;
+    
+    console.log('🔐 Global auth check - localStorage token exists:', !!localToken);
+    console.log('🔐 Global auth check - sessionStorage token exists:', !!sessionToken);
     
     if (!token) {
       setIsAuthenticated(false);
@@ -32,6 +38,8 @@ export const AuthProvider = ({ children }) => {
       console.log('❌ Invalid token format, removing token');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       setIsAuthenticated(false);
       setUser(null);
       setLoading(false);
@@ -48,14 +56,19 @@ export const AuthProvider = ({ children }) => {
         console.log('❌ Token expired, removing token');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         setIsAuthenticated(false);
         setUser(null);
         setLoading(false);
         return false;
       }
       
-      // Token is valid
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      // Token is valid - get user data from the same storage as token
+      const userData = isSessionStorage 
+        ? JSON.parse(sessionStorage.getItem('user') || '{}')
+        : JSON.parse(localStorage.getItem('user') || '{}');
+      
       console.log('✅ Token is valid, setting authenticated to true');
       setIsAuthenticated(true);
       setUser(userData);
@@ -66,6 +79,8 @@ export const AuthProvider = ({ children }) => {
       console.log('❌ Invalid token format, removing token:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       setIsAuthenticated(false);
       setUser(null);
       setLoading(false);
@@ -98,13 +113,25 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'token' || e.key === 'user') {
-        console.log('🔄 Token or user changed in localStorage, rechecking authentication...');
+        console.log('🔄 Token or user changed in storage, rechecking authentication...');
         checkAuthentication();
       }
     };
 
+    // Listen to both localStorage and sessionStorage changes
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    
+    // Also listen to custom storage events for same-tab updates
+    const handleCustomStorageChange = () => {
+      checkAuthentication();
+    };
+    
+    window.addEventListener('authChange', handleCustomStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authChange', handleCustomStorageChange);
+    };
   }, []);
 
   // Listen for custom auth events
