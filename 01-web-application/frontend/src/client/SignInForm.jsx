@@ -834,7 +834,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
                   style={{
                     position: 'absolute',
                     right: '8px',
-                    top: '55%',
+                    top: '45%',
                     transform: 'translateY(-50%)',
                     background: resendCooldown > 0 ? '#6c757d' : '#17a2b8',
                     color: 'white',

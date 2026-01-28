@@ -485,33 +485,60 @@ router.get('/best-sellers', authMiddleware, async (req, res) => {
     if (period !== 'all') {
       const now = new Date();
       let startDate;
+      let endDate;
       
       switch (period) {
         case 'today':
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate.setHours(23, 59, 59, 999);
           break;
         case 'week':
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          // Calculate start of current week (Monday)
+          const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday (0) to 6 days back
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMonday);
+          startDate.setHours(0, 0, 0, 0); // Set to midnight
+          // End of week is Sunday 23:59:59
+          const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case 'month':
+          // Start: 1st of current month at 00:00:00
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          startDate.setHours(0, 0, 0, 0);
+          // End: Last day of current month at 23:59:59
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case 'year':
+          // Start: January 1st at 00:00:00
           startDate = new Date(now.getFullYear(), 0, 1);
+          startDate.setHours(0, 0, 0, 0);
+          // End: December 31st at 23:59:59
+          endDate = new Date(now.getFullYear(), 11, 31);
+          endDate.setHours(23, 59, 59, 999);
           break;
         default:
           startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Default to last 30 days
       }
       
-      dateFilter = { 'pastOrders.date': { $gte: startDate } };
+      // Build date filter with both start and end dates
+      if (endDate) {
+        dateFilter = { 'pastOrders.date': { $gte: startDate, $lte: endDate } };
+      } else {
+        dateFilter = { 'pastOrders.date': { $gte: startDate } };
+      }
     }
 
 
     // Aggregate past orders to get best sellers
     const bestSellers = await User.aggregate([
-      { $match: { role: 'Customer', ...dateFilter } },
+      { $match: { role: 'Customer' } },
       { $unwind: '$pastOrders' },
-      { $match: dateFilter.pastOrders ? { 'pastOrders.date': dateFilter['pastOrders.date'] } : {} },
+      { $match: Object.keys(dateFilter).length > 0 ? { 'pastOrders.date': dateFilter['pastOrders.date'] } : {} },
       { 
         $group: { 
           _id: '$pastOrders.drink',
@@ -576,25 +603,52 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
     if (period !== 'all') {
       const now = new Date();
       let startDate;
+      let endDate;
       
       switch (period) {
         case 'today':
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate.setHours(23, 59, 59, 999);
           break;
         case 'week':
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          // Calculate start of current week (Monday)
+          const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday (0) to 6 days back
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMonday);
+          startDate.setHours(0, 0, 0, 0); // Set to midnight
+          // End of week is Sunday 23:59:59
+          const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case 'month':
+          // Start: 1st of current month at 00:00:00
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          startDate.setHours(0, 0, 0, 0);
+          // End: Last day of current month at 23:59:59
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          endDate.setHours(23, 59, 59, 999);
           break;
         case 'year':
+          // Start: January 1st at 00:00:00
           startDate = new Date(now.getFullYear(), 0, 1);
+          startDate.setHours(0, 0, 0, 0);
+          // End: December 31st at 23:59:59
+          endDate = new Date(now.getFullYear(), 11, 31);
+          endDate.setHours(23, 59, 59, 999);
           break;
         default:
           startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
       
-      dateFilter = { 'pastOrders.date': { $gte: startDate } };
+      // Build date filter with both start and end dates
+      if (endDate) {
+        dateFilter = { 'pastOrders.date': { $gte: startDate, $lte: endDate } };
+      } else {
+        dateFilter = { 'pastOrders.date': { $gte: startDate } };
+      }
     }
 
 
@@ -607,9 +661,9 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
 
     // Aggregate past orders
     const bestSellersByCategory = await User.aggregate([
-      { $match: { role: 'Customer', ...dateFilter } },
+      { $match: { role: 'Customer' } },
       { $unwind: '$pastOrders' },
-      { $match: dateFilter.pastOrders ? { 'pastOrders.date': dateFilter['pastOrders.date'] } : {} },
+      { $match: Object.keys(dateFilter).length > 0 ? { 'pastOrders.date': dateFilter['pastOrders.date'] } : {} },
       { 
         $group: { 
           _id: '$pastOrders.drink',
