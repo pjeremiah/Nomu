@@ -78,7 +78,20 @@ router.get('/likes/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
     const { page = 1, limit = 20 } = req.query;
-    const userId = req.user?.userId || req.user?.id; // Get current user ID if authenticated
+    
+    // Optionally decode token to get user ID if authenticated
+    let userId = null;
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded?.userId || decoded?.id;
+      } catch (err) {
+        // Token invalid or expired, continue without user ID
+        console.log('Token verification failed (optional):', err.message);
+      }
+    }
 
     const likes = await Like.find({ post: postId })
       .populate('user', 'fullName profilePicture')
@@ -205,7 +218,20 @@ router.get('/comments/:postId', async (req, res) => {
 router.get('/stats/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
-    const userId = req.user?.userId || req.user?.id; // Optional, for checking if user liked the post
+    
+    // Optionally decode token to get user ID if authenticated
+    let userId = null;
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded?.userId || decoded?.id;
+      } catch (err) {
+        // Token invalid or expired, continue without user ID
+        console.log('Token verification failed (optional):', err.message);
+      }
+    }
 
     const [likeCount, commentCount, userLiked] = await Promise.all([
       Like.countDocuments({ post: postId }),

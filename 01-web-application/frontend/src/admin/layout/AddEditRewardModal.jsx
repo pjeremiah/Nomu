@@ -59,7 +59,7 @@ const AddEditRewardModal = (props) => {
       )}
 
       <Modal show={show} onHide={onHide} centered backdrop="static" keyboard={false}>
-        <Modal.Header closeButton>
+        <Modal.Header>
           <Modal.Title style={{ fontWeight: 600 }}>
             {editingReward ? 'Edit Reward' : 'Add New Reward'}
           </Modal.Title>

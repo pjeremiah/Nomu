@@ -80,9 +80,9 @@ const Message = styled.p`
 `;
 
 const CloseButton = styled.button`
-  background: #212c59;
-  color: white;
-  border: 2px solid #b08d57;
+  background: white;
+  color: #212c59;
+  border: 2px solid #212c59;
   border-radius: 12px;
   padding: 16px 32px;
   font-size: 16px;
@@ -91,20 +91,21 @@ const CloseButton = styled.button`
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
-  box-shadow: 0 4px 15px rgba(33, 44, 89, 0.3);
+  box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1);
 
   &:hover {
-    background: #b08d57;
-    border-color: #b08d57;
+    background: #212c59;
+    color: white;
+    border-color: #1a2347;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(176, 141, 87, 0.4);
+    box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
   }
 
   &:active {
-    background: #9a7a4a;
-    border-color: #9a7a4a;
+    background: #1a2347;
+    border-color: #1a2347;
     transform: translateY(0);
-    box-shadow: 0 2px 10px rgba(176, 141, 87, 0.3);
+    box-shadow: 0 2px 10px rgba(33, 44, 89, 0.3);
   }
 `;
 

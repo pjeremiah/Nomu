@@ -55,7 +55,7 @@ const ForgotPasswordForm = ({ onBack }) => {
     setIsLoading(true);
     
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,7 +137,7 @@ const ForgotPasswordForm = ({ onBack }) => {
       }
       
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -219,7 +219,7 @@ const ForgotPasswordForm = ({ onBack }) => {
       }
       
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/reset-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -307,17 +307,25 @@ const ForgotPasswordForm = ({ onBack }) => {
         .form-success {
           background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
           color: #155724;
-          padding: 12px 16px;
+          padding: 0 14px;
           border-radius: 8px;
-          margin-bottom: 16px;
+          margin-bottom: 12px;
           border: 1px solid #c3e6cb;
           box-shadow: 0 2px 8px rgba(21, 87, 36, 0.1);
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          line-height: 1.2;
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 100%;
+          max-width: 100%;
+          flex-shrink: 0;
         }
         .expiry-time {
-          font-size: 12px;
-          margin-top: 4px;
-          color: #5a6c7d;
-          text-align: center;
+          display: none;
         }
         .password-wrapper input {
           width: 100%;
@@ -327,34 +335,49 @@ const ForgotPasswordForm = ({ onBack }) => {
           background: white !important;
           color: #b08d57 !important;
           border: 2px solid #b08d57 !important;
-          padding: 14px 24px !important;
-          border-radius: 12px !important;
+          padding: 8px 0 !important;
+          border-radius: 10px !important;
           font-weight: 600 !important;
           cursor: pointer !important;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          transition: all 0.2s ease !important;
           width: 100% !important;
-          font-size: 16px !important;
-          height: 48px !important;
+          font-size: 15px !important;
+          height: 36px !important;
           box-sizing: border-box !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+          box-shadow: none !important;
+          margin-top: 0 !important;
         }
         .back-to-email-button:hover:not(:disabled) {
-          background: #f8f6f0 !important;
-          border-color: #b08d57 !important;
-          color: #b08d57 !important;
-          transform: translateY(-1px) !important;
-          box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+          background: #b08d57 !important;
+          border-color: #9a7a4a !important;
+          color: white !important;
+          transform: none !important;
+          box-shadow: none !important;
         }
         .back-to-email-button:disabled {
           opacity: 0.6 !important;
           cursor: not-allowed !important;
         }
+        
+        @media (min-width: 769px) {
+          .resend-code-button {
+            height: 24px !important;
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+            min-width: 55px !important;
+            border-radius: 4px !important;
+            top: 55% !important;
+          }
+        }
       `}</style>
 
-      <form className="form" onSubmit={handleSubmit}>
+      <form className="form" onSubmit={handleSubmit} style={{ 
+        paddingBottom: 0,
+        marginBottom: 0
+      }}>
         {!showOTPForm ? (
           <>
             <h2>Forgot Password</h2>
@@ -382,7 +405,7 @@ const ForgotPasswordForm = ({ onBack }) => {
               {isLoading ? 'Sending...' : 'Send Reset Code'}
             </button>
 
-            <div className="form-footer">
+            <div className="form-footer" style={{ marginTop: '4px', marginBottom: 0 }}>
               Remember your password?{' '}
               <button
                 type="button"
@@ -402,13 +425,7 @@ const ForgotPasswordForm = ({ onBack }) => {
             )}
             {otpSent && (
               <div className="form-success">
-                <strong>📧 Reset Code Sent!</strong><br />
-                A 6-digit reset code has been sent to <strong>{maskEmail(formData.email)}</strong>
-                {otpExpiresAt && (
-                  <div className="expiry-time">
-                    Code expires at: {new Date(otpExpiresAt).toLocaleTimeString()}
-                  </div>
-                )}
+                Reset code sent to your Email
               </div>
             )}
             
@@ -434,21 +451,21 @@ const ForgotPasswordForm = ({ onBack }) => {
                   style={{
                     position: 'absolute',
                     right: '8px',
-                    top: '55%',
+                    top: '45%',
                     transform: 'translateY(-50%)',
                     background: resendCooldown > 0 ? '#6c757d' : '#17a2b8',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
-                    padding: '6px 10px',
-                    fontSize: '12px',
+                    padding: '8px 12px',
+                    fontSize: '13px',
                     cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
                     fontWeight: '600',
-                    height: '24px',
+                    height: '32px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    minWidth: '60px',
+                    minWidth: '70px',
                     lineHeight: '1',
                     margin: '0',
                     boxSizing: 'border-box'
@@ -534,7 +551,7 @@ const ForgotPasswordForm = ({ onBack }) => {
               {isLoading ? 'Resetting...' : 'Reset Password'}
             </button>
             
-            <div className="form-footer">
+            <div className="form-footer" style={{ marginTop: '4px', marginBottom: 0 }}>
               <button
                 type="button"
                 onClick={goBackToEmail}

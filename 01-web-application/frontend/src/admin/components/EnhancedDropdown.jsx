@@ -16,7 +16,7 @@ const DropdownButton = styled.button`
   justify-content: space-between;
   width: 100%;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  background: #f8f9fa;
   border: 2px solid #e9ecef;
   border-radius: 12px;
   font-family: 'Montserrat', sans-serif;
@@ -97,7 +97,7 @@ const DropdownMenu = styled.div`
   bottom: ${props => props.$openUpward ? '100%' : 'auto'};
   left: 0;
   right: 0;
-  background: white;
+  background: #f8f9fa;
   border: 2px solid #e9ecef;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -140,7 +140,7 @@ const DropdownItem = styled.button`
   justify-content: space-between;
   width: 100%;
   padding: 0.75rem 1rem;
-  background: white;
+  background: #f8f9fa;
   border: none;
   font-family: 'Montserrat', sans-serif;
   font-size: 0.95rem;
@@ -213,7 +213,7 @@ const DropdownLabel = styled.label`
 
 const PortalDropdownMenu = styled.div`
   position: fixed;
-  background: white;
+  background: #f8f9fa;
   border: 2px solid #e9ecef;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 4px 20px rgba(0, 0, 0, 0.1);

@@ -73,7 +73,7 @@ const ManageAdmins = () => {
   const { showLogoutConfirm } = useModalContext();
   
   // API URL configuration
-  const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -113,64 +113,20 @@ const ManageAdmins = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Prevent body scrolling when any modal is open
+  // Prevent body scrolling when any modal is open - simple approach like other admin pages
   useEffect(() => {
-    const preventScroll = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    };
-
     if (showAddModal || showEditModal || showResetModal || showDeleteModal) {
-      // Store current scroll position
-      const scrollY = window.scrollY;
-      
-      // Apply styles
-      document.body.style.setProperty('overflow', 'hidden', 'important');
-      document.documentElement.style.setProperty('overflow', 'hidden', 'important');
-      document.body.style.setProperty('position', 'fixed', 'important');
-      document.body.style.setProperty('top', `-${scrollY}px`, 'important');
-      document.body.style.setProperty('width', '100%', 'important');
-      document.body.classList.add('modal-open');
-      
-      // Prevent scroll events
-      document.addEventListener('wheel', preventScroll, { passive: false });
-      document.addEventListener('touchmove', preventScroll, { passive: false });
-      document.addEventListener('keydown', (e) => {
-        // Only prevent navigation keys, not space (32) for input fields
-        if ([33, 34, 35, 36, 37, 38, 39, 40].includes(e.keyCode)) {
-          e.preventDefault();
-        }
-      });
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     } else {
-      // Restore scroll position
-      const scrollY = document.body.style.top;
-      document.body.style.removeProperty('overflow');
-      document.documentElement.style.removeProperty('overflow');
-      document.body.style.removeProperty('position');
-      document.body.style.removeProperty('top');
-      document.body.style.removeProperty('width');
-      document.body.classList.remove('modal-open');
-      
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1);
-      }
-      
-      // Remove event listeners
-      document.removeEventListener('wheel', preventScroll);
-      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
     }
 
     // Cleanup on unmount
     return () => {
-      document.body.style.removeProperty('overflow');
-      document.documentElement.style.removeProperty('overflow');
-      document.body.style.removeProperty('position');
-      document.body.style.removeProperty('top');
-      document.body.style.removeProperty('width');
-      document.body.classList.remove('modal-open');
-      document.removeEventListener('wheel', preventScroll);
-      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
     };
   }, [showAddModal, showEditModal, showResetModal, showDeleteModal]);
 
@@ -843,23 +799,261 @@ const ManageAdmins = () => {
 
       {/* Add Admin Modal */}
       {showAddModal && (
-        <ResponsiveModal
-          show={showAddModal}
-          onHide={() => setShowAddModal(false)}
-          title="Add New Admin"
-          size="large"
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(4px)',
+            padding: '15px',
+            boxSizing: 'border-box'
+          }}
         >
-            <form onSubmit={handleAddAdmin} className="admin-form">
+          <style>
+            {`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-modal .admin-form-group {
+                margin-bottom: 6px !important;
+                width: 100% !important;
+              }
+              .admin-modal .admin-form-label {
+                margin-bottom: 3px !important;
+                display: block !important;
+                width: 100% !important;
+                font-size: 0.8rem !important;
+                font-weight: 600 !important;
+                color: #212c59 !important;
+              }
+              .admin-modal .admin-form-input {
+                padding: 8px 10px !important;
+                height: 36px !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                background: #f8f9fa !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                font-size: 0.8rem !important;
+              }
+              .admin-modal .admin-form-input[type="text"],
+              .admin-modal .admin-form-input[type="email"],
+              .admin-modal .admin-form-input[type="password"] {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-input:focus {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-input:focus {
+                outline: none !important;
+                border-color: #212c59 !important;
+              }
+              .admin-modal .admin-form-row {
+                gap: 6px !important;
+                margin-bottom: 6px !important;
+                width: 100% !important;
+                align-items: flex-start !important;
+              }
+              .admin-modal .admin-form-row .admin-form-group {
+                flex: 1 !important;
+                margin-bottom: 0 !important;
+                width: auto !important;
+                min-width: 0 !important;
+              }
+              .admin-modal .admin-form-status-display {
+                height: 52px !important;
+                min-height: 52px !important;
+                max-height: 52px !important;
+                display: flex !important;
+                align-items: center !important;
+                padding: 0 10px !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                background: #f8f9fa !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .admin-modal .admin-form-actions {
+                display: flex !important;
+                gap: 12px !important;
+                justify-content: center !important;
+                margin-top: 0px !important;
+                padding-top: 0px !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .admin-modal .admin-btn {
+                padding: 10px 20px !important;
+                font-size: 0.85rem !important;
+                border-radius: 8px !important;
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex: 1 !important;
+                white-space: nowrap !important;
+              }
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border: 2px solid #212c59 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-primary:hover {
+                background: #212c59 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(33, 44, 89, 0.3) !important;
+              }
+              .admin-modal .admin-btn-success {
+                background: white !important;
+                color: #28a745 !important;
+                border: 2px solid #28a745 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+                white-space: nowrap !important;
+              }
+              .admin-modal .admin-btn-success:hover {
+                background: #28a745 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+              }
+              .admin-modal .password-input-wrapper {
+                position: relative !important;
+                width: 100% !important;
+              }
+              .admin-modal .password-toggle-btn {
+                position: absolute !important;
+                right: 8px !important;
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                color: #6c757d !important;
+                padding: 4px !important;
+              }
+              .admin-modal .admin-form-row div[style*="border: 2px solid #e9ecef"] {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-row div[style*="border: 2px solid #e9ecef"] * {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .enhanced-dropdown,
+              .admin-modal .enhanced-dropdown *,
+              .admin-modal .dropdown-container,
+              .admin-modal .dropdown-container * {
+                background: #f8f9fa !important;
+              }
+              .admin-modal input,
+              .admin-modal select,
+              .admin-modal textarea {
+                background: #f8f9fa !important;
+              }
+            `}
+          </style>
+          <div 
+            className="admin-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+              transform: 'scale(1)',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              background: '#f8f9fa',
+              borderRadius: '16px',
+              maxWidth: '420px',
+              width: '100%',
+              maxHeight: 'calc(100vh - 40px)',
+              overflow: 'auto',
+              padding: '12px 6px'
+            }}
+          >
+            <div style={{ 
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '8px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #e9ecef',
+              background: '#f8f9fa',
+              paddingTop: '8px'
+            }}>
+              <h3 style={{ 
+                margin: '0', 
+                color: '#212c59', 
+                fontSize: '1rem', 
+                fontWeight: '700',
+                fontFamily: "'Montserrat', sans-serif",
+                textAlign: 'center'
+              }}>Add New Admin</h3>
+            </div>
+            
+            <form onSubmit={handleAddAdmin} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '0px', background: '#f8f9fa', marginBottom: '0px', paddingBottom: '0px' }}>
               {/* Error Display inside Add Modal */}
               {error && (
                 <div className="form-error" style={{ 
-                  marginBottom: 12,
+                  marginBottom: 6,
                   color: '#dc3545',
                   background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
                   textAlign: 'center',
-                  fontSize: '13px',
+                  fontSize: '0.75rem',
                   lineHeight: '1.4',
                   fontFamily: "'Montserrat', sans-serif",
                   border: '1px solid #f5c6cb',
@@ -867,7 +1061,7 @@ const ManageAdmins = () => {
                 }}>{error}</div>
               )}
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group">
                 <label htmlFor="add-fullname" className="admin-form-label">Full Name</label>
                 <input
                   type="text"
@@ -881,7 +1075,7 @@ const ManageAdmins = () => {
                 />
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group">
                 <label htmlFor="add-email" className="admin-form-label">Email</label>
                 <input
                   type="email"
@@ -895,7 +1089,7 @@ const ManageAdmins = () => {
                 />
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group">
                 <label htmlFor="add-password" className="admin-form-label">Password</label>
                 <div className="password-input-wrapper">
                   <input
@@ -943,7 +1137,16 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
+              <div className="admin-form-actions" style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                justifyContent: 'center', 
+                marginTop: '0px',
+                paddingTop: '0px',
+                maxWidth: '100%',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -951,95 +1154,246 @@ const ManageAdmins = () => {
                     setError('');
                   }}
                   className="admin-btn admin-btn-secondary"
-                  style={{
-                    background: 'white',
-                    color: '#b08d57',
-                    border: '2px solid #b08d57',
-                    borderRadius: '12px',
-                    padding: '12px 24px',
-                    fontWeight: '600',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                    flex: '1',
-                    minWidth: '120px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#f8f6f0';
-                    e.target.style.borderColor = '#b08d57';
-                    e.target.style.color = '#b08d57';
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#b08d57';
-                    e.target.style.color = '#b08d57';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="admin-btn admin-btn-primary"
-                  style={{
-                    background: 'white',
-                    color: '#212c59',
-                    border: '2px solid #212c59',
-                    borderRadius: '12px',
-                    padding: '12px 24px',
-                    fontWeight: '600',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                    flex: '1',
-                    minWidth: '120px',
-                    outline: 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#212c59';
-                    e.target.style.borderColor = '#212c59';
-                    e.target.style.color = 'white';
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#212c59';
-                    e.target.style.color = '#212c59';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
-                  }}
                 >
                   Add Admin
                 </button>
               </div>
             </form>
-        </ResponsiveModal>
+          </div>
+        </div>
       )}
 
       {/* Edit Admin Modal */}
       {showEditModal && selectedAdmin && (
-        <ResponsiveModal
-          show={showEditModal}
-          onHide={() => setShowEditModal(false)}
-          title="Edit Admin"
-          size="medium"
-          className="edit-admin-modal"
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(4px)',
+            padding: '15px',
+            boxSizing: 'border-box'
+          }}
         >
-            <form onSubmit={handleEditAdmin} className="admin-form">
+          <style>
+            {`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-modal .admin-form-group {
+                margin-bottom: 6px !important;
+                width: 100% !important;
+              }
+              .admin-modal .admin-form-label {
+                margin-bottom: 3px !important;
+                display: block !important;
+                width: 100% !important;
+                font-size: 0.8rem !important;
+                font-weight: 600 !important;
+                color: #212c59 !important;
+              }
+              .admin-modal .admin-form-input {
+                padding: 8px 10px !important;
+                height: 36px !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                background: #f8f9fa !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                font-size: 0.8rem !important;
+              }
+              .admin-modal .admin-form-input[type="text"],
+              .admin-modal .admin-form-input[type="email"],
+              .admin-modal .admin-form-input[type="password"] {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-input:focus {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-input:focus {
+                outline: none !important;
+                border-color: #212c59 !important;
+              }
+              .admin-modal .admin-form-row {
+                gap: 6px !important;
+                margin-bottom: 6px !important;
+                width: 100% !important;
+                align-items: flex-start !important;
+              }
+              .admin-modal .admin-form-row .admin-form-group {
+                flex: 1 !important;
+                margin-bottom: 0 !important;
+                width: auto !important;
+                min-width: 0 !important;
+              }
+              .admin-modal .admin-form-status-display {
+                height: 52px !important;
+                min-height: 52px !important;
+                max-height: 52px !important;
+                display: flex !important;
+                align-items: center !important;
+                padding: 0 10px !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                background: #f8f9fa !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .admin-modal .admin-form-actions {
+                display: flex !important;
+                gap: 12px !important;
+                justify-content: center !important;
+                margin-top: 0px !important;
+                padding-top: 0px !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .admin-modal .admin-btn {
+                padding: 10px 20px !important;
+                font-size: 0.85rem !important;
+                border-radius: 8px !important;
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex: 1 !important;
+                white-space: nowrap !important;
+              }
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border: 2px solid #212c59 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-primary:hover {
+                background: #212c59 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(33, 44, 89, 0.3) !important;
+              }
+              .admin-modal .admin-btn-success {
+                background: white !important;
+                color: #28a745 !important;
+                border: 2px solid #28a745 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+                white-space: nowrap !important;
+              }
+              .admin-modal .admin-btn-success:hover {
+                background: #28a745 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+              }
+            `}
+          </style>
+          <div 
+            className="admin-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+              transform: 'scale(1)',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              background: '#f8f9fa',
+              borderRadius: '16px',
+              maxWidth: '420px',
+              width: '100%',
+              maxHeight: 'calc(100vh - 40px)',
+              overflow: 'auto',
+              padding: '12px 6px'
+            }}
+          >
+            <div style={{ 
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '8px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #e9ecef',
+              background: '#f8f9fa',
+              paddingTop: '8px'
+            }}>
+              <h3 style={{ 
+                margin: '0', 
+                color: '#212c59', 
+                fontSize: '1rem', 
+                fontWeight: '700',
+                fontFamily: "'Montserrat', sans-serif",
+                textAlign: 'center'
+              }}>Edit Admin</h3>
+            </div>
+            
+            <form onSubmit={handleEditAdmin} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '0px', background: '#f8f9fa', marginBottom: '0px', paddingBottom: '0px' }}>
               {/* Error Display inside Edit Modal */}
               {error && (
                 <div className="form-error" style={{ 
-                  marginBottom: 12,
+                  marginBottom: 6,
                   color: '#dc3545',
                   background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
                   textAlign: 'center',
-                  fontSize: '13px',
+                  fontSize: '0.75rem',
                   lineHeight: '1.4',
                   fontFamily: "'Montserrat', sans-serif",
                   border: '1px solid #f5c6cb',
@@ -1047,7 +1401,7 @@ const ManageAdmins = () => {
                 }}>{error}</div>
               )}
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group">
                 <label className="admin-form-label">Full Name</label>
                 <input
                   type="text"
@@ -1058,7 +1412,7 @@ const ManageAdmins = () => {
                 />
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group">
                 <label className="admin-form-label">Email</label>
                 <input
                   type="email"
@@ -1095,7 +1449,16 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
+              <div className="admin-form-actions" style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                justifyContent: 'center', 
+                marginTop: '0px',
+                paddingTop: '0px',
+                maxWidth: '100%',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1105,98 +1468,263 @@ const ManageAdmins = () => {
                     setError('');
                   }}
                   className="admin-btn admin-btn-secondary"
-                  style={{
-                    background: 'white',
-                    color: '#b08d57',
-                    border: '2px solid #b08d57',
-                    borderRadius: '12px',
-                    padding: '12px 24px',
-                    fontWeight: '600',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                    flex: '1',
-                    minWidth: '120px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#f8f6f0';
-                    e.target.style.borderColor = '#b08d57';
-                    e.target.style.color = '#b08d57';
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#b08d57';
-                    e.target.style.color = '#b08d57';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="admin-btn admin-btn-primary"
-                  style={{
-                    background: 'white',
-                    color: '#212c59',
-                    border: '2px solid #212c59',
-                    borderRadius: '12px',
-                    padding: '12px 24px',
-                    fontWeight: '600',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                    flex: '1',
-                    minWidth: '120px',
-                    outline: 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#212c59';
-                    e.target.style.borderColor = '#212c59';
-                    e.target.style.color = 'white';
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#212c59';
-                    e.target.style.color = '#212c59';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
-                  }}
                 >
                   Update Admin
                 </button>
               </div>
             </form>
-        </ResponsiveModal>
+          </div>
+        </div>
       )}
 
       {/* Reset Password Modal */}
       {showResetModal && selectedAdmin && (
-        <ResponsiveModal
-          show={showResetModal}
-          onHide={() => setShowResetModal(false)}
-          title="Reset Password"
-          size="small"
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(4px)',
+            padding: '15px',
+            boxSizing: 'border-box'
+          }}
         >
-            <div className="reset-password-text" style={{ marginBottom: '12px' }}>
-              Reset password for <strong>{selectedAdmin.fullName}</strong>
+          <style>
+            {`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-modal .admin-form-group {
+                margin-bottom: 6px !important;
+                width: 100% !important;
+              }
+              .admin-modal .admin-form-label {
+                margin-bottom: 3px !important;
+                display: block !important;
+                width: 100% !important;
+                font-size: 0.8rem !important;
+                font-weight: 600 !important;
+                color: #212c59 !important;
+              }
+              .admin-modal .admin-form-input {
+                padding: 8px 10px !important;
+                height: 36px !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                background: #f8f9fa !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                font-size: 0.8rem !important;
+              }
+              .admin-modal .admin-form-input[type="text"],
+              .admin-modal .admin-form-input[type="email"],
+              .admin-modal .admin-form-input[type="password"] {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-input:focus {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-input:focus {
+                outline: none !important;
+                border-color: #212c59 !important;
+              }
+              .admin-modal .admin-form-actions {
+                display: flex !important;
+                gap: 12px !important;
+                justify-content: center !important;
+                margin-top: 0px !important;
+                padding-top: 0px !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .admin-modal .admin-btn {
+                padding: 10px 20px !important;
+                font-size: 0.85rem !important;
+                border-radius: 8px !important;
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex: 1 !important;
+                white-space: nowrap !important;
+              }
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border: 2px solid #212c59 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-primary:hover {
+                background: #212c59 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(33, 44, 89, 0.3) !important;
+              }
+              .admin-modal .admin-btn-success {
+                background: white !important;
+                color: #28a745 !important;
+                border: 2px solid #28a745 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+                white-space: nowrap !important;
+              }
+              .admin-modal .admin-btn-success:hover {
+                background: #28a745 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+              }
+              .admin-modal .password-input-wrapper {
+                position: relative !important;
+                width: 100% !important;
+              }
+              .admin-modal .password-toggle-btn {
+                position: absolute !important;
+                right: 8px !important;
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+                background: none !important;
+                border: none !important;
+                cursor: pointer !important;
+                color: #6c757d !important;
+                padding: 4px !important;
+              }
+              .admin-modal .admin-form-row div[style*="border: 2px solid #e9ecef"] {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .admin-form-row div[style*="border: 2px solid #e9ecef"] * {
+                background: #f8f9fa !important;
+              }
+              .admin-modal .enhanced-dropdown,
+              .admin-modal .enhanced-dropdown *,
+              .admin-modal .dropdown-container,
+              .admin-modal .dropdown-container * {
+                background: #f8f9fa !important;
+              }
+              .admin-modal input,
+              .admin-modal select,
+              .admin-modal textarea {
+                background: #f8f9fa !important;
+              }
+            `}
+          </style>
+          <div 
+            className="admin-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+              transform: 'scale(1)',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              background: '#f8f9fa',
+              borderRadius: '16px',
+              maxWidth: '420px',
+              width: '100%',
+              maxHeight: 'calc(100vh - 40px)',
+              overflow: 'auto',
+              padding: '12px 6px'
+            }}
+          >
+            <div style={{ 
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '8px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #e9ecef',
+              background: '#f8f9fa',
+              paddingTop: '8px'
+            }}>
+              <h3 style={{ 
+                margin: '0', 
+                color: '#212c59', 
+                fontSize: '1rem', 
+                fontWeight: '700',
+                fontFamily: "'Montserrat', sans-serif",
+                textAlign: 'center'
+              }}>Reset Password</h3>
             </div>
             
-            <form onSubmit={handleResetPassword} className="admin-form">
+            <div className="reset-password-text" style={{ 
+              textAlign: 'center', 
+              marginBottom: '12px', 
+              padding: '0 16px',
+              fontSize: '0.85rem',
+              color: '#6c757d'
+            }}>
+              Reset password for <strong style={{ color: '#212c59' }}>{selectedAdmin.fullName}</strong>
+            </div>
+            
+            <form onSubmit={handleResetPassword} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '0px', background: '#f8f9fa', marginBottom: '0px', paddingBottom: '0px' }}>
               {/* Error Display inside Reset Password Modal */}
               {error && (
                 <div className="form-error" style={{ 
-                  marginBottom: 12,
+                  marginBottom: 6,
                   color: '#dc3545',
                   background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-                  padding: '10px 14px',
-                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
                   textAlign: 'center',
-                  fontSize: '13px',
+                  fontSize: '0.75rem',
                   lineHeight: '1.4',
                   fontFamily: "'Montserrat', sans-serif",
                   border: '1px solid #f5c6cb',
@@ -1204,7 +1732,7 @@ const ManageAdmins = () => {
                 }}>{error}</div>
               )}
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group">
                 <label className="admin-form-label">New Password</label>
                 <div className="password-input-wrapper">
                   <input
@@ -1224,7 +1752,7 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-group" style={{ marginBottom: '10px' }}>
+              <div className="admin-form-group">
                 <label className="admin-form-label">Confirm Password</label>
                 <div className="password-input-wrapper">
                   <input
@@ -1244,7 +1772,16 @@ const ManageAdmins = () => {
                 </div>
               </div>
               
-              <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
+              <div className="admin-form-actions" style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                justifyContent: 'center', 
+                marginTop: '0px',
+                paddingTop: '0px',
+                maxWidth: '100%',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1252,118 +1789,132 @@ const ManageAdmins = () => {
                     setError('');
                   }}
                   className="admin-btn admin-btn-secondary"
-                  style={{
-                    background: 'white',
-                    color: '#b08d57',
-                    border: '2px solid #b08d57',
-                    borderRadius: '8px',
-                    padding: '12px 24px',
-                    fontWeight: '600',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                    flex: '1',
-                    minWidth: '120px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#f8f6f0';
-                    e.target.style.borderColor = '#b08d57';
-                    e.target.style.color = '#b08d57';
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#b08d57';
-                    e.target.style.color = '#b08d57';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="admin-btn admin-btn-success"
-                  style={{
-                    background: 'white',
-                    color: '#28a745',
-                    border: '2px solid #28a745',
-                    borderRadius: '8px',
-                    padding: '12px 24px',
-                    fontWeight: '600',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(40, 167, 69, 0.1)',
-                    flex: '1',
-                    minWidth: '120px',
-                    outline: 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#28a745';
-                    e.target.style.borderColor = '#28a745';
-                    e.target.style.color = 'white';
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(40, 167, 69, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
-                    e.target.style.borderColor = '#28a745';
-                    e.target.style.color = '#28a745';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 2px 8px rgba(40, 167, 69, 0.1)';
-                  }}
                 >
                   Reset Password
                 </button>
               </div>
             </form>
-        </ResponsiveModal>
+          </div>
+        </div>
       )}
 
       {/* Delete Admin Modal */}
       {showDeleteModal && selectedAdmin && (
-        <ResponsiveModal
-          show={showDeleteModal}
-          onHide={() => setShowDeleteModal(false)}
-          title="Delete Admin"
-          size="small"
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(4px)'
+          }}
         >
-            <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '16px' }}>
-              Are you sure you want to delete admin <strong>{selectedAdmin.fullName}</strong>?
+          <style>
+            {`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-danger:hover {
+                background: #dc3545 !important;
+                border-color: #dc3545 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+            `}
+          </style>
+          <div 
+            className="admin-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+              transform: 'scale(1)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+              background: '#f8f9fa',
+              borderRadius: '20px'
+            }}
+          >
+            <div style={{ 
+              position: 'relative', 
+              textAlign: 'center', 
+              marginBottom: '20px',
+              padding: '24px 28px',
+              borderRadius: '20px 20px 0 0',
+              borderBottom: '1px solid #e9ecef'
+            }}>
+              <h3 style={{ 
+                margin: '0', 
+                color: '#212c59', 
+                fontSize: '1.5rem', 
+                fontWeight: '700',
+                fontFamily: "'Montserrat', sans-serif"
+              }}>Confirm Delete</h3>
             </div>
+            
+            <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
+              Are you sure you want to delete this admin?
+            </div>
+            
             <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
                 type="button"
-                onClick={() => setShowDeleteModal(false)}
                 className="admin-btn admin-btn-secondary"
-                style={{
-                  background: 'white',
-                  color: '#b08d57',
-                  border: '2px solid #b08d57',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                  flex: '1',
-                  minWidth: '120px'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#f8f6f0';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                }}
               >
                 Cancel
               </button>
@@ -1371,39 +1922,12 @@ const ManageAdmins = () => {
                 type="button"
                 onClick={handleDeleteAdmin}
                 className="admin-btn admin-btn-danger"
-                style={{
-                  background: 'white',
-                  color: '#dc3545',
-                  border: '2px solid #dc3545',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
-                  flex: '1',
-                  minWidth: '120px',
-                  outline: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#dc3545';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = 'white';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = '#dc3545';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(220, 53, 69, 0.1)';
-                }}
               >
                 Delete Admin
               </button>
             </div>
-        </ResponsiveModal>
+          </div>
+        </div>
       )}
 
       {/* Bottom spacer to prevent content cutoff */}
@@ -1420,6 +1944,40 @@ const ManageAdmins = () => {
         .edit-admin-modal .admin-form-actions {
           margin-top: auto !important;
           padding-top: 1rem;
+        }
+        
+        /* Reset Password Modal Button Fix */
+        .admin-modal .admin-form-actions {
+          display: flex !important;
+          gap: 12px !important;
+          justify-content: center !important;
+          margin-top: 12px !important;
+          margin-bottom: 8px !important;
+        }
+        
+        .admin-modal .admin-btn-secondary,
+        .admin-modal .admin-btn-success {
+          flex: 1 !important;
+          min-width: 0 !important;
+          max-width: none !important;
+          text-align: center !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        
+        /* Reset Password Icon Hover */
+        .action-icon.reset {
+          color: #6c757d;
+          background: transparent;
+          border-radius: 50%;
+          padding: 8px;
+          transition: all 0.3s ease;
+        }
+        
+        .action-icon.reset:hover {
+          background: #28a745 !important;
+          color: white !important;
         }
       `}</style>
     </div>

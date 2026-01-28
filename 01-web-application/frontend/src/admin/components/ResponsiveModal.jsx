@@ -1,5 +1,5 @@
-// ResponsiveModal.jsx - Updated with active CSS rules for proper responsive behavior - Complete file - FORCE SAVE
-import React from 'react';
+// ResponsiveModal.jsx - Standardized modal with uniform sizing and button styles
+import React, { useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 
 const ResponsiveModal = ({ 
@@ -9,32 +9,49 @@ const ResponsiveModal = ({
   children, 
   size = 'medium',
   className = '',
-  showCloseButton = true 
+  showCloseButton = false 
 }) => {
-  // SIGN IN MODAL STYLING - SINGLE FILE ONLY
+  // Prevent body scrolling when modal is open
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
+    };
+  }, [show]);
+
   if (!show) return null;
 
+  // STANDARDIZED MODAL SIZING - Optimized for 1366x768 screens
   const getModalSize = () => {
     switch (size) {
       case 'small':
         return {
-          maxWidth: 'clamp(320px, 35vw, 400px)',
-          width: 'clamp(60vw, 35vw, 70vw)'
+          maxWidth: '380px',
+          width: '85%'
         };
       case 'large':
         return {
-          maxWidth: 'clamp(450px, 50vw, 600px)',
-          width: 'clamp(70vw, 50vw, 80vw)'
+          maxWidth: '500px',
+          width: '90%'
         };
       case 'extra-large':
         return {
-          maxWidth: 'clamp(550px, 60vw, 700px)',
-          width: 'clamp(75vw, 60vw, 85vw)'
+          maxWidth: '600px',
+          width: '92%'
         };
-      default: // medium - Sign In modal size
+      default: // medium - Standard size for all modals
         return {
-          maxWidth: 'clamp(350px, 40vw, 450px)',
-          width: 'clamp(65vw, 40vw, 75vw)'
+          maxWidth: '420px',
+          width: '88%'
         };
     }
   };
@@ -42,68 +59,54 @@ const ResponsiveModal = ({
   const modalSize = getModalSize();
 
   return (
-    <>
-      {/* Overlay Background */}
-      <div
-        style={{
+    <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          width: '100vw',
+          height: '100vh',
+      background: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 9999,
-          animation: 'fadeIn 0.3s ease-out'
-        }}
-        onClick={onHide}
-      />
-      
-      {/* Modal Container */}
+      zIndex: 1000,
+      animation: 'fadeIn 0.3s ease-out',
+      padding: '15px', // STANDARDIZED PADDING
+      boxSizing: 'border-box'
+    }} onClick={onHide}>
       <div 
         className={`admin-modal ${className}`}
         data-size={size}
         onClick={(e) => e.stopPropagation()}
         style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          backgroundColor: '#ffffff',
-          borderRadius: 'clamp(12px, 2vw, 20px)',
-          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)',
-          zIndex: 10000,
-          maxHeight: '90vh',
-          overflow: 'visible',
-          display: 'flex',
-          flexDirection: 'column',
+          background: '#f8f9fa',
+          borderRadius: '12px', // SMALLER BORDER RADIUS
+          padding: '8px', // EXTREME COMPACT PADDING
+          width: '100%',
           maxWidth: modalSize.maxWidth,
-          width: modalSize.width,
-          animation: 'slideIn 0.3s ease-out'
+          maxHeight: 'calc(100vh - 80px)', // INCREASED HEIGHT to show all content
+          overflow: 'auto',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)' // SMALLER SHADOW
         }}
       >
-        {/* Modal Header */}
         <div style={{
           display: 'flex',
+          justifyContent: 'center', // CENTERED TITLE
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'clamp(1rem, 2vw, 1.5rem) clamp(1.25rem, 2.5vw, 1.75rem)',
-          background: '#ffffff',
-          borderBottom: '1px solid #e9ecef',
-          flexShrink: 0
+          marginBottom: '4px', // EXTREME COMPACT MARGIN
+          paddingBottom: '4px', // EXTREME COMPACT PADDING
+          borderBottom: '1px solid #e9ecef'
         }}>
           <h3 style={{
             margin: 0,
             color: '#212c59',
             fontWeight: '700',
-            fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)',
-            fontFamily: "'Montserrat', sans-serif",
-            letterSpacing: '-0.025em'
-          }}>
-            {title}
-          </h3>
+            fontSize: '1rem', // EXTREME COMPACT FONT SIZE
+            textAlign: 'center' // CENTERED TEXT
+          }}>{title}</h3>
           {showCloseButton && (
             <button
               onClick={onHide}
@@ -123,283 +126,342 @@ const ResponsiveModal = ({
                 justifyContent: 'center',
                 fontWeight: '500'
               }}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#212c59';
-                e.target.style.color = 'white';
-                e.target.style.transform = 'scale(1.1)';
-                e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'rgba(33, 44, 89, 0.1)';
-                e.target.style.color = '#212c59';
-                e.target.style.transform = 'scale(1)';
-                e.target.style.boxShadow = 'none';
-              }}
             >
               <FaTimes color="#ffffff" size={16} />
             </button>
           )}
         </div>
-
-        {/* Modal Content */}
-        <div style={{
-          padding: 'clamp(1rem, 2vw, 1.5rem) clamp(1.25rem, 2.5vw, 1.75rem)',
-          flex: 1,
-          overflowY: 'auto',
-          minHeight: 'auto',
-          maxHeight: 'calc(90vh - 120px)',
-          background: '#ffffff',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
           {children}
-        </div>
       </div>
 
-      {/* Add CSS animations and responsive styles - SIGN IN MODAL STYLING */}
+      {/* STANDARDIZED BUTTON STYLES - Applied to all modals */}
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        
-        @keyframes slideIn {
-          from { 
-            opacity: 0;
-            transform: scale(0.9) translateY(-20px);
-          }
-          to { 
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-
-        /* Responsive adjustments for desktop/laptop screens and zoom levels - Updated */
-        
-        /* Base modal styles - will be overridden by size-specific rules */
-        .admin-modal {
-          max-height: 90vh !important;
-          overflow: visible !important;
-        }
-
-        /* Large desktop screens (1920px+) */
-        @media (min-width: 1920px) {
-          .admin-modal[data-size="small"] {
-            width: clamp(300px, 32vw, 380px) !important;
-            max-width: 380px !important;
-          }
-          .admin-modal[data-size="medium"] {
-            width: clamp(350px, 40vw, 450px) !important;
-            max-width: 450px !important;
-          }
-          .admin-modal[data-size="large"] {
-            width: clamp(450px, 50vw, 600px) !important;
-            max-width: 600px !important;
-          }
-          .admin-modal[data-size="extra-large"] {
-            width: clamp(550px, 60vw, 700px) !important;
-            max-width: 700px !important;
-          }
-        }
-
-        /* Desktop screens (1440px-1919px) */
-        @media (min-width: 1440px) and (max-width: 1919px) {
-          .admin-modal[data-size="small"] {
-            width: clamp(300px, 32vw, 380px) !important;
-            max-width: 380px !important;
-          }
-          .admin-modal[data-size="medium"] {
-            width: clamp(350px, 40vw, 450px) !important;
-            max-width: 450px !important;
-          }
-          .admin-modal[data-size="large"] {
-            width: clamp(450px, 50vw, 600px) !important;
-            max-width: 600px !important;
-          }
-          .admin-modal[data-size="extra-large"] {
-            width: clamp(550px, 60vw, 700px) !important;
-            max-width: 700px !important;
-          }
-        }
-
-        /* Laptop screens (1024px-1439px) */
-        @media (min-width: 1024px) and (max-width: 1439px) {
-          .admin-modal[data-size="small"] {
-            width: clamp(300px, 35vw, 400px) !important;
-            max-width: 400px !important;
-          }
-          .admin-modal[data-size="medium"] {
-            width: clamp(350px, 40vw, 450px) !important;
-            max-width: 450px !important;
-          }
-          .admin-modal[data-size="large"] {
-            width: clamp(450px, 50vw, 600px) !important;
-            max-width: 600px !important;
-          }
-          .admin-modal[data-size="extra-large"] {
-            width: clamp(550px, 60vw, 700px) !important;
-            max-width: 700px !important;
-          }
-        }
-
-        /* Tablet screens (768px-1023px) */
-        @media (min-width: 768px) and (max-width: 1023px) {
-          .admin-modal[data-size="small"] {
-            width: clamp(320px, 40vw, 420px) !important;
-            max-width: 420px !important;
-          }
-          .admin-modal[data-size="medium"] {
-            width: clamp(350px, 45vw, 480px) !important;
-            max-width: 480px !important;
-          }
-          .admin-modal[data-size="large"] {
-            width: clamp(450px, 55vw, 650px) !important;
-            max-width: 650px !important;
-          }
-          .admin-modal[data-size="extra-large"] {
-            width: clamp(550px, 65vw, 750px) !important;
-            max-width: 750px !important;
-          }
-        }
-
-        /* Mobile screens (max-width: 767px) */
-        @media (max-width: 767px) {
-          .admin-modal[data-size="small"] {
-            width: 95vw !important;
-            max-width: none !important;
-          }
-          .admin-modal[data-size="medium"] {
-            width: 95vw !important;
-            max-width: none !important;
-          }
-          .admin-modal[data-size="large"] {
-            width: 95vw !important;
-            max-width: none !important;
-          }
-          .admin-modal[data-size="extra-large"] {
-            width: 95vw !important;
-            max-width: none !important;
-          }
-        }
-
-        /* High DPI displays (2x zoom) */
-        @media (min-resolution: 192dpi) {
-          .admin-modal[data-size="small"] {
-            width: clamp(300px, 30vw, 360px) !important;
-            max-width: 360px !important;
-          }
-          .admin-modal[data-size="medium"] {
-            width: clamp(350px, 35vw, 420px) !important;
-            max-width: 420px !important;
-          }
-          .admin-modal[data-size="large"] {
-            width: clamp(450px, 45vw, 540px) !important;
-            max-width: 540px !important;
-          }
-          .admin-modal[data-size="extra-large"] {
-            width: clamp(550px, 55vw, 660px) !important;
-            max-width: 660px !important;
-          }
-        }
-
-        /* Ultra-wide screens (2560px+) */
-        @media (min-width: 2560px) {
-          .admin-modal[data-size="small"] {
-            width: clamp(300px, 25vw, 350px) !important;
-            max-width: 350px !important;
-          }
-          .admin-modal[data-size="medium"] {
-            width: clamp(350px, 30vw, 400px) !important;
-            max-width: 400px !important;
-          }
-          .admin-modal[data-size="large"] {
-            width: clamp(450px, 40vw, 550px) !important;
-            max-width: 550px !important;
-          }
-          .admin-modal[data-size="extra-large"] {
-            width: clamp(550px, 50vw, 650px) !important;
-            max-width: 650px !important;
-          }
-        }
-
-        /* Rectangle shapes for all form elements - like Confirm Logout modal */
-        .admin-modal input[type="text"],
-        .admin-modal input[type="email"],
-        .admin-modal input[type="password"],
-        .admin-modal select,
-        .admin-modal textarea {
+        .admin-modal .admin-btn-primary {
+          background: white !important;
+          color: #212c59 !important;
+          border: 2px solid #212c59 !important;
           border-radius: 8px !important;
-          font-size: 1rem !important;
-          height: 44px !important;
-          padding: 12px 16px !important;
-          border: 1px solid #e9ecef !important;
-          background: #ffffff !important;
-        }
-        
-        .admin-modal button {
-          border-radius: 8px !important;
-          font-size: 1rem !important;
-          padding: 12px 24px !important;
+          padding: 8px 20px !important;
           font-weight: 600 !important;
+          transition: all 0.3s ease !important;
+          cursor: pointer !important;
+          box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+          flex: 1 !important;
+          font-size: 0.85rem !important;
+          text-align: center !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          height: 36px !important;
+          min-height: 36px !important;
+          min-width: 120px !important;
         }
-
-        /* Sign In modal style - compact for simple forms */
-        .admin-modal.size-small,
-        .admin-modal[data-size="small"] {
-          width: clamp(320px, 35vw, 400px) !important;
-          max-width: 400px !important;
+        
+        .admin-modal .admin-btn-primary:hover {
+          background: #212c59 !important;
+          border-color: #212c59 !important;
+          color: white !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
         }
-
-        /* Sign Up modal style - spacious for complex forms */
-        .admin-modal.size-large,
-        .admin-modal[data-size="large"] {
-          width: clamp(450px, 50vw, 600px) !important;
-          max-width: 600px !important;
+        
+        .admin-modal .admin-btn-secondary {
+          background: white !important;
+          color: #b08d57 !important;
+          border: 2px solid #b08d57 !important;
+          border-radius: 8px !important;
+          padding: 8px 20px !important;
+          font-weight: 600 !important;
+          transition: all 0.3s ease !important;
+          cursor: pointer !important;
+          box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+          flex: 1 !important;
+          font-size: 0.85rem !important;
+          text-align: center !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          height: 36px !important;
+          min-height: 36px !important;
+          min-width: 120px !important;
         }
-
-        /* Extra large modals */
-        .admin-modal.size-extra-large,
-        .admin-modal[data-size="extra-large"] {
-          width: clamp(550px, 60vw, 700px) !important;
-          max-width: 700px !important;
+        
+        .admin-modal .admin-btn-secondary:hover {
+          background: #f8f6f0 !important;
+          border-color: #b08d57 !important;
+          color: #b08d57 !important;
+          transform: translateY(-1px) !important;
+          box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
         }
-
-        /* Medium modals - Sign In modal size */
-        .admin-modal.size-medium,
-        .admin-modal[data-size="medium"] {
-          width: clamp(350px, 40vw, 450px) !important;
-          max-width: 450px !important;
+        
+        .admin-modal .admin-btn-danger {
+          background: white !important;
+          color: #dc3545 !important;
+          border: 2px solid #dc3545 !important;
+          border-radius: 6px !important;
+          padding: 6px 16px !important;
+          font-weight: 600 !important;
+          transition: all 0.3s ease !important;
+          cursor: pointer !important;
+          box-shadow: 0 1px 4px rgba(220, 53, 69, 0.1) !important;
+          flex: 1 !important;
+          font-size: 0.8rem !important;
+          text-align: center !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          height: 32px !important;
+          min-height: 32px !important;
         }
-
-        /* Responsive adjustments for mobile */
-        @media (max-width: 768px) {
-          .admin-modal {
-            width: 95vw !important;
-            max-width: none !important;
-            margin: 1rem !important;
-          }
+        
+        .admin-modal .admin-btn-danger:hover {
+          background: #dc3545 !important;
+          border-color: #dc3545 !important;
+          color: white !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
         }
-
-        /* Form styling improvements */
+        
+        .admin-modal .admin-btn-success {
+          background: white !important;
+          color: #28a745 !important;
+          border: 2px solid #28a745 !important;
+          border-radius: 6px !important;
+          padding: 6px 16px !important;
+          font-weight: 600 !important;
+          transition: all 0.3s ease !important;
+          cursor: pointer !important;
+          box-shadow: 0 1px 4px rgba(40, 167, 69, 0.1) !important;
+          flex: 1 !important;
+          font-size: 0.8rem !important;
+          white-space: nowrap !important;
+          text-align: center !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          height: 32px !important;
+          min-height: 32px !important;
+        }
+        
+        .admin-modal .admin-btn-success:hover {
+          background: #28a745 !important;
+          border-color: #28a745 !important;
+          color: white !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3) !important;
+        }
+        
+        .admin-modal .admin-form-actions {
+          display: flex !important;
+          gap: 12px !important;
+          justify-content: center !important;
+          margin-top: 12px !important;
+          margin-bottom: 8px !important;
+          padding: 0 8px !important;
+          width: 100% !important;
+        }
+        
+        /* ULTRA COMPACT form styling - NO MASSIVE SPACES */
         .admin-modal .form-group {
-          margin-bottom: 1rem !important;
+          margin-bottom: 4px !important;
         }
-
-        .admin-modal .form-row {
-          margin-bottom: 0.75rem !important;
+        
+        .admin-modal .form-group label {
+          margin-bottom: 2px !important;
+          font-size: 0.85rem !important;
+          font-weight: 600 !important;
+          color: #212c59 !important;
         }
-
-        /* Normalize margins for all elements */
-        .admin-modal h1, .admin-modal h2, .admin-modal h3, .admin-modal h4, .admin-modal h5, .admin-modal h6,
-        .admin-modal p, .admin-modal ul, .admin-modal ol, .admin-modal dl,
-        .admin-modal hr, .admin-modal blockquote, .admin-modal pre,
-        .admin-modal table, .admin-modal fieldset, .admin-modal figure {
+        
+        .admin-modal .form-control {
+          padding: 6px 10px !important;
+          font-size: 0.8rem !important;
+          border: 2px solid #e9ecef !important;
+          border-radius: 6px !important;
+          height: 32px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+          transition: border-color 0.3s ease !important;
+        }
+        
+        .admin-modal .form-control:focus {
+          border-color: #212c59 !important;
+          outline: none !important;
+          box-shadow: 0 0 0 3px rgba(33, 44, 89, 0.1) !important;
+        }
+        
+        .admin-modal textarea.form-control {
+          height: 60px !important;
+          min-height: 60px !important;
+          resize: vertical !important;
+        }
+        
+        .admin-modal .admin-form-group {
+          margin-bottom: 4px !important;
+          width: 100% !important;
+        }
+        
+        .admin-modal .admin-form-group label {
+          display: block !important;
+          margin-bottom: 2px !important;
+          font-weight: 600 !important;
+          color: #212c59 !important;
+          font-size: 0.85rem !important;
+        }
+        
+        .admin-modal .admin-form-group input,
+        .admin-modal .admin-form-group select,
+        .admin-modal .admin-form-group textarea {
+          width: 100% !important;
+          padding: 6px 10px !important;
+          border: 2px solid #e9ecef !important;
+          border-radius: 6px !important;
+          font-size: 0.8rem !important;
+          transition: border-color 0.3s ease !important;
+          background-color: #f8f9fa !important;
+          height: 32px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+          box-sizing: border-box !important;
+        }
+        
+        .admin-modal .admin-form-group input:focus,
+        .admin-modal .admin-form-group select:focus,
+        .admin-modal .admin-form-group textarea:focus {
+          border-color: #212c59 !important;
+          outline: none !important;
+          box-shadow: 0 0 0 3px rgba(33, 44, 89, 0.1) !important;
+        }
+        
+        /* ULTRA COMPACT side-by-side elements - NO MASSIVE GAPS */
+        .admin-modal .row {
+          display: flex !important;
+          gap: 6px !important;
+          margin-bottom: 4px !important;
+          align-items: flex-start !important;
+        }
+        
+        .admin-modal .col {
+          flex: 1 !important;
+          min-width: 0 !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+        
+        .admin-modal .col-6 {
+          flex: 0 0 calc(50% - 3px) !important;
+          max-width: calc(50% - 3px) !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+        
+        /* ULTRA COMPACT form spacing - NO MASSIVE SPACES */
+        .admin-modal .mb-3 {
+          margin-bottom: 4px !important;
+        }
+        
+        .admin-modal .mb-4 {
+          margin-bottom: 6px !important;
+        }
+        
+        /* Ensure all form elements have consistent width */
+        .admin-modal .admin-form-group {
+          margin-bottom: 4px !important;
+          width: 100% !important;
+        }
+        
+        .admin-modal .admin-form-group input,
+        .admin-modal .admin-form-group select,
+        .admin-modal .admin-form-group textarea {
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        
+        /* Ensure buttons are visible */
+        .admin-modal .admin-form {
+          padding-bottom: 8px !important;
+        }
+        
+        /* Fix dropdown sizing to match other form elements - PROPER STYLE */
+        .admin-modal .enhanced-dropdown,
+        .admin-modal .enhanced-dropdown .dropdown-button,
+        .admin-modal .enhanced-dropdown .dropdown-button input,
+        .admin-modal .dropdown,
+        .admin-modal .dropdown button,
+        .admin-modal .dropdown input,
+        .admin-modal select {
+          height: 32px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+          padding: 6px 10px !important;
+          border: 2px solid #e9ecef !important;
+          border-radius: 6px !important;
+          background-color: #f8f9fa !important;
+          font-size: 0.8rem !important;
+        }
+        
+        .admin-modal .enhanced-dropdown .dropdown-button {
+          padding: 6px 10px !important;
+          border: 2px solid #e9ecef !important;
+          border-radius: 6px !important;
+          background-color: #f8f9fa !important;
+          height: 32px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+        }
+        
+        .admin-modal .enhanced-dropdown .dropdown-button input {
+          height: 32px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+          padding: 6px 10px !important;
+          border: none !important;
+          background-color: transparent !important;
+        }
+        
+        /* Fix React Select components - PROPER STYLE */
+        .admin-modal .react-select__control,
+        .admin-modal .react-select__value-container,
+        .admin-modal .react-select__input-container,
+        .admin-modal .react-select__placeholder,
+        .admin-modal .react-select__single-value {
+          height: 32px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+          padding: 6px 10px !important;
+          border: 2px solid #e9ecef !important;
+          border-radius: 6px !important;
+          background-color: #f8f9fa !important;
+          font-size: 0.8rem !important;
+        }
+        
+        .admin-modal .react-select__control {
+          min-height: 32px !important;
+          height: 32px !important;
+        }
+        
+        .admin-modal .react-select__value-container {
+          padding: 0 !important;
+          height: 32px !important;
+        }
+        
+        .admin-modal .react-select__input-container {
           margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        .admin-modal .admin-form-group input:focus,
+        .admin-modal .admin-form-group select:focus,
+        .admin-modal .admin-form-group textarea:focus {
+          outline: none !important;
+          border-color: #212c59 !important;
+          box-shadow: 0 0 0 3px rgba(33, 44, 89, 0.1) !important;
         }
       `}</style>
-    </>
+    </div>
   );
 };
 
 export default ResponsiveModal;
-// End of ResponsiveModal component

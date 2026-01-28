@@ -137,6 +137,7 @@ const InfoCard = ({ title, children, icon: Icon, color = '#003466', extraContent
 const AdminHome = () => {
   const [stats, setStats] = useState({
     totalCustomers: 0,
+    totalOrders: 0,
     totalFeedback: 0,
     pendingFeedback: 0,
     totalMenuItems: 0,
@@ -157,7 +158,7 @@ const AdminHome = () => {
   const [activityCurrentPage, setActivityCurrentPage] = useState(1);
   const activitiesPerPage = 10;
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
   // Pagination calculations for recent activity
   const totalActivityPages = Math.ceil(recentActivity.length / activitiesPerPage) || 1;
@@ -269,7 +270,10 @@ const AdminHome = () => {
         activityResponse.json()
       ]);
 
-      setStats(statsData);
+      setStats({
+        ...statsData,
+        totalOrders: statsData.totalOrders || 0
+      });
       setRecentActivity(activityData);
       
     } catch (err) {
@@ -410,7 +414,7 @@ const AdminHome = () => {
           border: '1px solid #fed7d7',
           borderRadius: '8px',
           padding: '2rem',
-          maxWidth: '500px'
+          maxWidth: '550px' // STANDARDIZED WIDTH
         }}>
           <FaExclamationTriangle style={{
             fontSize: '2rem',
@@ -482,7 +486,7 @@ const AdminHome = () => {
       {/* Stats Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: 'repeat(5, 1fr)',
         gap: '0.75rem',
         marginBottom: '1.5rem'
       }}
@@ -492,6 +496,13 @@ const AdminHome = () => {
           value={stats.totalCustomers.toLocaleString()}
           icon={FaUsers}
           color={{ background: '#e3f2fd', text: '#1976d2' }}
+          loading={loading}
+        />
+        <StatCard
+          title="Total Orders"
+          value={stats.totalOrders.toLocaleString()}
+          icon={FaChartLine}
+          color={{ background: '#e8f5e9', text: '#388e3c' }}
           loading={loading}
         />
         <StatCard
@@ -836,9 +847,15 @@ export default AdminHome;
 
 // Add CSS for responsive design
 const styles = `
+  @media (max-width: 1400px) {
+    .stats-grid {
+      grid-template-columns: repeat(3, 1fr) !important;
+    }
+  }
+  
   @media (max-width: 1200px) {
     .stats-grid {
-      grid-template-columns: repeat(2, 1fr) !important;
+      grid-template-columns: repeat(3, 1fr) !important;
     }
   }
   

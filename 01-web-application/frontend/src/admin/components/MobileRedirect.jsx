@@ -255,7 +255,7 @@ const MobileRedirect = () => {
     
     try {
       // Get the API URL from environment or use default
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       
       // Get token from storage
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');

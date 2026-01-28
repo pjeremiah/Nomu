@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FaChevronLeft, FaChevronRight, FaTag, FaCalendarAlt, FaClock } from 'react-icons/fa';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 // Styled Components
 const CarouselContainer = styled.div`
@@ -164,15 +164,15 @@ const CarouselBtn = styled.button`
   justify-content: center;
   font-size: 1.2rem;
   transition: all 0.3s ease;
-  z-index: 10;
-  box-shadow: 0 4px 15px rgba(176, 141, 87, 0.3);
+  z-index: 20;
+  box-shadow: 0 4px 15px rgba(176, 141, 87, 0.4), 0 2px 8px rgba(0, 0, 0, 0.15);
 
   &:hover:not(:disabled) {
     background: #b08d57;
     border-color: #9a7a4a;
     color: white;
     transform: translateY(-50%) scale(1.05);
-    box-shadow: 0 6px 20px rgba(176, 141, 87, 0.4);
+    box-shadow: 0 6px 20px rgba(176, 141, 87, 0.5), 0 3px 12px rgba(0, 0, 0, 0.2);
   }
 
   &:disabled {
@@ -185,11 +185,11 @@ const CarouselBtn = styled.button`
   }
 
   &.prev {
-    left: -25px;
+    left: 10px;
   }
 
   &.next {
-    right: -25px;
+    right: 10px;
   }
 `;
 
@@ -319,7 +319,7 @@ const PromoCard = styled.div`
   display: flex;
   flex-direction: row;
   height: 320px;
-  border: 2px solid #b08d57;
+  border: 5px solid #b08d57;
   transition: all 0.3s ease;
   position: relative;
   width: 800px;
@@ -349,20 +349,22 @@ const PromoCard = styled.div`
 `;
 
 const PromoImage = styled.div`
-  flex: 0 0 50%;
+  flex: 0 0 45  %;
   position: relative;
   overflow: hidden;
-  border-radius: 16px 0 0 16px;
-  background: linear-gradient(135deg, #b08d57 0%, #c49d67 100%);
+  border-radius: 0 0 0 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   height: 100%;
   border: none;
+  min-height: 320px;
+  background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+  padding: 0;
 
   @media (max-width: 768px) {
     flex: 0 0 50%;
-    border-radius: 16px 16px 0 0;
+    border-radius: 11px 11px 0 0;
     min-height: 240px;
     max-height: 260px;
   }
@@ -373,18 +375,73 @@ const PromoImage = styled.div`
     max-height: 230px;
   }
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    transition: transform 0.3s ease;
-    border-radius: 16px 0 0 16px;
-    border: none;
-    outline: none;
+  /* Blurred background image layer */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: ${props => props.$bgImage ? `url(${props.$bgImage})` : 'none'};
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(20px) brightness(1.1);
+    transform: scale(1.05);
+    opacity: 0.6;
+    z-index: 0;
+    border-radius: 0;
 
     @media (max-width: 768px) {
-      border-radius: 16px 16px 0 0;
+      border-radius: 11px 11px 0 0;
+    }
+  }
+
+  /* Overlay gradient to blend edges */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+    z-index: 1;
+    border-radius: 0;
+    opacity: 0.4;
+
+    @media (max-width: 768px) {
+      border-radius: 11px 11px 0 0;
+      opacity: 0.6;
+    }
+  }
+
+  img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center center;
+    transition: transform 0.3s ease;
+    border-radius: 0;
+    border: none;
+    outline: none;
+    display: block;
+    position: relative;
+    z-index: 2;
+    padding: 0;
+    margin: auto;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+    box-shadow: none;
+
+    @media (max-width: 768px) {
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
     }
   }
 `;
@@ -789,7 +846,7 @@ const PromoCarousel = () => {
             }}>
               <PromoCard>
                 {promos[0].imageUrl && (
-                  <PromoImage>
+                  <PromoImage $bgImage={`${API_BASE}${promos[0].imageUrl}`}>
                     <img 
                       src={`${API_BASE}${promos[0].imageUrl}`} 
                       alt={promos[0].title}
@@ -874,7 +931,7 @@ const PromoCarousel = () => {
               >
                 <PromoCard>
                   {promos[promos.length - 1].imageUrl && (
-                    <PromoImage>
+                    <PromoImage $bgImage={`${API_BASE}${promos[promos.length - 1].imageUrl}`}>
                       <img 
                         src={`${API_BASE}${promos[promos.length - 1].imageUrl}`} 
                         alt={promos[promos.length - 1].title}
@@ -920,7 +977,7 @@ const PromoCarousel = () => {
               >
                 <PromoCard>
                   {promo.imageUrl && (
-                    <PromoImage>
+                    <PromoImage $bgImage={`${API_BASE}${promo.imageUrl}`}>
                       <img 
                         src={`${API_BASE}${promo.imageUrl}`} 
                         alt={promo.title}
@@ -966,7 +1023,7 @@ const PromoCarousel = () => {
               >
                 <PromoCard>
                   {promos[0].imageUrl && (
-                    <PromoImage>
+                    <PromoImage $bgImage={`${API_BASE}${promos[0].imageUrl}`}>
                       <img 
                         src={`${API_BASE}${promos[0].imageUrl}`} 
                         alt={promos[0].title}
@@ -1012,7 +1069,7 @@ const PromoCarousel = () => {
           >
             <PromoCard>
               {promos[currentIndex]?.imageUrl && (
-                <PromoImage>
+                <PromoImage $bgImage={`${API_BASE}${promos[currentIndex].imageUrl}`}>
                   <img 
                     src={`${API_BASE}${promos[currentIndex].imageUrl}`} 
                     alt={promos[currentIndex].title}

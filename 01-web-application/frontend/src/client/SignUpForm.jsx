@@ -99,7 +99,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
     setIsLoading(true);
     
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const response = await fetch(`${API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,7 +209,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         return;
       }
       
-      // Validate age - must be at least 1 year old
+      // Validate age - must be at least 13 years old
       const birthday = new Date(formData.birthday);
       const today = new Date();
       const ageInYears = today.getFullYear() - birthday.getFullYear();
@@ -219,9 +219,9 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       const hasBirthdayPassed = monthDiff > 0 || (monthDiff === 0 && today.getDate() >= birthday.getDate());
       const actualAge = hasBirthdayPassed ? ageInYears : ageInYears - 1;
       
-      if (actualAge < 1) {
+      if (actualAge < 13) {
         setInvalidFields(['birthday']);
-        setError('You must be at least 1 year old to create an account');
+        setError('You must be at least 13 years old to create an account');
         setIsLoading(false);
         return;
       }
@@ -237,7 +237,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       
       try {
 
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -308,7 +308,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       }
       
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/signup/verify-otp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -364,20 +364,26 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
 
   const labelStyle = { 
     width: '100%', 
-    fontWeight: 500, 
-    marginBottom: 3, 
-    fontSize: '12px',
-    display: 'block',
+    fontWeight: 600, 
+    marginBottom: '0.25rem', 
+    fontSize: '14px',
+    color: '#212c59',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
     textAlign: 'left',
     paddingLeft: '0px',
     marginLeft: '0px'
   };
   const genderLabelStyle = { 
     width: '100%', 
-    fontWeight: 500, 
-    marginBottom: 3, 
-    fontSize: '12px',
-    display: 'block',
+    fontWeight: 600, 
+    marginBottom: '0.25rem', 
+    fontSize: '14px',
+    color: '#212c59',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
     textAlign: 'left',
     paddingLeft: '0px',
     marginLeft: '0px'
@@ -402,7 +408,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       <style>{`
         /* Override global CSS rules */
         .signup-form .form input {
-          margin-top: 0 !important;
+          margin-top: 6px !important;
           border: 1px solid #e9ecef !important;
           border-bottom: 2px solid #e9ecef !important;
         }
@@ -441,7 +447,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           vertical-align: top;
         }
         .signup-form .form .half-width-container:first-child input {
-          margin-top: 3px;
+          margin-top: 6px;
         }
         .signup-form .form input, .signup-form .form select, .signup-form .gender-dropdown button {
           font-size: 13px !important;
@@ -470,9 +476,13 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           padding: 0;
         }
         .signup-form .form label {
-          font-size: 13px;
-          margin-bottom: 3px;
-          display: block;
+          font-size: 14px;
+          font-weight: 600;
+          color: #212c59;
+          margin-bottom: 0.25rem;
+          display: flex;
+          flex-direction: column;
+          position: relative;
           text-align: left;
           padding-left: 0;
           margin-left: 0;
@@ -490,43 +500,51 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         .form button[type="submit"] {
           margin-top: 12px;
           padding: 8px 0;
-          background: #212c59;
-          color: white;
-          border: 2px solid #b08d57;
+          background: white;
+          color: #212c59;
+          border: 2px solid #212c59;
           border-radius: 10px;
           font-size: 15px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          width: 100%;
+          transition: all 0.2s ease;
+          width: 100% !important;
+          min-width: 100% !important;
+          max-width: 100% !important;
           height: 36px !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
           font-family: 'Montserrat', sans-serif;
-          box-shadow: 0 2px 8px rgba(33, 44, 89, 0.2);
+          box-shadow: none;
           line-height: 1.2 !important;
           vertical-align: middle !important;
           box-sizing: border-box !important;
+          position: relative !important;
+          overflow: hidden !important;
+          flex-shrink: 0 !important;
         }
         .form button[type="submit"]:hover {
-          background: #b08d57;
-          border-color: #b08d57;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(176, 141, 87, 0.4);
+          background: #212c59;
+          color: white;
+          border-color: #1a2447;
+          transform: none;
+          box-shadow: none;
         }
         .form button[type="submit"]:active {
-          background: #9a7a4a;
-          border-color: #9a7a4a;
-          transform: translateY(0);
-          box-shadow: 0 2px 10px rgba(176, 141, 87, 0.3);
+          background: #1a2447;
+          color: white;
+          border-color: #1a2447;
+          transform: none;
+          box-shadow: none;
         }
         .form button[type="submit"]:disabled {
           opacity: 0.6;
           cursor: not-allowed;
           transform: none;
-          background: #212c59;
-          border-color: #b08d57;
+          background: white;
+          color: #212c59;
+          border-color: #212c59;
         }
         .form-switch-button {
           color: #212c59;
@@ -581,53 +599,145 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         .form-success {
           background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
           color: #155724;
-          padding: 12px 16px;
+          padding: 0 14px;
           border-radius: 8px;
-          margin-bottom: 16px;
+          margin-bottom: 12px;
           border: 1px solid #c3e6cb;
           box-shadow: 0 2px 8px rgba(21, 87, 36, 0.1);
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          line-height: 1.2;
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 100%;
+          max-width: 100%;
+          flex-shrink: 0;
+          text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+          .form-success {
+            padding: 12px 16px !important;
+            text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
+            font-size: 14px !important;
+            height: auto !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            display: flex !important;
+            width: 100% !important;
+            margin-bottom: 16px !important;
+          }
+          
+          .form-success * {
+            text-align: center !important;
+            margin: 0 auto !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .form-success {
+            padding: 12px 16px !important;
+            text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
+            font-size: 14px !important;
+            height: auto !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            display: flex !important;
+            width: 100% !important;
+            margin-bottom: 16px !important;
+          }
+          
+          .form-success * {
+            text-align: center !important;
+            margin: 0 auto !important;
+          }
         }
         .expiry-time {
-          font-size: 12px;
-          margin-top: 4px;
-          color: #5a6c7d;
-          text-align: center;
+          display: none;
         }
         .back-to-signup-button {
           background: white !important;
-          color: #b08d57 !important;
-          border: 2px solid #b08d57 !important;
-          padding: 14px 24px !important;
-          border-radius: 12px !important;
+          color: #212c59 !important;
+          border: 2px solid #212c59 !important;
+          padding: 8px 0 !important;
+          border-radius: 10px !important;
           font-weight: 600 !important;
           cursor: pointer !important;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          transition: all 0.2s ease !important;
           width: 100% !important;
-          font-size: 16px !important;
-          height: 48px !important;
+          font-size: 15px !important;
+          height: 36px !important;
           box-sizing: border-box !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+          box-shadow: none !important;
+          margin-top: 12px !important;
         }
         .back-to-signup-button:hover:not(:disabled) {
-          background: #f8f6f0 !important;
-          border-color: #b08d57 !important;
-          color: #b08d57 !important;
-          transform: translateY(-1px) !important;
-          box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+          background: #212c59 !important;
+          border-color: #1a2447 !important;
+          color: white !important;
+          transform: none !important;
+          box-shadow: none !important;
+        }
+        
+        @media (min-width: 769px) {
+          .back-to-signup-button {
+            background: white !important;
+            color: #b08d57 !important;
+            border: 2px solid #b08d57 !important;
+            margin-top: 4px !important;
+          }
+          .back-to-signup-button:hover:not(:disabled) {
+            background: #b08d57 !important;
+            border-color: #9a7a4a !important;
+            color: white !important;
+          }
+          .form-footer {
+            margin-top: 4px !important;
+          }
+          .form button[type="submit"] {
+            margin-bottom: 0 !important;
+          }
+          .resend-code-button {
+            height: 24px !important;
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+            min-width: 55px !important;
+            border-radius: 4px !important;
+            top: 50% !important;
+          }
         }
         .back-to-signup-button:disabled {
           opacity: 0.6 !important;
           cursor: not-allowed !important;
         }
-        .verification-code-input {
-          width: 100% !important;
-          box-sizing: border-box !important;
+        .password-wrapper input {
+          width: 100%;
+          padding-right: 40px;
         }
         
         @media (max-width: 768px) {
+          .password-wrapper input[id="otp"] {
+            padding: 12px 16px !important;
+            padding-right: 75px !important;
+            height: 48px !important;
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+            border: 1px solid #dddfe2 !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            margin-bottom: 12px !important;
+            box-sizing: border-box !important;
+          }
           .form {
             max-width: 96% !important; /* fill sides more for mobile */
             padding: 10px !important;
@@ -649,6 +759,19 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             vertical-align: middle !important;
             display: flex !important;
             align-items: center !important;
+          }
+          
+          .form input[id="otp"] {
+            padding: 12px 16px !important;
+            padding-right: 75px !important;
+            height: 48px !important;
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+            border: 1px solid #dddfe2 !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            margin-bottom: 12px !important;
+            box-sizing: border-box !important;
           }
           .gender-dropdown {
             display: inline-block !important;
@@ -677,40 +800,49 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             font-size: 14px !important;
             padding: 8px 0 !important;
             margin-top: 10px !important;
-            background: #212c59 !important;
-            color: white !important;
-            border: 2px solid #b08d57 !important;
+            background: white !important;
+            color: #212c59 !important;
+            border: 2px solid #212c59 !important;
             border-radius: 10px !important;
             font-weight: 600 !important;
             width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             font-family: 'Montserrat', sans-serif !important;
-            box-shadow: 0 2px 6px rgba(33, 44, 89, 0.18) !important;
+            box-shadow: none !important;
             cursor: pointer !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transition: all 0.2s ease !important;
             line-height: 1.15 !important;
             vertical-align: middle !important;
+            position: relative !important;
+            overflow: hidden !important;
+            flex-shrink: 0 !important;
           }
           .form button[type="submit"]:hover {
-            background: #b08d57 !important;
-            border-color: #b08d57 !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(176, 141, 87, 0.4) !important;
+            background: #212c59 !important;
+            color: white !important;
+            border-color: #1a2447 !important;
+            transform: none !important;
+            box-shadow: none !important;
           }
           .form button[type="submit"]:active {
-            background: #9a7a4a !important;
-            border-color: #9a7a4a !important;
-            transform: translateY(0) !important;
-            box-shadow: 0 2px 10px rgba(176, 141, 87, 0.3) !important;
+            background: #1a2447 !important;
+            color: white !important;
+            border-color: #1a2447 !important;
+            transform: none !important;
+            box-shadow: none !important;
           }
           .form button[type="submit"]:disabled {
             opacity: 0.6 !important;
             cursor: not-allowed !important;
             transform: none !important;
-            background: #212c59 !important;
-            border-color: #b08d57 !important;
+            background: white !important;
+            color: #212c59 !important;
+            border-color: #212c59 !important;
           }
           
           .form .two-column-mobile {
@@ -776,6 +908,22 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             margin-bottom: 0 !important;
             font-family: 'Montserrat', sans-serif !important;
           }
+          
+          .signup-form .form input[id="otp"],
+          .password-wrapper input[id="otp"] {
+            padding: 12px 16px !important;
+            padding-right: 75px !important;
+            height: 48px !important;
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+            border: 1px solid #dddfe2 !important;
+            border-radius: 8px !important;
+            background: #ffffff !important;
+            margin-bottom: 12px !important;
+            margin-top: 0 !important;
+            box-sizing: border-box !important;
+            font-family: 'Montserrat', sans-serif !important;
+          }
           .gender-dropdown {
             display: inline-block !important;
             vertical-align: middle !important;
@@ -803,40 +951,49 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             font-size: 14px !important;
             padding: 8px 0 !important;
             margin-top: 10px !important;
-            background: #212c59 !important;
-            color: white !important;
-            border: 2px solid #b08d57 !important;
+            background: white !important;
+            color: #212c59 !important;
+            border: 2px solid #212c59 !important;
             border-radius: 10px !important;
             font-weight: 600 !important;
             width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             font-family: 'Montserrat', sans-serif !important;
-            box-shadow: 0 2px 6px rgba(33, 44, 89, 0.18) !important;
+            box-shadow: none !important;
             cursor: pointer !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transition: all 0.2s ease !important;
             line-height: 1.15 !important;
             vertical-align: middle !important;
+            position: relative !important;
+            overflow: hidden !important;
+            flex-shrink: 0 !important;
           }
           .form button[type="submit"]:hover {
-            background: #b08d57 !important;
-            border-color: #b08d57 !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(176, 141, 87, 0.4) !important;
+            background: #212c59 !important;
+            color: white !important;
+            border-color: #1a2447 !important;
+            transform: none !important;
+            box-shadow: none !important;
           }
           .form button[type="submit"]:active {
-            background: #9a7a4a !important;
-            border-color: #9a7a4a !important;
-            transform: translateY(0) !important;
-            box-shadow: 0 2px 10px rgba(176, 141, 87, 0.3) !important;
+            background: #1a2447 !important;
+            color: white !important;
+            border-color: #1a2447 !important;
+            transform: none !important;
+            box-shadow: none !important;
           }
           .form button[type="submit"]:disabled {
             opacity: 0.6 !important;
             cursor: not-allowed !important;
             transform: none !important;
-            background: #212c59 !important;
-            border-color: #b08d57 !important;
+            background: white !important;
+            color: #212c59 !important;
+            border-color: #212c59 !important;
           }
           
           /* Keep two-column layout on small mobile for consistency with desktop */
@@ -846,11 +1003,11 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       <form className="form" onSubmit={handleSubmit} style={{ 
         maxWidth: 320, 
         margin: '0 auto', 
-        padding: 16,
+        padding: '16px 16px 0px 16px',
         width: '100%',
         boxSizing: 'border-box',
-        maxHeight: '85vh',
-        overflowY: 'auto',
+        maxHeight: 'none',
+        overflowY: 'visible',
         display: 'flex',
         flexDirection: 'column'
       }}>
@@ -1000,7 +1157,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           {isLoading ? 'Signing Up...' : 'Sign Up'}
         </button>
 
-            <div className="form-footer" style={{ marginBottom: 8 }}>
+            <div className="form-footer" style={{ marginBottom: 0 }}>
               Already have an account?{' '}
               <button
                 type="button"
@@ -1020,17 +1177,11 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             )}
             {otpSent && (
               <div className="form-success">
-                <strong>📧 Verification Code Sent!</strong><br />
-                A 6-digit verification code has been sent to <strong>{maskEmail(formData.email)}</strong>
-                {otpExpiresAt && (
-                  <div className="expiry-time">
-                    Code expires at: {new Date(otpExpiresAt).toLocaleTimeString()}
-                  </div>
-                )}
+                Verification code sent to your Email
               </div>
             )}
-            <div style={fieldWrapper}>
-              <label htmlFor="otp" style={labelStyle}>Verification Code</label>
+            <label htmlFor="otp">
+              Verification Code
               <div className="password-wrapper">
                 <input
                   id="otp"
@@ -1039,7 +1190,6 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
                   onChange={handleChange}
                   disabled={isLoading}
                   style={{ ...inputStyle('otp'), width: '100%', paddingRight: '75px' }}
-                  className="verification-code-input"
                   placeholder="Enter 6-digit code"
                   maxLength={6}
                   pattern="[0-9]{6}"
@@ -1052,21 +1202,21 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
                   style={{
                     position: 'absolute',
                     right: '8px',
-                    top: '55%',
+                    top: '40%',
                     transform: 'translateY(-50%)',
                     background: resendCooldown > 0 ? '#6c757d' : '#17a2b8',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
-                    padding: '6px 10px',
-                    fontSize: '12px',
+                    padding: '8px 12px',
+                    fontSize: '13px',
                     cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
                     fontWeight: '600',
-                    height: '24px',
+                    height: '32px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    minWidth: '60px',
+                    minWidth: '70px',
                     lineHeight: '1',
                     margin: '0',
                     boxSizing: 'border-box'
@@ -1075,7 +1225,7 @@ const SignUpForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
                   {isLoading ? 'Sending...' : resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend'}
                 </button>
               </div>
-            </div>
+            </label>
             <button 
               type="submit"
               disabled={isLoading}

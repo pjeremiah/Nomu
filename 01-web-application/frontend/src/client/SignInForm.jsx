@@ -12,7 +12,7 @@ const maskEmail = (email) => {
   return `${maskedLocal}@${domain}`;
 };
 
-const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = false }) => {
+const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = false, restrictAdminOnMobile = false }) => {
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -20,7 +20,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
     otp: '',
   });
   const [rememberMe, setRememberMe] = useState(false);
-  const [rememberFor30Days, setRememberFor30Days] = useState(false);
+  const [rememberFor1Day, setRememberFor1Day] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [invalidFields, setInvalidFields] = useState([]);
@@ -53,12 +53,12 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
   // Check for existing "Remember Me" preference on component mount
   useEffect(() => {
     const savedRememberMe = localStorage.getItem('rememberMe');
-    const savedRememberFor30Days = localStorage.getItem('rememberFor30Days');
+    const savedRememberFor1Day = localStorage.getItem('rememberFor1Day');
     if (savedRememberMe === 'true') {
       setRememberMe(true);
     }
-    if (savedRememberFor30Days === 'true') {
-      setRememberFor30Days(true);
+    if (savedRememberFor1Day === 'true') {
+      setRememberFor1Day(true);
     }
   }, []);
 
@@ -86,7 +86,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       }
       
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/signin`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -99,36 +99,39 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         }
         
         if (data.requiresOTP && data.userType === 'admin') {
-          // Admin login requires OTP - automatically request it
+          // Admin login requires OTP - on mobile, OTP is restricted; do not send OTP or show OTP form
+          if (restrictAdminOnMobile) {
+            setError('Admin accounts must sign in on a desktop or laptop.');
+            setIsLoading(false);
+            return;
+          }
+          // Desktop: automatically request OTP
           setShowOTPForm(true);
           await requestOTP();
           // Note: requestOTP() already handles the cooldown timer
         } else if (data.userType === 'admin' || (data.user && data.user.role && ['superadmin', 'manager', 'staff'].includes(data.user.role))) {
           // Admin login successful (no OTP required - rememberUntil is still valid)
           
-          if (rememberFor30Days) {
-            // Store in localStorage for persistent login (30 days)
+          if (rememberFor1Day) {
+            // Store in localStorage for persistent login (24 hours - no OTP needed during this period)
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
-            localStorage.setItem('rememberFor30Days', 'true');
+            localStorage.setItem('rememberFor1Day', 'true');
           } else if (rememberMe) {
             // Store in localStorage for regular remember me
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
-            localStorage.removeItem('rememberFor30Days');
+            localStorage.removeItem('rememberFor1Day');
         } else {
-          // Store in localStorage for session-only login when preventRedirect is true
-          if (preventRedirect) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-          } else {
-            sessionStorage.setItem('token', data.token);
-            sessionStorage.setItem('user', JSON.stringify(data.user));
-          }
+          // Session-only: use sessionStorage so login does not persist after browser/tab close
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.setItem('token', data.token);
+          sessionStorage.setItem('user', JSON.stringify(data.user));
           localStorage.removeItem('rememberMe');
-          localStorage.removeItem('rememberFor30Days');
+          localStorage.removeItem('rememberFor1Day');
         }
         // Update global auth state first
         login(data.user);
@@ -152,18 +155,15 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
-            localStorage.removeItem('rememberFor30Days');
+            localStorage.removeItem('rememberFor1Day');
         } else {
-          // Store in localStorage for session-only login when preventRedirect is true
-          if (preventRedirect) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-          } else {
-            sessionStorage.setItem('token', data.token);
-            sessionStorage.setItem('user', JSON.stringify(data.user));
-          }
+          // Session-only: use sessionStorage so login does not persist after browser/tab close
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.setItem('token', data.token);
+          sessionStorage.setItem('user', JSON.stringify(data.user));
           localStorage.removeItem('rememberMe');
-          localStorage.removeItem('rememberFor30Days');
+          localStorage.removeItem('rememberFor1Day');
         }
         if (!preventRedirect) {
           window.location.href = '/';
@@ -187,14 +187,14 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       }
       
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/admin/verify-otp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             email: formData.email, 
             otp: formData.otp, 
-            rememberFor30Days: rememberFor30Days 
+            rememberFor1Day: rememberFor1Day 
           }),
         });
         const data = await response.json();
@@ -204,29 +204,26 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         }
         
         // Admin login successful
-        if (rememberFor30Days) {
-          // Store in localStorage for persistent login (30 days)
+        if (rememberFor1Day) {
+          // Store in localStorage for persistent login (24 hours - no OTP needed during this period)
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
           localStorage.setItem('rememberMe', 'true');
-          localStorage.setItem('rememberFor30Days', 'true');
+          localStorage.setItem('rememberFor1Day', 'true');
         } else if (rememberMe) {
           // Store in localStorage for regular remember me
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
           localStorage.setItem('rememberMe', 'true');
-          localStorage.removeItem('rememberFor30Days');
+          localStorage.removeItem('rememberFor1Day');
         } else {
-          // Store in localStorage for session-only login when preventRedirect is true
-          if (preventRedirect) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-          } else {
-            sessionStorage.setItem('token', data.token);
-            sessionStorage.setItem('user', JSON.stringify(data.user));
-          }
+          // Session-only: use sessionStorage so login does not persist after browser/tab close
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.setItem('token', data.token);
+          sessionStorage.setItem('user', JSON.stringify(data.user));
           localStorage.removeItem('rememberMe');
-          localStorage.removeItem('rememberFor30Days');
+          localStorage.removeItem('rememberFor1Day');
         }
         // Update global auth state first
         login(data.user);
@@ -260,7 +257,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
     setError('');
     
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const response = await fetch(`${API_URL}/api/auth/admin/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -362,42 +359,108 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         .form-success {
           background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
           color: #155724;
-          padding: 12px 16px;
+          padding: 0 14px;
           border-radius: 8px;
-          margin-bottom: 16px;
+          margin-bottom: 12px;
           border: 1px solid #c3e6cb;
           box-shadow: 0 2px 8px rgba(21, 87, 36, 0.1);
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          line-height: 1.2;
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 100%;
+          max-width: 100%;
+          flex-shrink: 0;
+          text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+          .form-success {
+            padding: 0 14px !important;
+            text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
+            font-size: 13px !important;
+            height: 36px !important;
+            display: flex !important;
+            width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+          }
+          
+          .form-success * {
+            text-align: center !important;
+            margin: 0 auto !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .form-success {
+            padding: 0 14px !important;
+            text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
+            font-size: 13px !important;
+            height: 36px !important;
+            display: flex !important;
+            width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+          }
+          
+          .form-success * {
+            text-align: center !important;
+            margin: 0 auto !important;
+          }
         }
         .expiry-time {
-          font-size: 12px;
-          margin-top: 4px;
-          color: #5a6c7d;
-          text-align: center;
+          display: none;
         }
         .back-to-login-button {
           background: white !important;
           color: #b08d57 !important;
           border: 2px solid #b08d57 !important;
-          padding: 14px 24px !important;
-          border-radius: 12px !important;
+          padding: 8px 0 !important;
+          border-radius: 10px !important;
           font-weight: 600 !important;
           cursor: pointer !important;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          transition: all 0.2s ease !important;
           width: 100% !important;
-          font-size: 16px !important;
-          height: 48px !important;
+          font-size: 15px !important;
+          height: 36px !important;
           box-sizing: border-box !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+          box-shadow: none !important;
+        }
+        
+        @media (min-width: 769px) {
+          .back-to-login-button {
+            margin-top: 0 !important;
+          }
+          .verify-button-otp {
+            margin-bottom: 0 !important;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .back-to-login-button {
+            margin-top: 12px !important;
+          }
         }
         .back-to-login-button:hover:not(:disabled) {
-          background: #f8f6f0 !important;
-          border-color: #b08d57 !important;
-          color: #b08d57 !important;
-          transform: translateY(-1px) !important;
-          box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+          background: #b08d57 !important;
+          border-color: #9a7a4a !important;
+          color: white !important;
+          transform: none !important;
+          box-shadow: none !important;
         }
         .back-to-login-button:disabled {
           opacity: 0.6 !important;
@@ -425,7 +488,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           display: flex !important;
           justify-content: space-between !important;
           align-items: center !important;
-          margin-bottom: 16px !important;
+          margin-bottom: 12px !important;
         }
         
         .forgot-password-link {
@@ -467,13 +530,51 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         
         .form-footer {
           text-align: center !important;
-          margin-top: 8px !important;
+          margin-top: 4px !important;
           font-size: 13px !important;
           color: #666 !important;
         }
+        
+        @media (min-width: 769px) {
+          .verify-button-otp {
+            margin-bottom: 0 !important;
+          }
+        }
         .remember-group input[type="checkbox"] {
+          width: 16px !important;
+          height: 16px !important;
+          min-width: 16px !important;
+          min-height: 16px !important;
+          max-width: 16px !important;
+          max-height: 16px !important;
           margin: 0 !important;
+          padding: 0 !important;
+          cursor: pointer !important;
+          accent-color: #212c59 !important;
+          border: 1.5px solid #212c59 !important;
+          border-radius: 3px !important;
+          box-shadow: none !important;
+          outline: none !important;
+          box-sizing: border-box !important;
           vertical-align: middle !important;
+          flex-shrink: 0 !important;
+        }
+        
+        .remember-group input[type="checkbox"]:checked {
+          background-color: #212c59 !important;
+          border-color: #212c59 !important;
+          box-shadow: none !important;
+        }
+        
+        .remember-group input[type="checkbox"]:focus {
+          outline: none !important;
+          box-shadow: none !important;
+          border-color: #212c59 !important;
+        }
+        
+        .remember-group input[type="checkbox"]:focus-visible {
+          outline: none !important;
+          box-shadow: none !important;
         }
         .remember-text {
           cursor: default !important;
@@ -707,14 +808,8 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
               <div className="form-error" style={{ marginBottom: 12 }}>{error}</div>
             )}
             {otpSent && (
-              <div className="form-success">
-                <strong>📧 OTP Sent!</strong><br />
-                A 6-digit verification code has been sent to <strong>{maskEmail(formData.email)}</strong>
-                {otpExpiresAt && (
-                  <div className="expiry-time">
-                    Code expires at: {new Date(otpExpiresAt).toLocaleTimeString()}
-                  </div>
-                )}
+              <div className="form-success" style={{ textAlign: 'center' }}>
+                OTP sent to your Email
               </div>
             )}
             <div style={{ marginBottom: -12 }}>
@@ -763,25 +858,25 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
                 </button>
               </div>
             </div>
-            <div className="remember-group" style={{ marginBottom: '24px', marginTop: '8px', justifyContent: 'flex-start' }}>
+            <div className="remember-group" style={{ marginBottom: '16px', marginTop: '8px', justifyContent: 'flex-start' }}>
               <input
-                id="rememberFor30Days"
+                id="rememberFor1Day"
                 type="checkbox"
-                checked={rememberFor30Days}
-                onChange={(e) => setRememberFor30Days(e.target.checked)}
+                checked={rememberFor1Day}
+                onChange={(e) => setRememberFor1Day(e.target.checked)}
                 disabled={isLoading}
               />
-              <span className="remember-text">Remember this account for 30 days</span>
+              <span className="remember-text">Remember this account for 24 hours</span>
             </div>
             <button 
               type="submit"
               disabled={isLoading}
-              style={{ marginBottom: '1px' }}
+              className="verify-button-otp"
             >
               {isLoading ? 'Verifying...' : 'Verify'}
             </button>
 
-            <div className="form-footer" style={{ marginTop: '0' }}>
+            <div className="form-footer" style={{ marginTop: '4px', marginBottom: 0 }}>
               <button
                 type="button"
                 onClick={goBackToLogin}

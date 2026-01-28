@@ -192,7 +192,7 @@ const GridImage = styled.img`
   &.full {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center center;
     display: block;
     margin: 0;
@@ -201,7 +201,7 @@ const GridImage = styled.img`
     line-height: 0;
     border-radius: 8px;
     transition: transform 0.3s ease;
-    aspect-ratio: 1920/1080;
+    background: #f8f9fa;
     
     &:hover {
       transform: scale(1.02);
@@ -650,25 +650,87 @@ const MenuImage = styled.div`
   width: 100%;
   max-width: 600px;
   height: 400px;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   margin-bottom: 2rem;
+  background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 3px solid #b08d57;
+  
+  /* Blurred background layer */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    background-image: ${props => props.$bgImage ? `url(${props.$bgImage})` : 'none'};
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(20px) brightness(1.1);
+    transform: scale(1.05);
+    opacity: 0.5;
+    z-index: 0;
+    border-radius: 16px;
+  }
+  
+  /* Overlay gradient to blend edges */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+    z-index: 1;
+    border-radius: 13px;
+    opacity: 0.3;
+  }
   
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    object-position: center;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 2;
+    display: block;
   }
   
-  &:hover img {
-    transform: scale(1.05);
+  &:hover {
+    box-shadow: 0 15px 40px rgba(176, 141, 87, 0.25);
+    border-color: #9a7a4a;
+    
+    img {
+      transform: scale(1.08);
+    }
+    
+    &::after {
+      opacity: 0.1;
+    }
   }
   
   @media (max-width: 768px) {
     height: 300px;
     max-width: 500px;
+    border-width: 2px;
+    border-radius: 12px;
+    
+    &::before {
+      border-radius: 12px;
+    }
+    
+    &::after {
+      border-radius: 10px;
+    }
   }
 `;
 
@@ -676,25 +738,87 @@ const AboutImage = styled.div`
   width: 100%;
   max-width: 600px;
   height: 400px;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   margin-bottom: 2rem;
+  background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 3px solid #b08d57;
+  
+  /* Blurred background layer */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    background-image: ${props => props.$bgImage ? `url(${props.$bgImage})` : 'none'};
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(20px) brightness(1.1);
+    transform: scale(1.05);
+    opacity: 0.5;
+    z-index: 0;
+    border-radius: 16px;
+  }
+  
+  /* Overlay gradient to blend edges */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+    z-index: 1;
+    border-radius: 13px;
+    opacity: 0.3;
+  }
   
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    object-position: center;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 2;
+    display: block;
   }
   
-  &:hover img {
-    transform: scale(1.05);
+  &:hover {
+    box-shadow: 0 15px 40px rgba(176, 141, 87, 0.25);
+    border-color: #9a7a4a;
+    
+    img {
+      transform: scale(1.08);
+    }
+    
+    &::after {
+      opacity: 0.1;
+    }
   }
   
   @media (max-width: 768px) {
     height: 300px;
     max-width: 500px;
+    border-width: 2px;
+    border-radius: 12px;
+    
+    &::before {
+      border-radius: 12px;
+    }
+    
+    &::after {
+      border-radius: 10px;
+    }
   }
 `;
 
@@ -914,7 +1038,7 @@ const Home = () => {
       <MenuAboutSection>
         {/* Menu Section */}
         <MenuSection>
-          <MenuImage>
+          <MenuImage $bgImage={ForHomePageMenuImage}>
             <img src={ForHomePageMenuImage} alt="Menu Items" />
           </MenuImage>
           <MenuContent>
@@ -929,7 +1053,7 @@ const Home = () => {
 
         {/* About Us Section */}
         <AboutSection>
-          <AboutImage>
+          <AboutImage $bgImage={ForHomePageAboutImage}>
             <img src={ForHomePageAboutImage} alt="About Us" />
           </AboutImage>
           <AboutUsContent>

@@ -17,6 +17,21 @@ router.get('/', authMiddleware, async (req, res) => {
       .populate('updatedBy', 'FullName')
       .sort({ createdAt: -1 });
     
+    // Automatically update expired promos based on end date
+    const now = new Date();
+    const updatePromises = promos.map(async (promo) => {
+      // Only update if promo is currently marked as Active but has expired
+      if (promo.status === 'Active' && promo.endDate < now) {
+        await promo.updateStatus();
+      }
+      // Also update if promo is Scheduled but should be Active
+      else if (promo.status === 'Scheduled' && promo.startDate <= now && promo.endDate >= now && promo.isActive) {
+        await promo.updateStatus();
+      }
+    });
+    
+    await Promise.all(updatePromises);
+    
     res.json(promos);
   } catch (error) {
     console.error('Error fetching promos:', error);

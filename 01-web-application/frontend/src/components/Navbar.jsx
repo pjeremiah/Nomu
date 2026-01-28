@@ -307,21 +307,12 @@ const SidebarBase = styled.div`
 
 const MobileSidebar = styled(SidebarBase)`
   left: 0;
-  background: ${props => props.$isScrolled 
-    ? 'linear-gradient(135deg, rgba(33, 44, 89, 0.95) 0%, rgba(33, 44, 89, 0.9) 100%)'
-    : 'linear-gradient(135deg, rgba(33, 44, 89, 0.85) 0%, rgba(33, 44, 89, 0.8) 100%)'
-  };
-  backdrop-filter: ${props => props.$isScrolled ? 'blur(20px)' : 'blur(5px)'};
-  border-right: ${props => props.$isScrolled 
-    ? '1px solid rgba(255, 255, 255, 0.1)'
-    : '1px solid rgba(255, 255, 255, 0.05)'
-  };
-  box-shadow: ${props => props.$isScrolled 
-    ? '4px 0 20px rgba(0, 0, 0, 0.3)'
-    : '4px 0 10px rgba(0, 0, 0, 0.1)'
-  };
+  background: linear-gradient(135deg, rgba(33, 44, 89, 0.95) 0%, rgba(33, 44, 89, 0.9) 100%);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
   transform: ${({ $isOpen }) => ($isOpen ? 'translateX(0%)' : 'translateX(-100%)')};
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 `;
 
 const SidebarHeader = styled.div`
@@ -336,6 +327,7 @@ const SidebarHeader = styled.div`
 const SidebarLogo = styled.img`
   height: 50px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  cursor: pointer;
 `;
 
 const SidebarText = styled.span`
@@ -361,7 +353,6 @@ const CloseButton = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
   
   &:hover {
     background: rgba(255, 255, 255, 0.25);
@@ -389,29 +380,12 @@ const SidebarNavLink = styled(RouterNavLink)`
   padding: 10px 16px;
   border-radius: 8px;
   transition: all 0.3s ease;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.6);
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-    transition: left 0.5s;
-  }
+  display: block;
 
   &:hover {
     color: #98C7ED;
     background: rgba(255, 255, 255, 0.1);
     transform: translateX(8px);
-    
-    &::before {
-      left: 100%;
-    }
   }
 
   &.active {
@@ -448,16 +422,24 @@ const ModalBackdrop = styled.div`
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
-  animation: modalFadeIn 0.3s ease-out !important;
+  animation: ${props => props.$isClosing ? 'modalFadeOut 0.3s ease-out' : 'modalFadeIn 0.3s ease-out'} !important;
+  will-change: opacity;
 
   @keyframes modalFadeIn {
     from {
       opacity: 0;
-      backdrop-filter: blur(0px);
     }
     to {
       opacity: 1;
-      backdrop-filter: blur(8px);
+    }
+  }
+
+  @keyframes modalFadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
     }
   }
 `;
@@ -474,7 +456,7 @@ const ModalContent = styled.div`
     0 8px 25px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: ${props => props.$isClosing ? 'none' : 'modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'};
   transform-origin: center;
 
   @keyframes modalSlideIn {
@@ -508,7 +490,7 @@ const CloseModalButton = styled.button`
   top: 16px;
   right: 16px;
   background: rgba(33, 44, 89, 0.1);
-  border: none;
+  border: 2px solid #212c59;
   font-size: 1.1rem;
   cursor: pointer;
   color: #212c59;
@@ -524,6 +506,7 @@ const CloseModalButton = styled.button`
   
   &:hover {
     background: #212c59;
+    border-color: #212c59;
     color: white;
     transform: scale(1.1);
     box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
@@ -541,7 +524,7 @@ const DropdownModal = styled.div`
   box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
   z-index: 2001;
   padding: 20px;
-  animation: slideUp 0.3s ease forwards;
+  animation: ${props => props.$isClosing ? 'slideDown 0.3s ease forwards' : 'slideUp 0.3s ease forwards'};
 
   @keyframes slideUp {
     from {
@@ -551,6 +534,15 @@ const DropdownModal = styled.div`
       transform: translateY(0);
     }
   }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
 `;
 
 const DropdownBackdrop = styled.div`
@@ -558,11 +550,16 @@ const DropdownBackdrop = styled.div`
   inset: 0;
   background-color: rgba(0,0,0,0.4);
   z-index: 2000;
-  animation: fadeIn 0.3s ease;
+  animation: ${props => props.$isClosing ? 'fadeOut 0.3s ease forwards' : 'fadeIn 0.3s ease forwards'};
 
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
   }
 `;
 
@@ -574,6 +571,313 @@ const DragHandle = styled.div`
   margin: 0 auto 12px auto;
 `;
 
+// Desktop Logout Confirm Modal (Original Style)
+const DesktopLogoutConfirmBackdrop = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease-out;
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const DesktopLogoutConfirmModal = styled.div`
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+  transform: scale(1);
+  max-width: 600px;
+  width: 65%;
+  min-width: 400px;
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const DesktopLogoutConfirmHeader = styled.div`
+  position: relative;
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 50px 28px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 20px 20px 0 0;
+  border-bottom: 2px solid rgba(33, 44, 89, 0.1);
+`;
+
+const DesktopLogoutConfirmTitle = styled.h3`
+  margin: 0 0 1rem 0;
+  color: #212c59;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  text-align: center;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 1px;
+    background: #212c59;
+    border-radius: 1px;
+  }
+`;
+
+const DesktopLogoutConfirmMessage = styled.p`
+  text-align: center;
+  margin: 0 0 30px 0;
+  color: #666;
+  font-size: 1rem;
+  padding: 0 24px;
+`;
+
+const DesktopLogoutConfirmActions = styled.div`
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 0 24px 32px 24px;
+`;
+
+const DesktopCancelButton = styled.button`
+  background: white;
+  color: #b08d57;
+  border: 2px solid #b08d57;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1);
+  flex: 1;
+  min-width: 120px;
+
+  &:hover {
+    background: #b08d57;
+    border-color: #9a7a4a;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const DesktopLogoutButton = styled.button`
+  background: white;
+  color: #212c59;
+  border: 2px solid #212c59;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1);
+  flex: 1;
+  min-width: 120px;
+
+  &:hover {
+    background: #212c59;
+    color: white;
+    border-color: #1a2347;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+// Mobile Logout Confirm Modal (Bottom Sheet Style)
+const MobileLogoutConfirmBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  animation: ${props => props.$isClosing ? 'fadeOut 0.3s ease forwards' : 'fadeIn 0.3s ease forwards'};
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @media (min-width: 769px) {
+    display: none;
+  }
+`;
+
+const MobileLogoutConfirmModal = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  background: #fff;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  z-index: 10001;
+  padding: 24px;
+  animation: ${props => props.$isClosing ? 'slideDown 0.3s ease forwards' : 'slideUp 0.3s ease forwards'};
+  max-height: 50vh;
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
+
+  @media (min-width: 769px) {
+    display: none;
+  }
+`;
+
+const MobileLogoutConfirmDragHandle = styled.div`
+  width: 40px;
+  height: 4px;
+  background: #ddd;
+  border-radius: 2px;
+  margin: 0 auto 20px auto;
+`;
+
+const MobileLogoutConfirmTitle = styled.h3`
+  margin: 0 0 1rem 0;
+  color: #212c59;
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  text-align: center;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 1px;
+    background: #212c59;
+    border-radius: 1px;
+  }
+`;
+
+const MobileLogoutConfirmMessage = styled.p`
+  text-align: center;
+  margin: 0 0 24px 0;
+  color: #666;
+  font-size: 1rem;
+`;
+
+const MobileLogoutConfirmActions = styled.div`
+  display: flex;
+  gap: 12px;
+  flex-direction: column;
+`;
+
+const MobileCancelButton = styled.button`
+  background: white;
+  color: #b08d57;
+  border: 2px solid #b08d57;
+  border-radius: 12px;
+  padding: 14px 24px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1);
+  flex: 1;
+  min-width: 120px;
+
+  &:hover {
+    background: #b08d57;
+    color: white;
+    border-color: #9a7a4a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const MobileLogoutButton = styled.button`
+  background: white;
+  color: #212c59;
+  border: 2px solid #212c59;
+  border-radius: 12px;
+  padding: 14px 24px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1);
+  flex: 1;
+  min-width: 120px;
+
+  &:hover {
+    background: #212c59;
+    color: white;
+    border-color: #1a2347;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
 // --- Component ---
 const Navbar = () => {
   const isMobile = useWindowResize();
@@ -581,6 +885,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
+  const [isModalClosing, setIsModalClosing] = useState(false);
   const [showMobileAppModal, setShowMobileAppModal] = useState(false);
   const [authMode, setAuthMode] = useState('signin');
   const [isScrolled, setIsScrolled] = useState(false);
@@ -676,7 +981,7 @@ const Navbar = () => {
   const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
   
   // API URL configuration
-  const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   
   // Get avatar URL from global auth context
   const getAvatarUrl = () => {
@@ -694,6 +999,8 @@ const Navbar = () => {
   };
   const [imageLoadError, setImageLoadError] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isDropdownClosing, setIsDropdownClosing] = useState(false);
+  const [isLogoutConfirmClosing, setIsLogoutConfirmClosing] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [touchStartY, setTouchStartY] = useState(null);
   const [touchEndY, setTouchEndY] = useState(null);
@@ -719,28 +1026,110 @@ const Navbar = () => {
   }, []);
 
   const closeModal = () => {
-    setShowSignInModal(false);
-    setAuthMode('signin');
-    // No need to update local auth state - using global auth context
+    setIsModalClosing(true);
+    // Remove modal immediately without closing animation
+    setTimeout(() => {
+      setShowSignInModal(false);
+      setIsModalClosing(false);
+      setAuthMode('signin');
+    }, 300); // Match backdrop fadeOut animation duration
+  };
+
+  // Handle scroll prevention - using Menu modal approach to avoid flicker
+  const scrollPositionRef = useRef(0);
+  
+  useEffect(() => {
+    // Always prevent background scroll when modal is open OR closing (both desktop and mobile)
+    // This prevents flickering during the closing animation
+    if (showSignInModal || isModalClosing) {
+      // Save current scroll position BEFORE any changes
+      scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+      
+      // Prevent scrolling without using position: fixed/relative to avoid jump/flicker
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      
+      // Lock scroll position by setting it on html element
+      document.documentElement.style.scrollBehavior = 'auto';
+      document.documentElement.scrollTop = scrollPositionRef.current;
+    } else {
+      // Modal is fully closed - wait for animation to complete before restoring scroll
+      // Animation is 400ms (slideOut), so wait slightly longer to ensure it's done
+      const timer = setTimeout(() => {
+        // Restore scrolling - remove styles first
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.scrollBehavior = '';
+        
+        // Restore scroll position AFTER styles are removed
+        const savedPosition = scrollPositionRef.current;
+        if (savedPosition !== undefined && savedPosition !== null) {
+          // Use requestAnimationFrame to ensure smooth restoration
+          requestAnimationFrame(() => {
+            document.documentElement.scrollTop = savedPosition;
+            document.body.scrollTop = savedPosition;
+            
+            // Then use window.scrollTo after a microtask for final positioning
+            Promise.resolve().then(() => {
+              window.scrollTo({
+                top: savedPosition,
+                behavior: 'auto'
+              });
+            });
+          });
+        }
+      }, 450); // Match the closeModal timeout
+      
+      return () => clearTimeout(timer);
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (!showSignInModal && !isModalClosing) {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.scrollBehavior = '';
+      }
+    };
+  }, [showSignInModal, isModalClosing]);
+
+  const closeDropdownWithAnimation = () => {
+    if (isMobile && showDropdown) {
+      setIsDropdownClosing(true);
+      setTimeout(() => {
+        setShowDropdown(false);
+        setIsDropdownClosing(false);
+      }, 300);
+    } else {
+      setShowDropdown(false);
+    }
+  };
+
+  const handleToggleDropdown = () => {
+    if (showDropdown) {
+      closeDropdownWithAnimation();
+    } else {
+      setShowDropdown(true);
+    }
+  };
+
+  const closeLogoutConfirmWithAnimation = () => {
+    if (isMobile && showLogoutConfirm) {
+      setIsLogoutConfirmClosing(true);
+      setTimeout(() => {
+        setShowLogoutConfirm(false);
+        setIsLogoutConfirmClosing(false);
+      }, 300);
+    } else {
+      setShowLogoutConfirm(false);
+    }
   };
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
-    setShowDropdown(false);
+    closeDropdownWithAnimation();
   };
-
-  // Ensure logout button has correct styling when modal opens
-  useEffect(() => {
-    if (showLogoutConfirm) {
-      const logoutButton = document.querySelector('.logout-btn-custom');
-      if (logoutButton) {
-        logoutButton.style.setProperty('background', 'white', 'important');
-        logoutButton.style.setProperty('color', '#212c59', 'important');
-        logoutButton.style.setProperty('border', '2px solid #212c59', 'important');
-        logoutButton.style.setProperty('box-shadow', '0 2px 8px rgba(33, 44, 89, 0.1)', 'important');
-      }
-    }
-  }, [showLogoutConfirm]);
 
   const handleLogout = async () => {
     try {
@@ -748,7 +1137,7 @@ const Navbar = () => {
       
       // If admin, call logout API to set status to inactive
       if (token && user && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         await fetch(`${API_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {
@@ -774,14 +1163,14 @@ const Navbar = () => {
   };
 
   const handleDropdownClick = () => {
-    setShowDropdown(prev => !prev);
+    handleToggleDropdown();
   };
 
   const handleTouchStart = (e) => setTouchStartY(e.targetTouches[0].clientY);
   const handleTouchMove = (e) => setTouchEndY(e.targetTouches[0].clientY);
   const handleTouchEnd = () => {
     if (touchStartY !== null && touchEndY !== null && touchEndY - touchStartY > 100) {
-      setShowDropdown(false);
+      closeDropdownWithAnimation();
     }
     setTouchStartY(null);
     setTouchEndY(null);
@@ -896,10 +1285,10 @@ const Navbar = () => {
         </NavRight>
       </NavContainer>
 
-      {/* Sign In / Sign Up Modal */}
-      {showSignInModal && (
-        <ModalBackdrop>
-          <ModalContent onClick={e => e.stopPropagation()}>
+      {/* Sign In / Sign Up Modal - Only show on desktop */}
+      {(showSignInModal || isModalClosing) && !isMobile && (
+        <ModalBackdrop $isClosing={isModalClosing}>
+          <ModalContent $isClosing={isModalClosing} onClick={e => e.stopPropagation()}>
             {authMode === 'signin' ? (
               <SignInForm 
                 preventRedirect={true}
@@ -940,19 +1329,34 @@ const Navbar = () => {
       )}
 
       {/* Mobile Dropdown Modal */}
-      {showDropdown && isMobile && (
+      {(showDropdown || isDropdownClosing) && isMobile && (
         <>
-          <DropdownBackdrop />
+          <DropdownBackdrop 
+            $isClosing={isDropdownClosing}
+            onClick={closeDropdownWithAnimation} 
+          />
           <DropdownModal
+            $isClosing={isDropdownClosing}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onClick={(e) => e.stopPropagation()}
           >
             <DragHandle />
-            <button style={dropdownItemStyle} onClick={() => window.location.href = '/account-settings'}>
+            <button style={dropdownItemStyle} onClick={() => {
+              closeDropdownWithAnimation();
+              setTimeout(() => {
+                window.location.href = '/account-settings';
+              }, 300);
+            }}>
               Account Settings
             </button>
-            <button style={dropdownItemStyle} onClick={handleLogoutClick}>Sign Out</button>
+            <button style={dropdownItemStyle} onClick={() => {
+              closeDropdownWithAnimation();
+              setTimeout(() => {
+                handleLogoutClick();
+              }, 300);
+            }}>Sign Out</button>
           </DropdownModal>
         </>
       )}
@@ -981,203 +1385,155 @@ const Navbar = () => {
 
       <MobileSidebar $isOpen={isMobileSidebarOpen} $isScrolled={isScrolled}>
         <SidebarHeader>
-          <SidebarLogo src={LogoImg} alt="Logo" onClick={(e) => { handleLogoClick(e); setIsMobileSidebarOpen(false); }} style={{ cursor: 'pointer' }} />
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <SidebarLogo src={LogoImg} alt="Logo" onClick={(e) => { handleLogoClick(e); setIsMobileSidebarOpen(false); }} />
           <SidebarText>Nomu Cafe</SidebarText>
+          </div>
           <CloseButton onClick={() => setIsMobileSidebarOpen(false)}>
             <CloseRounded />
           </CloseButton>
         </SidebarHeader>
         
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingBottom: '10px', maxHeight: '60vh' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingBottom: '10px' }}>
           <SidebarNavLink to="/" onClick={(e) => { handleHomeClick(e); setIsMobileSidebarOpen(false); }}>HOME</SidebarNavLink>
           <SidebarNavLink to="/aboutus" onClick={() => setIsMobileSidebarOpen(false)}>ABOUT US</SidebarNavLink>
           <SidebarNavLink to="/menu" onClick={() => setIsMobileSidebarOpen(false)}>MENU</SidebarNavLink>
           <SidebarNavLink to="/location" onClick={() => setIsMobileSidebarOpen(false)}>LOCATION</SidebarNavLink>
           <SidebarNavLink to="/contactus" onClick={() => setIsMobileSidebarOpen(false)}>CONTACT US</SidebarNavLink>
           <SidebarNavLink to="/gallery" onClick={() => setIsMobileSidebarOpen(false)}>GALLERY</SidebarNavLink>
-          <MobileAppIcon 
+          <a
             href="https://drive.google.com/drive/folders/1XJyZEK_KEOs-Ew8n_mjpR_T-fW_ro2T1?usp=sharing" 
             target="_blank"
+            rel="noopener noreferrer"
             title="Download Customer App"
-            style={{ margin: '0', width: '100%', height: 'auto', padding: '12px 16px', borderRadius: '8px', justifyContent: 'flex-start' }}
             onClick={() => setIsMobileSidebarOpen(false)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              width: '100%',
+              height: 'auto',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              color: 'white',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              marginTop: '0.5rem'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
           >
             <FaMobileAlt style={{ marginRight: '8px' }} />
             Download Customer App
-          </MobileAppIcon>
+          </a>
         </div>
 
         {!isAuthenticated && (
           <div style={{ flexShrink: 0, paddingTop: '20px', paddingBottom: '40px' }}>
-            <SignInButton 
-              $isScrolled={isScrolled}
+            <button
               onClick={() => {
                 setIsMobileSidebarOpen(false);
+                if (isMobile) {
+                  navigate('/signin');
+                } else {
                 setShowSignInModal(true);
                 setAuthMode('signin');
+                }
               }}
-              style={{ width: '100%' }}
+              style={{
+                width: '100%',
+                background: 'rgba(255, 255, 255, 0.1)',
+                color: 'white',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '25px',
+                padding: '10px 24px',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                boxShadow: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(to bottom, rgba(200, 200, 200, 0.3), rgba(150, 150, 150, 0.4))';
+                e.currentTarget.style.border = '2px solid rgba(255, 255, 255, 0.5)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 255, 255, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.border = '2px solid rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
               Sign In
-            </SignInButton>
+            </button>
           </div>
         )}
       </MobileSidebar>
     </Nav>
 
-    {/* Logout Confirmation Modal - Outside Nav for proper centering */}
-    {showLogoutConfirm && (
-      <div 
-        style={{ 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          animation: 'fadeIn 0.3s ease-out'
-        }}
-        onClick={() => setShowLogoutConfirm(false)}
-      >
-        <div 
-          className="admin-modal" 
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            animation: 'slideIn 0.3s ease-out',
-            transform: 'scale(1)',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)'
-          }}
-        >
-          <div style={{ 
-            position: 'relative', 
-            textAlign: 'center', 
-            marginBottom: '20px',
-            padding: '24px 28px',
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-            borderRadius: '20px 20px 0 0',
-            borderBottom: '2px solid rgba(33, 44, 89, 0.1)'
-          }}>
-            <h3 style={{ 
-              margin: '0', 
-              color: '#212c59', 
-              fontSize: '1.5rem', 
-              fontWeight: '700',
-              fontFamily: "'Montserrat', sans-serif"
-            }}>Confirm Logout</h3>
-            <button
-              onClick={() => setShowLogoutConfirm(false)}
-              className="modal-close-btn"
-              style={{
-                position: 'absolute',
-                top: '24px',
-                right: '28px',
-                background: 'rgba(33, 44, 89, 0.1)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                color: '#6c757d'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = 'rgba(33, 44, 89, 0.2)';
-                e.target.style.color = '#212c59';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'rgba(33, 44, 89, 0.1)';
-                e.target.style.color = '#6c757d';
-              }}
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
-            Are you sure you want to log out?
-          </div>
-          <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <button
+    {/* Logout Confirmation Modal - Desktop (Original Style) */}
+    {showLogoutConfirm && !isMobile && (
+      <DesktopLogoutConfirmBackdrop onClick={() => setShowLogoutConfirm(false)}>
+        <DesktopLogoutConfirmModal onClick={(e) => e.stopPropagation()}>
+          <DesktopLogoutConfirmHeader>
+            <DesktopLogoutConfirmTitle>Confirm Logout</DesktopLogoutConfirmTitle>
+          </DesktopLogoutConfirmHeader>
+          <DesktopLogoutConfirmMessage>Are you sure you want to log out?</DesktopLogoutConfirmMessage>
+          <DesktopLogoutConfirmActions>
+            <DesktopCancelButton
               type="button"
               onClick={() => setShowLogoutConfirm(false)}
-              className="admin-btn admin-btn-secondary"
-              style={{
-                background: 'white',
-                color: '#b08d57',
-                border: '2px solid #b08d57',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontWeight: '600',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                flex: '1',
-                minWidth: '120px'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#f8f6f0';
-                e.target.style.borderColor = '#b08d57';
-                e.target.style.color = '#b08d57';
-                e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'white';
-                e.target.style.borderColor = '#b08d57';
-                e.target.style.color = '#b08d57';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-              }}
             >
               Cancel
-            </button>
-            <button
+            </DesktopCancelButton>
+            <DesktopLogoutButton
               type="button"
               onClick={handleLogout}
-              className="logout-btn-custom"
-              style={{
-                background: 'white !important',
-                color: '#212c59 !important',
-                border: '2px solid #212c59 !important',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontWeight: '600',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1) !important',
-                backgroundColor: 'white !important',
-                borderColor: '#212c59 !important',
-                flex: '1',
-                minWidth: '120px'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.setProperty('background', 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTUgMTJMMTAgMTdMMTkgOCIgc3Ryb2tlPSIjMjEyYzU5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K") no-repeat center center, linear-gradient(135deg, #212c59 0%, #2a3a6b 100%)', 'important');
-                e.target.style.backgroundSize = '20px 20px, cover';
-                e.target.style.setProperty('color', 'white', 'important');
-                e.target.style.transform = 'translateY(-2px)';
-                e.target.style.setProperty('box-shadow', '0 6px 20px rgba(33, 44, 89, 0.4)', 'important');
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.setProperty('background', 'white', 'important');
-                e.target.style.backgroundSize = 'auto';
-                e.target.style.setProperty('color', '#212c59', 'important');
-                e.target.style.setProperty('border', '2px solid #212c59', 'important');
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.setProperty('box-shadow', '0 2px 8px rgba(33, 44, 89, 0.1)', 'important');
-              }}
             >
               Logout
-            </button>
-          </div>
-        </div>
-      </div>
+            </DesktopLogoutButton>
+          </DesktopLogoutConfirmActions>
+        </DesktopLogoutConfirmModal>
+      </DesktopLogoutConfirmBackdrop>
+    )}
+
+    {/* Logout Confirmation Modal - Mobile (Bottom Sheet Style) */}
+    {(showLogoutConfirm || isLogoutConfirmClosing) && isMobile && (
+      <>
+        <MobileLogoutConfirmBackdrop 
+          $isClosing={isLogoutConfirmClosing}
+          onClick={closeLogoutConfirmWithAnimation} 
+        />
+        <MobileLogoutConfirmModal 
+          $isClosing={isLogoutConfirmClosing}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MobileLogoutConfirmDragHandle />
+          <MobileLogoutConfirmTitle>Confirm Logout</MobileLogoutConfirmTitle>
+          <MobileLogoutConfirmMessage>Are you sure you want to log out?</MobileLogoutConfirmMessage>
+          <MobileLogoutConfirmActions>
+            <MobileLogoutButton
+              type="button"
+              onClick={handleLogout}
+            >
+              Logout
+            </MobileLogoutButton>
+            <MobileCancelButton
+              type="button"
+              onClick={closeLogoutConfirmWithAnimation}
+            >
+              Cancel
+            </MobileCancelButton>
+          </MobileLogoutConfirmActions>
+        </MobileLogoutConfirmModal>
+      </>
     )}
     </>
   );

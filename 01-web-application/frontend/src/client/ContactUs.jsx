@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Form, Button } from 'react-bootstrap';
 import { FaFacebookF, FaInstagram, FaTiktok, FaTimes } from 'react-icons/fa';
 import styled from 'styled-components';
@@ -298,16 +298,24 @@ const ModalBackdrop = styled.div`
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
-  animation: modalFadeIn 0.3s ease-out !important;
+  animation: ${props => props.$isClosing ? 'modalFadeOut 0.3s ease-out' : 'modalFadeIn 0.3s ease-out'} !important;
+  will-change: opacity;
 
   @keyframes modalFadeIn {
     from {
       opacity: 0;
-      backdrop-filter: blur(0px);
     }
     to {
       opacity: 1;
-      backdrop-filter: blur(8px);
+    }
+  }
+
+  @keyframes modalFadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
     }
   }
 `;
@@ -324,7 +332,7 @@ const ModalContent = styled.div`
     0 8px 25px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: ${props => props.$isClosing ? 'none' : 'modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'};
   transform-origin: center;
 
   @keyframes modalSlideIn {
@@ -358,7 +366,7 @@ const CloseModalButton = styled.button`
   top: 16px;
   right: 16px;
   background: rgba(33, 44, 89, 0.1);
-  border: none;
+  border: 2px solid #212c59;
   font-size: 1.1rem;
   cursor: pointer;
   color: #212c59;
@@ -374,6 +382,7 @@ const CloseModalButton = styled.button`
 
   &:hover {
     background: #212c59;
+    border-color: #212c59;
     color: white;
     transform: scale(1.1);
     box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
@@ -384,88 +393,82 @@ const ContactUs = () => {
   const theme = useTheme();
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
+  const [isModalClosing, setIsModalClosing] = useState(false);
   const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
   const [isFormPreFilled, setIsFormPreFilled] = useState(false);
   const [showFeedbackSuccessModal, setShowFeedbackSuccessModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   
   // Use global auth context
   const { isAuthenticated, user } = useAuth();
-
-  // Prevent body scrolling when modal is open
+  
+  // Handle window resize for mobile detection
   useEffect(() => {
-    if (showSignIn || showSignUp) {
-      // Store scroll position
-      const scrollY = window.scrollY;
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle scroll prevention - using Menu modal approach to avoid flicker
+  const scrollPositionRef = useRef(0);
+  
+  useEffect(() => {
+    // Always prevent background scroll when modals are open OR closing (both desktop and mobile)
+    // This prevents flickering during the closing animation
+    if (showSignIn || showSignUp || isModalClosing) {
+      // Save current scroll position BEFORE any changes
+      scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
       
-      // Apply immediate styles
+      // Prevent scrolling without using position: fixed/relative to avoid jump/flicker
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
       document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.left = '0';
-      document.body.style.right = '0';
-      document.body.style.width = '100%';
-      document.body.style.height = '100%';
-      document.body.classList.add('modal-open');
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
       
-      // Prevent all scroll events
-      const preventScroll = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      };
-      
-      // Add event listeners
-      document.addEventListener('wheel', preventScroll, { passive: false });
-      document.addEventListener('touchmove', preventScroll, { passive: false });
-      document.addEventListener('scroll', preventScroll, { passive: false });
-      
-      // Store for cleanup
-      window.contactUsScrollPrevent = preventScroll;
-      
+      // Lock scroll position by setting it on html element
+      document.documentElement.style.scrollBehavior = 'auto';
+      document.documentElement.scrollTop = scrollPositionRef.current;
     } else {
-      // Restore scroll
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-      document.body.classList.remove('modal-open');
+      // Modal is fully closed - wait for animation to complete before restoring scroll
+      // Animation is 300ms (fadeOut), so wait slightly longer to ensure it's done
+      const timer = setTimeout(() => {
+        // Restore scrolling - remove styles first
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.scrollBehavior = '';
+        
+        // Restore scroll position AFTER styles are removed
+        const savedPosition = scrollPositionRef.current;
+        if (savedPosition !== undefined && savedPosition !== null) {
+          // Use requestAnimationFrame to ensure smooth restoration
+          requestAnimationFrame(() => {
+            document.documentElement.scrollTop = savedPosition;
+            document.body.scrollTop = savedPosition;
+            
+            // Then use window.scrollTo after a microtask for final positioning
+            Promise.resolve().then(() => {
+              window.scrollTo({
+                top: savedPosition,
+                behavior: 'auto'
+              });
+            });
+          });
+        }
+      }, 300); // Match the closeModal timeout
       
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY.replace('-', '')));
-      }
-      
-      // Remove event listeners
-      if (window.contactUsScrollPrevent) {
-        document.removeEventListener('wheel', window.contactUsScrollPrevent);
-        document.removeEventListener('touchmove', window.contactUsScrollPrevent);
-        document.removeEventListener('scroll', window.contactUsScrollPrevent);
-        delete window.contactUsScrollPrevent;
-      }
+      return () => clearTimeout(timer);
     }
 
-    // Cleanup on unmount
     return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-      document.body.classList.remove('modal-open');
-      
-      if (window.contactUsScrollPrevent) {
-        document.removeEventListener('wheel', window.contactUsScrollPrevent);
-        document.removeEventListener('touchmove', window.contactUsScrollPrevent);
-        document.removeEventListener('scroll', window.contactUsScrollPrevent);
-        delete window.contactUsScrollPrevent;
+      // Cleanup on unmount
+      if (!showSignIn && !showSignUp && !isModalClosing) {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.scrollBehavior = '';
       }
     };
-  }, [showSignIn, showSignUp]);
+  }, [showSignIn, showSignUp, isModalClosing]);
 
   const [formValues, setFormValues] = useState({
     name: '',
@@ -506,27 +509,43 @@ const ContactUs = () => {
   };
 
   const handleSignInSuccess = (userData) => {
-    setShowSignIn(false);
-    setShowSignUp(false);
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignIn(false);
+      setShowSignUp(false);
+      setIsModalClosing(false);
+    }, 300);
     // No need for alerts - user is already logged in
     console.log('ContactUs: Sign in successful, userData:', userData);
   };
 
   const handleSignUpSuccess = (userData) => {
-    setShowSignIn(false);
-    setShowSignUp(false);
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignIn(false);
+      setShowSignUp(false);
+      setIsModalClosing(false);
+    }, 300);
     // No need for alerts - user is already logged in
     console.log('ContactUs: Sign up successful, userData:', userData);
   };
 
   const handleSwitchToSignUp = () => {
-    setShowSignIn(false);
-    setShowSignUp(true);
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignIn(false);
+      setIsModalClosing(false);
+      setShowSignUp(true);
+    }, 300);
   };
 
   const handleSwitchToSignIn = () => {
-    setShowSignUp(false);
-    setShowSignIn(true);
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignUp(false);
+      setIsModalClosing(false);
+      setShowSignIn(true);
+    }, 300);
   };
 
   const handleFormChange = (e) => {
@@ -577,7 +596,7 @@ const ContactUs = () => {
     }
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const response = await fetch(`${API_URL}/api/feedback`, {
         method: 'POST',
         headers: {
@@ -751,9 +770,9 @@ const ContactUs = () => {
       </Footer>
 
       {/* Sign In/Sign Up Modal */}
-      {(showSignIn || showSignUp) && (
-        <ModalBackdrop>
-          <ModalContent onClick={e => e.stopPropagation()}>
+      {(showSignIn || showSignUp || isModalClosing) && (
+        <ModalBackdrop $isClosing={isModalClosing}>
+          <ModalContent $isClosing={isModalClosing} onClick={e => e.stopPropagation()}>
             {showSignIn ? (
               <SignInForm
                 preventRedirect={true}
@@ -771,8 +790,12 @@ const ContactUs = () => {
             )}
             {!isOTPFormShowing && (
               <CloseModalButton onClick={() => {
-                setShowSignIn(false);
-                setShowSignUp(false);
+                setIsModalClosing(true);
+                setTimeout(() => {
+                  setShowSignIn(false);
+                  setShowSignUp(false);
+                  setIsModalClosing(false);
+                }, 300);
               }}>
                 <FaTimes />
               </CloseModalButton>

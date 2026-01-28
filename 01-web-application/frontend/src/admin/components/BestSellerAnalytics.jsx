@@ -23,7 +23,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
         throw new Error('No authentication token found');
       }
       
-      const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+      const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       
       // Test authentication first
       try {
@@ -62,8 +62,6 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
       };
       
       const backendPeriod = periodMapping[period] || 'month';
-      console.log(`Fetching best seller analytics for period: ${period} -> ${backendPeriod}`);
-      
       
       // Fetch all analytics data in parallel
       const [bestSellersRes, categoryRes] = await Promise.all([
@@ -92,17 +90,21 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
         categoryRes.json()
       ]);
 
-      console.log('Best Sellers Data:', bestSellersData);
-      console.log('Category Data:', categoryData);
-
       // Check if we have data for the selected period
       const hasData = bestSellersData.bestSellers && bestSellersData.bestSellers.length > 0;
       
-      if (!hasData && (period === 'daily' || period === 'weekly')) {
+      if (!hasData && (period === 'daily' || period === 'weekly' || period === 'monthly')) {
+        let noDataMessage = '';
+        if (period === 'daily' || period === 'weekly') {
+          noDataMessage = `No sales data available for ${period} period. This might be because there were no orders during this time. Try selecting Monthly or Yearly for more comprehensive data.`;
+        } else if (period === 'monthly') {
+          noDataMessage = `No sales data available for monthly period. This might be because there were no orders during this time. Try selecting Yearly for more comprehensive data.`;
+        }
+        
         setAnalyticsData({
           bestSellers: [],
           bestSellersByCategory: { categories: {}, categoryTotals: {} },
-          noDataMessage: `No sales data available for ${period} period. This might be because there were no orders during this time. Try selecting Monthly or Yearly for more comprehensive data.`
+          noDataMessage: noDataMessage
         });
       } else {
         setAnalyticsData({

@@ -13,6 +13,9 @@ import Menu from "./client/Menu";
 import AccountSettings from "./client/AccountSettings";
 import SignInForm from "./client/SignInForm";
 import SignUpForm from "./client/SignUpForm";
+import MobileSignIn from "./client/MobileSignIn";
+import MobileSignUp from "./client/MobileSignUp";
+import MobileForgotPassword from "./client/MobileForgotPassword";
 import { AuthProvider } from "./contexts/AuthContext";
 
 // Admin components
@@ -88,6 +91,8 @@ const RequireClient = ({ children }) => {
 // Component to conditionally render navbar based on current route
 const ConditionalNavbar = () => {
   const location = useLocation();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
   // Check both localStorage and sessionStorage for user data
   const localUser = JSON.parse(localStorage.getItem('user') || '{}');
   const localToken = localStorage.getItem('token');
@@ -100,13 +105,131 @@ const ConditionalNavbar = () => {
 
   const isAdminUser = token && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff');    
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const isAuthRoute = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/forgotpassword';
 
-  // Hide navbar if on admin route OR if user is admin (regardless of route)
-  if (isAdminRoute || isAdminUser) {
+  // Update mobile state on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Hide navbar if:
+  // 1. On admin route OR user is admin (regardless of route)
+  // 2. On signin/signup routes AND in mobile mode (mobile has its own full-page UI)
+  if (isAdminRoute || isAdminUser || (isAuthRoute && isMobile)) {
     return null;
   }
 
   return <Navbar />;
+};
+
+// Component to conditionally render sign in page (mobile vs desktop)
+const ConditionalSignIn = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // On mobile: show full-page mobile sign in
+  // On desktop: show desktop form (which will be used in modal or as standalone page)
+  if (isMobile) {
+    return <MobileSignIn />;
+  }
+  
+  // Desktop: show the form component (can be used in modal or as page)
+  return (
+    <div style={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      padding: '20px',
+      background: '#f5f5f5'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '20px',
+        padding: '2.5rem',
+        maxWidth: '420px',
+        width: '100%',
+        boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)'
+      }}>
+        <SignInForm />
+      </div>
+    </div>
+  );
+};
+
+// Component to conditionally render sign up page (mobile vs desktop)
+const ConditionalSignUp = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // On mobile: show full-page mobile sign up
+  // On desktop: show desktop form (which will be used in modal or as standalone page)
+  if (isMobile) {
+    return <MobileSignUp />;
+  }
+  
+  // Desktop: show the form component (can be used in modal or as page)
+  return (
+    <div style={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      padding: '20px',
+      background: '#f5f5f5'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '20px',
+        padding: '2.5rem',
+        maxWidth: '420px',
+        width: '100%',
+        boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)'
+      }}>
+        <SignUpForm />
+      </div>
+    </div>
+  );
+};
+
+// Component to conditionally render forgot password page (mobile vs desktop)
+const ConditionalForgotPassword = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // On mobile: show full-page mobile forgot password
+  // On desktop: redirect to home (forgot password is only available in modal on desktop)
+  if (isMobile) {
+    return <MobileForgotPassword />;
+  }
+  
+  // Desktop: redirect to home (forgot password should be accessed via modal)
+  return <Navigate to="/" replace />;
 };
 
 function App() {
@@ -215,8 +338,9 @@ function App() {
             <Route path="/location" element={<RequireClient><Location /></RequireClient>} />
             <Route path="/contactus" element={<RequireClient><ContactUs /></RequireClient>} />
             <Route path="/account-settings" element={<RequireClient><AccountSettings /></RequireClient>} />
-            <Route path="/signin" element={<RequireClient><SignInForm /></RequireClient>} />
-            <Route path="/signup" element={<RequireClient><SignUpForm /></RequireClient>} />
+            <Route path="/signin" element={<RequireClient><ConditionalSignIn /></RequireClient>} />
+            <Route path="/signup" element={<RequireClient><ConditionalSignUp /></RequireClient>} />
+            <Route path="/forgotpassword" element={<RequireClient><ConditionalForgotPassword /></RequireClient>} />
 
             {/* Catch all route - redirect based on user role */}
             <Route path="*" element={<CatchAllRoute />} />

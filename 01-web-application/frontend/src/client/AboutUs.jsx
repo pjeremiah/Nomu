@@ -108,14 +108,54 @@ const MissionVisionBox = styled.article`
 
   .image-container {
     position: relative;
-    height: 300px;
+    height: 550px;
     overflow: hidden;
+    background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+
+    @media (max-width: 768px) {
+      height: 400px;
+    }
+
+    /* Blurred background layer */
+    &::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      background-image: ${props => props.$bgImage ? `url(${props.$bgImage})` : 'none'};
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: blur(20px) brightness(1.1);
+      transform: scale(1.05);
+      opacity: 0.4;
+      z-index: 0;
+    }
+
+    /* Overlay gradient to blend edges */
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+      z-index: 1;
+      opacity: 0.2;
+    }
 
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.3s ease;
+      object-position: center;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 2;
+      display: block;
     }
   }
 
@@ -142,8 +182,16 @@ const MissionVisionBox = styled.article`
     margin-bottom: 22px;
   }
 
-  &:hover .image-container img {
-    transform: scale(1.02);
+  &:hover {
+    .image-container {
+      &::after {
+        opacity: 0.05;
+      }
+      
+      img {
+        transform: scale(1.05);
+      }
+    }
   }
 `;
 
@@ -170,14 +218,54 @@ const StoryText = styled.div`
 
   .image-container {
     position: relative;
-    height: 300px;
+    height: 600px;
     overflow: hidden;
+    background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+
+    /* Blurred background layer */
+    &::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      background-image: ${props => props.$bgImage ? `url(${props.$bgImage})` : 'none'};
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: blur(20px) brightness(1.1);
+      transform: scale(1.05);
+      opacity: 0.4;
+      z-index: 0;
+    }
+
+    /* Overlay gradient to blend edges */
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e0 50%, #f5f3f0 100%);
+      z-index: 1;
+      opacity: 0.2;
+    }
 
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.3s ease;
+      object-position: center;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 2;
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      height: 450px;
     }
   }
 
@@ -204,8 +292,16 @@ const StoryText = styled.div`
     text-align: center;
   }
 
-  &:hover .image-container img {
-    transform: scale(1.02);
+  &:hover {
+    .image-container {
+      &::after {
+        opacity: 0.05;
+      }
+      
+      img {
+        transform: scale(1.05);
+      }
+    }
   }
 `;
 
@@ -281,8 +377,8 @@ const AboutUs = () => {
         {/* Mission & Vision Section */}
         <MissionVisionSection>
           {/* Mission */}
-          <MissionVisionBox>
-            <div className="image-container">
+          <MissionVisionBox $bgImage={MissionImage}>
+            <div className="image-container" style={{ backgroundImage: `url(${MissionImage})` }}>
               <img src={MissionImage} alt="Mission visual" />
             </div>
             <div className="content">
@@ -295,8 +391,8 @@ const AboutUs = () => {
           </MissionVisionBox>
 
           {/* Vision */}
-          <MissionVisionBox>
-            <div className="image-container">
+          <MissionVisionBox $bgImage={VisionImage}>
+            <div className="image-container" style={{ backgroundImage: `url(${VisionImage})` }}>
               <img src={VisionImage} alt="Vision visual" />
             </div>
             <div className="content">
@@ -311,8 +407,8 @@ const AboutUs = () => {
 
         {/* Story Section */}
         <StorySection>
-          <StoryText>
-            <div className="image-container">
+          <StoryText $bgImage={ForAboutUsStoryImg}>
+            <div className="image-container" style={{ backgroundImage: `url(${ForAboutUsStoryImg})` }}>
               <img src={ForAboutUsStoryImg} alt="Nomu Cafe story ambiance" />
             </div>
             <div className="content">

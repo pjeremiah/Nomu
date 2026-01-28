@@ -26,11 +26,16 @@ const createGridFSStorage = (bucketName) => {
       });
       
       uploadStream.on('finish', () => {
-        cb(null, {
+        const fileInfo = {
           filename: filename,
           id: uploadStream.id,
-          bucketName: bucketName
-        });
+          bucketName: bucketName,
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: uploadStream.length || 0
+        };
+        console.log('GridFS upload finished:', fileInfo);
+        cb(null, fileInfo);
       });
     },
     _removeFile: function (req, file, cb) {
@@ -52,7 +57,7 @@ const createMulterConfig = (storage) => {
   return multer({
     storage: storage,
     limits: {
-      fileSize: 50 * 1024 * 1024 // 50MB limit
+      fileSize: 100 * 1024 * 1024 // 100MB limit (increased for better video support)
     },
     fileFilter: (req, file, cb) => {
       // Allow both images and videos for gallery

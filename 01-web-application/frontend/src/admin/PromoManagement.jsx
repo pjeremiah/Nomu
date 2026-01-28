@@ -4,12 +4,11 @@ import { Star, Search } from "lucide-react";
 import { BsGift } from "react-icons/bs";
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
-import ResponsiveModal from './components/ResponsiveModal';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const PROMO_TYPES = ["Percentage Discount", "Fixed Amount Discount", "Buy One Get One", "Free Item", "Loyalty Points Bonus"];
-const PROMO_STATUS = ["Active", "Inactive"];
+const PROMO_STATUS = ["Active", "Inactive", "Scheduled", "Expired"];
 
 const emptyForm = { 
   title: "", 
@@ -86,72 +85,204 @@ const AddEditPromoModal = ({ show, onHide, onSave, editing, initialData, modalEr
     }
   };
 
+  if (!show) return null;
+
   return (
-    <ResponsiveModal
-      show={show}
-      onHide={onHide}
-      title={editing ? 'Edit Promo' : 'Add New Promo'}
-      size="large"
-    >
-      <form className="admin-form" style={{ display: 'flex', flexDirection: 'column' }}>
-            {/* Error Display inside Add/Edit Modal */}
-            {modalError && (
-              <div className="form-error" style={{ 
-                marginBottom: 12,
-                color: '#dc3545',
-                background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                textAlign: 'center',
-                fontSize: '13px',
-                lineHeight: '1.4',
-                fontFamily: "'Montserrat', sans-serif",
-                border: '1px solid #f5c6cb',
-                boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
-              }}>{modalError}</div>
-            )}
-            
-            <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-              <label className="admin-form-label" style={{ marginBottom: '0.25rem', fontSize: '0.9rem', fontWeight: '600', color: '#212c59' }}>Promo Title</label>
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      animation: 'fadeIn 0.3s ease-out',
+      padding: '20px',
+      boxSizing: 'border-box'
+    }}>
+      <style>
+        {`
+          .admin-modal .admin-btn-primary {
+            background: white !important;
+            color: #212c59 !important;
+            border: 2px solid #212c59 !important;
+            border-radius: 8px !important;
+            padding: 10px 20px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+            flex: 1 !important;
+            font-size: 0.85rem !important;
+          }
+          .admin-modal .admin-btn-primary:hover {
+            background: #212c59 !important;
+            border-color: #212c59 !important;
+            color: white !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
+          }
+          .admin-modal .admin-btn-secondary {
+            background: white !important;
+            color: #b08d57 !important;
+            border: 2px solid #b08d57 !important;
+            border-radius: 8px !important;
+            padding: 10px 20px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+            flex: 1 !important;
+            font-size: 0.85rem !important;
+          }
+          .admin-modal .admin-btn-secondary:hover {
+            background: #f8f6f0 !important;
+            border-color: #b08d57 !important;
+            color: #b08d57 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+          }
+        `}
+      </style>
+      <div className="admin-modal" style={{
+        background: 'white',
+        borderRadius: '16px',
+        padding: '20px',
+        width: '100%',
+        maxWidth: '550px',
+        maxHeight: 'calc(100vh - 20px)',
+        overflow: 'auto',
+        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+      }} onClick={(e) => e.stopPropagation()}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: '8px',
+          paddingBottom: '6px',
+          borderBottom: '1px solid #e9ecef'
+        }}>
+          <h3 style={{margin: 0, color: '#212c59', fontWeight: '700', textAlign: 'center', fontSize: '1rem'}}>
+            {editing ? 'Edit Promotion' : 'Create New Promotion'}
+          </h3>
+        </div>
+      {/* Error Display */}
+      {modalError && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '12px 16px',
+          backgroundColor: '#f8d7da',
+          border: '1px solid #f5c6cb',
+          borderRadius: '8px',
+          color: '#721c24',
+          fontSize: '0.875rem',
+          textAlign: 'center',
+          fontWeight: '500'
+        }}>
+          {modalError}
+        </div>
+      )}
+
+             <form style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* Promo Title */}
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '2px',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                color: '#212c59'
+              }}>
+                Promotion Title
+              </label>
               <input
                 type="text"
                 value={form.title}
                 onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                className="admin-form-input"
-                placeholder="Enter promo title"
-                style={{ 
-                  padding: '0.75rem 1rem', 
-                  height: '45px',
-                  fontSize: '0.9rem',
-                  border: errors.title ? '2px solid #dc3545' : '1px solid #e9ecef',
-                  borderRadius: '8px',
+                placeholder="Enter promotion title"
+                style={{
                   width: '100%',
-                  transition: 'border-color 0.3s ease'
+                  padding: '6px 10px',
+                  border: errors.title ? '2px solid #dc3545' : '2px solid #e9ecef',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  transition: 'all 0.3s ease',
+                  backgroundColor: '#ffffff',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#212c59';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(33, 44, 89, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = errors.title ? '#dc3545' : '#e9ecef';
+                  e.target.style.boxShadow = 'none';
                 }}
               />
+              {errors.title && (
+                <p style={{ color: '#dc3545', fontSize: '0.8rem', margin: '4px 0 0' }}>{errors.title}</p>
+              )}
             </div>
-            
-            <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Description</label>
+
+            {/* Description */}
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '2px',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                color: '#212c59'
+              }}>
+                Description
+              </label>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                className="admin-form-input"
-                placeholder="Enter detailed promo description"
-                rows={1}
-                style={{ 
-                  padding: '0.4rem 0.6rem', 
-                  minHeight: '50px',
-                  border: errors.description ? '2px solid #dc3545' : '1px solid #e9ecef',
+                placeholder="Enter detailed promotion description"
+                 rows={1}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  border: errors.description ? '2px solid #dc3545' : '2px solid #e9ecef',
                   borderRadius: '8px',
-                  transition: 'border-color 0.3s ease'
+                  fontSize: '0.8rem',
+                  transition: 'all 0.3s ease',
+                  backgroundColor: '#ffffff',
+                  resize: 'vertical',
+                  minHeight: '80px',
+                  boxSizing: 'border-box',
+                  fontFamily: 'inherit'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#212c59';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(33, 44, 89, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = errors.description ? '#dc3545' : '#e9ecef';
+                  e.target.style.boxShadow = 'none';
                 }}
               />
+              {errors.description && (
+                <p style={{ color: '#dc3545', fontSize: '0.8rem', margin: '4px 0 0' }}>{errors.description}</p>
+              )}
             </div>
-            
-            <div className="admin-form-row" style={{ marginBottom: '0.25rem' }}>
-              <div className="admin-form-group">
-                <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Promo Type</label>
+
+            {/* Promo Type and Status Row */}
+             <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  color: '#212c59'
+                }}>
+                  Promotion Type
+                </label>
                 <EnhancedDropdown
                   options={PROMO_TYPES.map(type => ({ value: type, label: type }))}
                   value={form.promoType}
@@ -159,10 +290,8 @@ const AddEditPromoModal = ({ show, onHide, onSave, editing, initialData, modalEr
                     setForm((p) => ({ 
                       ...p, 
                       promoType: value,
-                      // Clear discount value when switching to "Free Item"
                       discountValue: value === "Free Item" ? "" : p.discountValue
                     }));
-                    // Clear discount value error when switching promo types
                     if (errors.discountValue) {
                       setErrors(prev => {
                         const newErrors = { ...prev };
@@ -171,184 +300,266 @@ const AddEditPromoModal = ({ show, onHide, onSave, editing, initialData, modalEr
                       });
                     }
                   }}
-                  placeholder="Select promo type"
+                  placeholder="Select promotion type"
                   width="100%"
                 />
               </div>
               
-              <div className="admin-form-group">
-                <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Status</label>
-                <EnhancedDropdown
-                  options={PROMO_STATUS.map(status => ({ value: status, label: status }))}
-                  value={form.status}
-                  onChange={(value) => setForm((p) => ({ ...p, status: value }))}
-                  placeholder="Select status"
-                  width="100%"
-                />
+              <div style={{ flex: 1 }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  color: '#212c59'
+                }}>
+                  Status
+                </label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '2px solid #e9ecef',
+                  background: '#f8f9fa',
+                  height: '40px',
+                  minHeight: '50px',
+                  maxHeight: '50px',
+                  boxSizing: 'border-box',
+                  width: '100%'
+                }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: form.status === 'Active' ? '#d4edda' : form.status === 'Inactive' ? '#f8d7da' : '#fff3cd',
+                    color: form.status === 'Active' ? '#155724' : form.status === 'Inactive' ? '#721c24' : '#856404',
+                    border: '1px solid rgba(0,0,0,0.08)'
+                  }}>{form.status}</span>
+                </div>
               </div>
             </div>
 
-            {/* Only show discount value field if promo type is not "Free Item" */}
+            {/* Discount Value - Only show if not "Free Item" */}
             {form.promoType !== "Free Item" && (
-              <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-                <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>{getDiscountLabel()}</label>
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  color: '#212c59'
+                }}>
+                  {getDiscountLabel()}
+                </label>
                 <input
                   type="number"
                   value={form.discountValue}
                   onChange={(e) => setForm((p) => ({ ...p, discountValue: e.target.value }))}
-                  className="admin-form-input"
                   placeholder="Enter value"
-                  style={{ 
-                    padding: '0.4rem 0.6rem', 
-                    height: '40px',
-                    lineHeight: '1.5',
-                    verticalAlign: 'middle',
-                    border: errors.discountValue ? '2px solid #dc3545' : '1px solid #e9ecef',
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: errors.discountValue ? '2px solid #dc3545' : '2px solid #e9ecef',
                     borderRadius: '8px',
-                    transition: 'border-color 0.3s ease'
+                    fontSize: '0.8rem',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#212c59';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(33, 44, 89, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = errors.discountValue ? '#dc3545' : '#e9ecef';
+                    e.target.style.boxShadow = 'none';
                   }}
                 />
+                {errors.discountValue && (
+                  <p style={{ color: '#dc3545', fontSize: '0.8rem', margin: '4px 0 0' }}>{errors.discountValue}</p>
+                )}
               </div>
             )}
 
-            <div className="admin-form-row" style={{ marginBottom: '0.25rem', gap: '1rem', justifyContent: 'center' }}>
-              <div className="admin-form-group" style={{ flex: '0 0 20%', maxWidth: '220px' }}>
-                <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Start Date</label>
+            {/* Date Range Row */}
+             <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  color: '#212c59'
+                }}>
+                  Start Date & Time
+                </label>
                 <input
                   type="datetime-local"
                   value={form.startDate}
                   onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
-                  className="admin-form-input"
-                  style={{ 
-                    padding: '0.4rem 0.6rem', 
-                    height: '40px',
-                    lineHeight: '1.5',
-                    verticalAlign: 'middle',
-                    width: '100%'
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: '2px solid #e9ecef',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#212c59';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(33, 44, 89, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e9ecef';
+                    e.target.style.boxShadow = 'none';
                   }}
                 />
               </div>
               
-              <div className="admin-form-group" style={{ flex: '0 0 20%', maxWidth: '220px' }}>
-                <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>End Date</label>
+              <div style={{ flex: 1 }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  color: '#212c59'
+                }}>
+                  End Date & Time
+                </label>
                 <input
                   type="datetime-local"
                   value={form.endDate}
                   onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
-                  className="admin-form-input"
-                  style={{ 
-                    padding: '0.4rem 0.6rem', 
-                    height: '40px',
-                    lineHeight: '1.5',
-                    verticalAlign: 'middle',
-                    width: '100%'
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: errors.endDate ? '2px solid #dc3545' : '2px solid #e9ecef',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: '#ffffff',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#212c59';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(33, 44, 89, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = errors.endDate ? '#dc3545' : '#e9ecef';
+                    e.target.style.boxShadow = 'none';
                   }}
                 />
+                {errors.endDate && (
+                  <p style={{ color: '#dc3545', fontSize: '0.8rem', margin: '4px 0 0' }}>{errors.endDate}</p>
+                )}
               </div>
             </div>
-            
-            <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Promo Image</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFile}
-                className="admin-form-input"
-                style={{ 
-                  padding: '0.4rem 0.6rem', 
-                  height: '40px',
-                  lineHeight: '1.5',
-                  verticalAlign: 'middle',
-                  fontSize: '0.85rem',
-                  maxWidth: '900px'
+
+            {/* Promo Image - Styled Upload */}
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '3px',
+                fontSize: '0.8rem',
+                fontWeight: '600',
+                color: '#212c59'
+              }}>
+                Promotion Image
+              </label>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                marginBottom: '6px'
+              }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFile}
+                  style={{
+                    display: 'none'
+                  }}
+                  id="promo-image-upload"
+                />
+                <label htmlFor="promo-image-upload" style={{
+                  background: '#f8f9fa',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  fontSize: '0.8rem',
+                  color: '#212c59',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  height: '36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
-              />
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#e9ecef';
+                  e.target.style.borderColor = '#212c59';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#f8f9fa';
+                  e.target.style.borderColor = '#e9ecef';
+                }}>
+                  Choose File
+                </label>
+                <div style={{
+                  background: '#f8f9fa',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  padding: '8px 10px',
+                  fontSize: '0.8rem',
+                  color: '#6c757d',
+                  flex: 1,
+                  height: '36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  minWidth: 0
+                }}>
+                  {form.image ? form.image.name : 'No file chosen'}
+                </div>
+              </div>
             </div>
-            
-      </form>
-      
-      <div className="admin-form-actions" style={{ 
-        display: 'flex', 
-        gap: '1rem', 
-        justifyContent: 'flex-end', 
-        padding: '1rem',
-        borderTop: '1px solid #e9ecef',
-        background: '#f8f9fa',
-        flexShrink: 0
-      }}>
-          <button
-            type="button"
-            onClick={() => {
-              // Dispatch event to close all dropdowns
-              document.dispatchEvent(new CustomEvent('modalClose'));
-              onHide();
-            }}
-            className="admin-btn admin-btn-secondary"
-            style={{
-              background: 'white',
-              color: '#6c757d',
-              border: '1px solid #e9ecef',
-              borderRadius: '8px',
-              padding: '0.75rem 1.5rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              minWidth: '100px'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = '#f8f6f0';
-              e.target.style.borderColor = '#b08d57';
-              e.target.style.color = '#b08d57';
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'white';
-              e.target.style.borderColor = '#b08d57';
-              e.target.style.color = '#b08d57';
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="admin-btn admin-btn-primary"
-            style={{
-              background: '#212c59',
-              color: 'white',
-              border: '1px solid #212c59',
-              borderRadius: '8px',
-              padding: '0.75rem 1.5rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              minWidth: '100px',
-              outline: 'none'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = '#212c59';
-              e.target.style.borderColor = '#212c59';
-              e.target.style.color = 'white';
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'white';
-              e.target.style.borderColor = '#212c59';
-              e.target.style.color = '#212c59';
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
-            }}
-          >
-            {editing ? "Save Changes" : "Add Promo"}
-          </button>
-        </div>
-    </ResponsiveModal>
+          </form>
+          
+           <div className="admin-form-actions" style={{
+             display: 'flex',
+             gap: '10px',
+             justifyContent: 'flex-end',
+             marginTop: '4px'
+           }}>
+            <button
+              type="button"
+              onClick={() => {
+                document.dispatchEvent(new CustomEvent('modalClose'));
+                onHide();
+              }}
+              className="admin-btn admin-btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="admin-btn admin-btn-primary"
+            >
+              {editing ? 'Update Promotion' : 'Create Promotion'}
+            </button>
+          </div>
+      </div>
+    </div>
   );
 };
 
@@ -366,64 +577,20 @@ const PromoManagement = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
 
-  // Prevent body scrolling when any modal is open
+  // Prevent body scrolling when modal is open
   useEffect(() => {
-    const preventScroll = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    };
-
     if (showModal || showDeleteConfirm) {
-      // Store current scroll position
-      const scrollY = window.scrollY;
-      
-      // Apply styles
-      document.body.style.setProperty('overflow', 'hidden', 'important');
-      document.documentElement.style.setProperty('overflow', 'hidden', 'important');
-      document.body.style.setProperty('position', 'fixed', 'important');
-      document.body.style.setProperty('top', `-${scrollY}px`, 'important');
-      document.body.style.setProperty('width', '100%', 'important');
-      document.body.classList.add('modal-open');
-      
-      // Prevent scroll events
-      document.addEventListener('wheel', preventScroll, { passive: false });
-      document.addEventListener('touchmove', preventScroll, { passive: false });
-      document.addEventListener('keydown', (e) => {
-        // Only prevent navigation keys, not space (32) for input fields
-        if ([33, 34, 35, 36, 37, 38, 39, 40].includes(e.keyCode)) {
-          e.preventDefault();
-        }
-      });
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     } else {
-      // Restore scroll position
-      const scrollY = document.body.style.top;
-      document.body.style.removeProperty('overflow');
-      document.documentElement.style.removeProperty('overflow');
-      document.body.style.removeProperty('position');
-      document.body.style.removeProperty('top');
-      document.body.style.removeProperty('width');
-      document.body.classList.remove('modal-open');
-      
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1);
-      }
-      
-      // Remove event listeners
-      document.removeEventListener('wheel', preventScroll);
-      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
     }
 
     // Cleanup on unmount
     return () => {
-      document.body.style.removeProperty('overflow');
-      document.documentElement.style.removeProperty('overflow');
-      document.body.style.removeProperty('position');
-      document.body.style.removeProperty('top');
-      document.body.style.removeProperty('width');
-      document.body.classList.remove('modal-open');
-      document.removeEventListener('wheel', preventScroll);
-      document.removeEventListener('touchmove', preventScroll);
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
     };
   }, [showModal, showDeleteConfirm]);
 
@@ -714,9 +881,7 @@ const PromoManagement = () => {
     <div style={{
       padding: '2rem',
       fontFamily: "'Montserrat', sans-serif",
-      color: '#212c59',
-      minHeight: '100vh',
-      background: '#f8f9fa'
+      color: '#212c59'
     }}>
       {/* Page Header */}
       <PageHeader 
@@ -741,45 +906,49 @@ const PromoManagement = () => {
         }}>{error}</div>
       )}
 
-      {/* Stats Grid */}
+      {/* Stats - one row like Reward Management */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '1.5rem',
-        marginBottom: '2rem'
+        display: 'flex',
+        flexDirection: 'row',
+        gap: '12px',
+        marginBottom: '1.5rem',
+        overflowX: 'auto',
+        padding: '0 4px'
       }}>
         {PROMO_STATUS.map((status) => (
           <div
             key={status}
             style={{
               background: '#fff',
-              padding: '1.5rem',
-              borderRadius: '12px',
+              padding: '0.5rem 0.75rem',
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
-              gap: '1rem',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+              gap: '0.5rem',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
               border: '1px solid #e9ecef',
               transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minWidth: '120px',
+              flex: '1'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
+              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)';
             }}
           >
             <div style={{
-              fontSize: '2rem',
+              fontSize: '1.2rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: '50%',
-              width: '50px',
-              height: '50px',
+              width: '32px',
+              height: '32px',
               background: status === 'Active' ? '#e8f5e8' : 
                          status === 'Inactive' ? '#f8f9fa' :
                          status === 'Scheduled' ? '#fff3e0' :
@@ -791,12 +960,12 @@ const PromoManagement = () => {
             }}>
               <BsGift />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{
-                fontSize: '0.9rem',
+                fontSize: '0.8rem',
                 color: '#6c757d',
                 fontWeight: '500',
-                marginBottom: '0.25rem'
+                marginBottom: '0.5rem'
               }}>
                 {status}
               </div>
@@ -806,6 +975,7 @@ const PromoManagement = () => {
                 color: '#212c59',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '0.5rem'
               }}>
                 {loading ? (
@@ -900,7 +1070,7 @@ const PromoManagement = () => {
       {!loading && (
         <div style={{
           background: '#ffffff',
-          borderRadius: '12px',
+                  borderRadius: '8px', // SLIGHT CURVE LIKE ADD NEW PROMO
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e2e8f0',
           overflow: 'hidden',
@@ -914,7 +1084,7 @@ const PromoManagement = () => {
                 padding: '1.5rem 2rem',
                 borderBottom: '2px solid #b08d57',
                 display: 'grid',
-                gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr',
+                gridTemplateColumns: 'minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(120px, 1fr)',
                 gap: '1rem',
                 alignItems: 'center',
                 fontWeight: '700',
@@ -944,7 +1114,7 @@ const PromoManagement = () => {
                   <FaCalendarAlt style={{ color: '#b08d57', fontSize: '1rem' }} />
                   VALIDITY
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                   <FaCog style={{ color: '#b08d57', fontSize: '1rem' }} />
                   ACTIONS
                 </div>
@@ -958,7 +1128,7 @@ const PromoManagement = () => {
                     padding: '1.5rem 2rem',
                     borderBottom: index < filteredPromos.length - 1 ? '1px solid #f1f5f9' : 'none',
                     display: 'grid',
-                    gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr',
+                    gridTemplateColumns: 'minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(120px, 1fr)',
                     gap: '1rem',
                     alignItems: 'center',
                     transition: 'background-color 0.2s ease',
@@ -1001,7 +1171,7 @@ const PromoManagement = () => {
                           {promo.title}
                         </div>
                         <div style={{
-                          fontSize: '0.85rem',
+                          fontSize: '0.8rem',
                           color: '#64748b',
                           fontWeight: '500',
                           lineHeight: '1.4'
@@ -1015,7 +1185,7 @@ const PromoManagement = () => {
                   {/* TYPE & DISCOUNT Column */}
                   <div>
                     <div style={{
-                      fontSize: '0.9rem',
+                      fontSize: '0.8rem',
                       color: '#212c59',
                       fontWeight: '600',
                       marginBottom: '0.25rem'
@@ -1023,7 +1193,7 @@ const PromoManagement = () => {
                       {promo.promoType}
                     </div>
                     <div style={{
-                      fontSize: '0.85rem',
+                      fontSize: '0.8rem',
                       color: '#b08d57',
                       fontWeight: '700'
                     }}>
@@ -1037,8 +1207,9 @@ const PromoManagement = () => {
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '0.375rem',
-                        padding: '0.375rem 0.75rem',
+                        padding: '0.5rem 0.875rem',
                         borderRadius: '20px',
                         background: promo.status === 'Active' ? '#d4edda' : 
                                    promo.status === 'Inactive' ? '#f8d7da' :
@@ -1055,7 +1226,10 @@ const PromoManagement = () => {
                         border: promo.status === 'Active' ? '1px solid #c3e6cb' : 
                                promo.status === 'Inactive' ? '1px solid #f5c6cb' :
                                promo.status === 'Scheduled' ? '1px solid #ffeaa7' :
-                               '1px solid #f5c6cb'
+                               '1px solid #f5c6cb',
+                        lineHeight: '1',
+                        height: '28px',
+                        minWidth: '80px'
                       }}
                     >
                       {promo.status === 'Active' ? <FaCheck /> : 
@@ -1067,7 +1241,7 @@ const PromoManagement = () => {
 
                   {/* VALIDITY Column */}
                   <div style={{
-                    fontSize: '0.85rem',
+                    fontSize: '0.8rem',
                     color: '#6c757d',
                     lineHeight: '1.4'
                   }}>
@@ -1083,7 +1257,7 @@ const PromoManagement = () => {
                   <div style={{
                     display: 'flex',
                     gap: '0.5rem',
-                    justifyContent: 'flex-end'
+                    justifyContent: 'flex-start'
                   }}>
                     <button
                       title="Edit promotion"
@@ -1231,7 +1405,7 @@ const PromoManagement = () => {
                 fontSize: '0.9rem',
                 color: '#64748b',
                 margin: '0 0 2rem 0',
-                maxWidth: '400px',
+                maxWidth: '550px', // STANDARDIZED WIDTH
                 marginLeft: 'auto',
                 marginRight: 'auto'
               }}>
@@ -1254,7 +1428,7 @@ const PromoManagement = () => {
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
-                    fontSize: '0.9rem',
+                    fontSize: '0.8rem',
                     fontWeight: '600',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -1303,13 +1477,59 @@ const PromoManagement = () => {
             boxSizing: 'border-box'
           }}
         >
+          <style>
+            {`
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 10px 20px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                border-radius: 8px !important;
+                padding: 10px 20px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-danger:hover {
+                background: #dc3545 !important;
+                border-color: #dc3545 !important;
+                color: white !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+            `}
+          </style>
           <div 
             className="admin-modal" 
             onClick={(e) => e.stopPropagation()}
             style={{
               animation: 'slideIn 0.3s ease-out',
               transform: 'scale(1)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+              background: '#f8f9fa',
+              borderRadius: '20px'
             }}
           >
             <div style={{ 
@@ -1317,47 +1537,17 @@ const PromoManagement = () => {
               textAlign: 'center', 
               marginBottom: '20px',
               padding: '24px 28px',
-              background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
               borderRadius: '20px 20px 0 0',
-              borderBottom: '2px solid rgba(33, 44, 89, 0.1)'
+              borderBottom: '1px solid #e9ecef'
             }}>
               <h3 style={{ 
                 margin: '0', 
                 color: '#212c59', 
                 fontSize: '1.5rem', 
                 fontWeight: '700',
-                fontFamily: "'Montserrat', sans-serif"
+                fontFamily: "'Montserrat', sans-serif",
+                textAlign: 'center'
               }}>Confirm Delete</h3>
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="modal-close-btn"
-                style={{
-                  position: 'absolute',
-                  top: '24px',
-                  right: '28px',
-                  background: 'rgba(33, 44, 89, 0.1)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  color: '#6c757d'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.2)';
-                  e.target.style.color = '#212c59';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.1)';
-                  e.target.style.color = '#6c757d';
-                }}
-              >
-                ✕
-              </button>
             </div>
             
             <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
@@ -1369,33 +1559,6 @@ const PromoManagement = () => {
                 type="button"
                 onClick={() => setShowDeleteConfirm(null)}
                 className="admin-btn admin-btn-secondary"
-                style={{
-                  background: 'white',
-                  color: '#b08d57',
-                  border: '2px solid #b08d57',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                  flex: '1',
-                  minWidth: '120px'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#f8f6f0';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                }}
               >
                 Cancel
               </button>
@@ -1403,34 +1566,6 @@ const PromoManagement = () => {
                 type="button"
                 onClick={() => handleDeletePromo(showDeleteConfirm)}
                 className="admin-btn admin-btn-danger"
-                style={{
-                  background: 'white',
-                  color: '#dc3545',
-                  border: '2px solid #dc3545',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
-                  flex: '1',
-                  minWidth: '120px',
-                  outline: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#dc3545';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = 'white';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = '#dc3545';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(220, 53, 69, 0.1)';
-                }}
               >
                 Delete Promo
               </button>

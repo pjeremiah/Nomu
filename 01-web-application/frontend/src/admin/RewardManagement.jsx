@@ -5,9 +5,8 @@ import { MdCardGiftcard, MdDescription, MdDateRange } from "react-icons/md";
 import { Search } from "lucide-react";
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
-import ResponsiveModal from './components/ResponsiveModal';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const REWARD_TYPES = ["Loyalty Bonus"];
 const REWARD_STATUS = ["Active", "Inactive", "Scheduled", "Expired"];
@@ -71,14 +70,141 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
     }
   };
 
+  if (!show) return null;
+
   return (
-    <ResponsiveModal
-      show={show}
-      onHide={onHide}
-      title={editing ? 'Edit Reward' : 'Add New Reward'}
-      size="large"
-    >
-      <form className="admin-form" style={{ display: 'flex', flexDirection: 'column' }}>
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      animation: 'fadeIn 0.3s ease-out',
+      padding: '20px',
+      boxSizing: 'border-box'
+    }}>
+      <style>
+        {`
+          .admin-modal .admin-btn-primary {
+            background: white !important;
+            color: #212c59 !important;
+            border: 2px solid #212c59 !important;
+            border-radius: 8px !important;
+            padding: 10px 20px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+            flex: 1 !important;
+            font-size: 0.85rem !important;
+          }
+          .admin-modal .admin-btn-primary:hover {
+            background: #212c59 !important;
+            border-color: #212c59 !important;
+            color: white !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
+          }
+          .admin-modal .admin-btn-secondary {
+            background: white !important;
+            color: #b08d57 !important;
+            border: 2px solid #b08d57 !important;
+            border-radius: 8px !important;
+            padding: 10px 20px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+            flex: 1 !important;
+            font-size: 0.85rem !important;
+          }
+          .admin-modal .admin-btn-secondary:hover {
+            background: #f8f6f0 !important;
+            border-color: #b08d57 !important;
+            color: #b08d57 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+          }
+          
+          /* Ensure all form elements have pearl background and consistent height */
+          .admin-modal input,
+          .admin-modal select,
+          .admin-modal textarea,
+          .admin-modal .enhanced-dropdown,
+          .admin-modal .enhanced-dropdown .dropdown-button,
+          .admin-modal .enhanced-dropdown .dropdown-button input,
+          .admin-modal .form-control,
+          .admin-modal .admin-form-input {
+            background-color: #f8f9fa !important;
+            height: 40px !important;
+            min-height: 40px !important;
+            max-height: 40px !important;
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+            border: 2px solid #e9ecef !important;
+            border-radius: 6px !important;
+            box-sizing: border-box !important;
+          }
+          
+          /* Button alignment and sizing */
+          .admin-modal .admin-form-actions {
+            display: flex !important;
+            gap: 12px !important;
+            justify-content: center !important;
+            margin-top: 4px !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          
+          .admin-modal .admin-btn-primary,
+          .admin-modal .admin-btn-secondary {
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            text-align: center !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: calc(50% - 40px) !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 8px 12px !important;
+            font-size: 0.85rem !important;
+          }
+        `}
+      </style>
+      <div className="admin-modal" style={{
+        background: '#f8f9fa',
+        borderRadius: '16px',
+        padding: '12px 6px',
+        width: '100%',
+        maxWidth: '550px',
+        maxHeight: 'calc(100vh - 40px)',
+        overflow: 'auto',
+        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+      }} onClick={(e) => e.stopPropagation()}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: '8px',
+          paddingBottom: '8px',
+          borderBottom: '1px solid #e9ecef',
+          background: '#f8f9fa',
+          paddingTop: '8px'
+        }}>
+          <h3 style={{margin: 0, color: '#212c59', fontWeight: '700', textAlign: 'center', fontSize: '1rem'}}>
+            {editing ? 'Edit Reward' : 'Add New Reward'}
+          </h3>
+        </div>
+      <form className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f8f9fa' }}>
           {/* Error Display inside Add/Edit Modal */}
           {modalError && (
             <div className="error-message" style={{
@@ -94,8 +220,8 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
             </div>
           )}
           
-          <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-            <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Reward Title</label>
+          <div className="admin-form-group" style={{ marginBottom: '1px' }}>
+            <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Reward Title</label>
             <input
               type="text"
               required
@@ -104,32 +230,40 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
               className="admin-form-input"
               placeholder="Enter reward title"
               style={{ 
-                padding: '0.4rem 0.6rem', 
+                padding: '8px 12px', 
                 height: '40px',
+                minHeight: '40px',
+                maxHeight: '40px',
                 lineHeight: '1.5',
-                verticalAlign: 'middle'
+                verticalAlign: 'middle',
+                border: '2px solid #e9ecef',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                backgroundColor: '#f8f9fa',
+                boxSizing: 'border-box',
+                width: '100%'
               }}
             />
             {errors.title && <div className="error-message">{errors.title}</div>}
           </div>
           
-          <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-            <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Description</label>
+          <div className="admin-form-group" style={{ marginBottom: '1px' }}>
+            <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Description</label>
             <textarea
               required
               value={form.description}
               onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
               className="admin-form-input"
               placeholder="Enter detailed reward description"
-              rows={1}
-              style={{ padding: '0.4rem 0.6rem', minHeight: '50px' }}
+              rows={3}
+              style={{ padding: '8px 12px', minHeight: '80px', border: '2px solid #e9ecef', borderRadius: '6px', fontSize: '0.8rem', backgroundColor: '#f8f9fa' }}
             />
             {errors.description && <div className="error-message">{errors.description}</div>}
           </div>
           
-          <div className="admin-form-row" style={{ marginBottom: '0.25rem' }}>
-            <div className="admin-form-group">
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Reward Type</label>
+          <div className="admin-form-row" style={{ marginBottom: '1px', display: 'flex', gap: '1px' }}>
+            <div className="admin-form-group" style={{ flex: 1 }}>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Reward Type</label>
               <EnhancedDropdown
                 options={REWARD_TYPES.map(type => ({ value: type, label: type }))}
                 value={form.rewardType}
@@ -139,21 +273,41 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
               />
             </div>
             
-            <div className="admin-form-group">
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Status</label>
-              <EnhancedDropdown
-                options={REWARD_STATUS.map(status => ({ value: status, label: status }))}
-                value={form.status}
-                onChange={(value) => setForm((p) => ({ ...p, status: value }))}
-                placeholder="Select status"
-                width="100%"
-              />
+            <div className="admin-form-group" style={{ flex: 1 }}>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Status</label>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '0 12px',
+                borderRadius: '6px',
+                border: '2px solid #e9ecef',
+                background: '#f8f9fa',
+                height: '40px',
+                minHeight: '50px',
+                maxHeight: '50px',
+                boxSizing: 'border-box',
+                width: '100%'
+              }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  background: form.status === 'Active' ? '#d4edda' : form.status === 'Inactive' ? '#f8d7da' : '#fff3cd',
+                  color: form.status === 'Active' ? '#155724' : form.status === 'Inactive' ? '#721c24' : '#856404',
+                  border: '1px solid rgba(0,0,0,0.08)'
+                }}>{form.status}</span>
+              </div>
             </div>
           </div>
 
-          <div className="admin-form-row" style={{ marginBottom: '0.25rem' }}>
-            <div className="admin-form-group">
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>{getRewardLabel()}</label>
+          <div className="admin-form-row" style={{ marginBottom: '1px', display: 'flex', gap: '1px' }}>
+            <div className="admin-form-group" style={{ flex: 1 }}>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>{getRewardLabel()}</label>
               <input
                 type="number"
                 required
@@ -162,17 +316,25 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
                 className="admin-form-input"
                 placeholder="e.g. 5, 10, 15"
                 style={{ 
-                  padding: '0.4rem 0.6rem', 
+                  padding: '8px 12px', 
                   height: '40px',
+                  minHeight: '40px',
+                  maxHeight: '40px',
                   lineHeight: '1.5',
-                  verticalAlign: 'middle'
+                  verticalAlign: 'middle',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  backgroundColor: '#f8f9fa',
+                  boxSizing: 'border-box',
+                  width: '100%'
                 }}
               />
               {errors.pointsRequired && <div className="error-message">{errors.pointsRequired}</div>}
             </div>
             
-            <div className="admin-form-group">
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Usage Limit (per customer)</label>
+            <div className="admin-form-group" style={{ flex: 1 }}>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Usage Limit (per customer)</label>
               <input
                 type="number"
                 value={form.usageLimit}
@@ -180,47 +342,77 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
                 className="admin-form-input"
                 placeholder="Leave empty for unlimited"
                 style={{ 
-                  padding: '0.4rem 0.6rem', 
+                  padding: '8px 12px', 
                   height: '40px',
+                  minHeight: '40px',
+                  maxHeight: '40px',
                   lineHeight: '1.5',
-                  verticalAlign: 'middle'
+                  verticalAlign: 'middle',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  backgroundColor: '#f8f9fa',
+                  boxSizing: 'border-box',
+                  width: '100%'
                 }}
               />
               {errors.usageLimit && <div className="error-message">{errors.usageLimit}</div>}
             </div>
           </div>
 
-          <div className="admin-form-row" style={{ marginBottom: '0.25rem', gap: '1rem', justifyContent: 'center' }}>
-            <div className="admin-form-group" style={{ flex: '0 0 20%', maxWidth: '220px' }}>
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>Start Date</label>
+          <div className="admin-form-row" style={{ marginBottom: '0px', display: 'flex', gap: '1px' }}>
+            <div className="admin-form-group" style={{ flex: 1 }}>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Start Date</label>
               <input
                 type="datetime-local"
                 value={form.startDate}
                 onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
                 className="admin-form-input"
                 style={{ 
-                  padding: '0.4rem 0.6rem', 
+                  padding: '8px 12px', 
                   height: '40px',
+                  minHeight: '40px',
+                  maxHeight: '40px',
+                  minHeight: '28px',
+                  maxHeight: '28px',
                   lineHeight: '1.5',
                   verticalAlign: 'middle',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  backgroundColor: '#f8f9fa',
+                  boxSizing: 'border-box',
                   width: '100%'
                 }}
               />
               {errors.startDate && <div className="error-message">{errors.startDate}</div>}
             </div>
             
-            <div className="admin-form-group" style={{ flex: '0 0 20%', maxWidth: '220px' }}>
-              <label className="admin-form-label" style={{ marginBottom: '0.1rem' }}>End Date</label>
+            <div className="admin-form-group" style={{ flex: 1 }}>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>End Date</label>
               <input
                 type="datetime-local"
                 value={form.endDate}
                 onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
                 className="admin-form-input"
                 style={{ 
-                  padding: '0.4rem 0.6rem', 
+                  padding: '8px 12px', 
                   height: '40px',
+                  minHeight: '40px',
+                  maxHeight: '40px',
+                  minHeight: '28px',
+                  maxHeight: '28px',
                   lineHeight: '1.5',
                   verticalAlign: 'middle',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  backgroundColor: '#f8f9fa',
+                  boxSizing: 'border-box',
                   width: '100%'
                 }}
               />
@@ -232,12 +424,12 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
       
       <div className="admin-form-actions" style={{ 
         display: 'flex', 
-        gap: '1rem', 
-        justifyContent: 'flex-end', 
-        padding: '1rem',
-        borderTop: '1px solid #e9ecef',
-        background: '#f8f9fa',
-        flexShrink: 0
+        gap: '12px', 
+        justifyContent: 'center', 
+        marginTop: '4px',
+        maxWidth: '100%',
+        width: '100%',
+        boxSizing: 'border-box'
       }}>
           <button
             type="button"
@@ -247,32 +439,6 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
               onHide();
             }}
             className="admin-btn admin-btn-secondary"
-            style={{
-              background: 'white',
-              color: '#6c757d',
-              border: '1px solid #e9ecef',
-              borderRadius: '8px',
-              padding: '0.75rem 1.5rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              minWidth: '100px'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = '#f8f6f0';
-              e.target.style.borderColor = '#b08d57';
-              e.target.style.color = '#b08d57';
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'white';
-              e.target.style.borderColor = '#b08d57';
-              e.target.style.color = '#b08d57';
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-            }}
           >
             Cancel
           </button>
@@ -280,38 +446,12 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
             type="button"
             onClick={handleSave}
             className="admin-btn admin-btn-primary"
-            style={{
-              background: '#212c59',
-              color: 'white',
-              border: '1px solid #212c59',
-              borderRadius: '8px',
-              padding: '0.75rem 1.5rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              minWidth: '100px',
-              outline: 'none'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = '#212c59';
-              e.target.style.borderColor = '#212c59';
-              e.target.style.color = 'white';
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'white';
-              e.target.style.borderColor = '#212c59';
-              e.target.style.color = '#212c59';
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
-            }}
           >
             {editing ? "Save Changes" : "Add Reward"}
           </button>
         </div>
-    </ResponsiveModal>
+      </div>
+    </div>
   );
 };
 
@@ -329,7 +469,7 @@ const RewardManagement = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
 
-  // Prevent body scrolling when any modal is open
+  // Prevent body scrolling when modal is open
   useEffect(() => {
     if (showModal || showDeleteConfirm) {
       document.body.style.overflow = 'hidden';
@@ -345,6 +485,7 @@ const RewardManagement = () => {
       document.documentElement.style.overflow = 'unset';
     };
   }, [showModal, showDeleteConfirm]);
+
 
   // Check authentication status
   useEffect(() => {
@@ -676,10 +817,12 @@ const RewardManagement = () => {
       <div
         className="stats-container"
         style={{
-          display: 'grid',
-            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-          gap: 20,
+          display: 'flex',
+          flexDirection: 'row',
+          gap: '12px',
           marginBottom: '1.5rem',
+          overflowX: 'auto',
+          padding: '0 4px'
         }}
       >
         {REWARD_STATUS.map((status) => (
@@ -688,7 +831,7 @@ const RewardManagement = () => {
           className="stat-card"
           style={{
             background: '#fff',
-            padding: '0.75rem',
+            padding: '0.5rem 0.75rem',
             borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
@@ -696,7 +839,9 @@ const RewardManagement = () => {
             boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
             border: '1px solid #e9ecef',
             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            minWidth: '120px',
+            flex: '1'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
@@ -825,7 +970,7 @@ const RewardManagement = () => {
           padding: '1.5rem 2rem',
           borderBottom: '2px solid #b08d57',
           display: 'grid',
-          gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1.5fr 1fr',
+          gridTemplateColumns: 'minmax(200px, 2fr) minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1.5fr) minmax(100px, 0.6fr)',
           gap: '1rem',
           alignItems: 'center',
           fontWeight: '700',
@@ -834,19 +979,19 @@ const RewardManagement = () => {
           textTransform: 'uppercase',
           letterSpacing: '0.05em'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
             <MdCardGiftcard style={{ color: '#b08d57', fontSize: '1rem' }} />
             REWARD
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
             <MdDescription style={{ color: '#b08d57', fontSize: '1rem' }} />
             DESCRIPTION
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
             <Gift style={{ color: '#b08d57', fontSize: '1rem' }} />
             TYPE
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
             <div style={{ 
               width: '8px', 
               height: '8px', 
@@ -855,11 +1000,11 @@ const RewardManagement = () => {
             }} />
             STATUS
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
             <MdDateRange style={{ color: '#b08d57', fontSize: '1rem' }} />
             DATES
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
             <FaCog style={{ color: '#b08d57', fontSize: '1rem' }} />
             ACTIONS
           </div>
@@ -873,7 +1018,7 @@ const RewardManagement = () => {
                 padding: '1.5rem 2rem',
                 borderBottom: index < filteredRewards.length - 1 ? '1px solid #f1f5f9' : 'none',
                 display: 'grid',
-                gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1.5fr 1fr',
+                gridTemplateColumns: 'minmax(200px, 2fr) minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1.5fr) minmax(100px, 0.6fr)',
                 gap: '1rem',
                 alignItems: 'center',
                 transition: 'background-color 0.2s ease',
@@ -887,7 +1032,7 @@ const RewardManagement = () => {
               }}
             >
               {/* REWARD Column */}
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
                 <div style={{
                   fontSize: '1rem',
                   fontWeight: '700',
@@ -909,7 +1054,9 @@ const RewardManagement = () => {
               <div style={{
                 fontSize: '0.9rem',
                 color: '#64748b',
-                lineHeight: '1.4'
+                lineHeight: '1.4',
+                display: 'flex',
+                justifyContent: 'flex-start'
               }}>
                 {reward.description}
               </div>
@@ -918,36 +1065,42 @@ const RewardManagement = () => {
               <div style={{
                 fontSize: '0.9rem',
                 color: '#212c59',
-                fontWeight: '600'
+                fontWeight: '600',
+                display: 'flex',
+                justifyContent: 'flex-start'
               }}>
                 {reward.rewardType}
               </div>
 
               {/* STATUS Column */}
-              <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
                 <span
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.375rem',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: '20px',
-                    background: reward.status === 'Active' ? '#d4edda' : 
-                               reward.status === 'Inactive' ? '#f8d7da' :
-                               reward.status === 'Scheduled' ? '#fff3cd' :
-                               '#f8d7da',
-                    color: reward.status === 'Active' ? '#155724' : 
-                           reward.status === 'Inactive' ? '#721c24' :
-                           reward.status === 'Scheduled' ? '#856404' :
-                           '#721c24',
-                    fontWeight: '600',
-                    fontSize: '0.8rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.025em',
-                    border: reward.status === 'Active' ? '1px solid #c3e6cb' : 
-                           reward.status === 'Inactive' ? '1px solid #f5c6cb' :
-                           reward.status === 'Scheduled' ? '1px solid #ffeaa7' :
-                           '1px solid #f5c6cb'
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.375rem',
+                  padding: '0.5rem 0.875rem',
+                  borderRadius: '20px',
+                  background: reward.status === 'Active' ? '#d4edda' : 
+                             reward.status === 'Inactive' ? '#f8d7da' :
+                             reward.status === 'Scheduled' ? '#fff3cd' :
+                             '#f8d7da',
+                  color: reward.status === 'Active' ? '#155724' : 
+                         reward.status === 'Inactive' ? '#721c24' :
+                         reward.status === 'Scheduled' ? '#856404' :
+                         '#721c24',
+                  fontWeight: '600',
+                  fontSize: '0.8rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.025em',
+                  border: reward.status === 'Active' ? '1px solid #c3e6cb' : 
+                         reward.status === 'Inactive' ? '1px solid #f5c6cb' :
+                         reward.status === 'Scheduled' ? '1px solid #ffeaa7' :
+                         '1px solid #f5c6cb',
+                  lineHeight: '1',
+                  height: '28px',
+                  minWidth: '80px'
                   }}
                 >
                   {reward.status}
@@ -958,7 +1111,10 @@ const RewardManagement = () => {
               <div style={{
                 fontSize: '0.85rem',
                 color: '#6c757d',
-                lineHeight: '1.4'
+                lineHeight: '1.4',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-start'
               }}>
                 <div style={{ marginBottom: '0.25rem' }}>
                   <strong style={{ color: '#212c59' }}>Start:</strong> {formatDate(reward.startDate)}
@@ -971,8 +1127,9 @@ const RewardManagement = () => {
               {/* ACTIONS Column */}
               <div style={{
                 display: 'flex',
-                gap: '0.5rem',
-                justifyContent: 'flex-end'
+                gap: '0.125rem',
+                justifyContent: 'flex-start',
+                width: '100%'
               }}>
                 <button
                   title="Edit reward"
@@ -986,9 +1143,9 @@ const RewardManagement = () => {
                     setModalError('');
                   }}
                   style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '8px',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '4px',
                     border: 'none',
                     color: 'white',
                     background: '#212c59',
@@ -997,7 +1154,7 @@ const RewardManagement = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     transition: 'all 0.2s ease',
-                    fontSize: '0.875rem',
+                    fontSize: '0.75rem',
                     boxShadow: '0 2px 4px rgba(33, 44, 89, 0.3)'
                   }}
                   onMouseEnter={(e) => {
@@ -1020,9 +1177,9 @@ const RewardManagement = () => {
                     handleToggleStatus(reward._id);
                   }}
                   style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '8px',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '4px',
                     border: 'none',
                     color: 'white',
                     background: reward.status === 'Active' ? '#28a745' : '#6c757d',
@@ -1031,7 +1188,7 @@ const RewardManagement = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     transition: 'all 0.2s ease',
-                    fontSize: '0.875rem',
+                    fontSize: '0.75rem',
                     boxShadow: reward.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)'
                   }}
                   onMouseEnter={(e) => {
@@ -1054,9 +1211,9 @@ const RewardManagement = () => {
                     setShowDeleteConfirm(reward._id);
                   }}
                   style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '8px',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '4px',
                     border: 'none',
                     color: 'white',
                     background: '#e74c3c',
@@ -1065,7 +1222,7 @@ const RewardManagement = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     transition: 'all 0.2s ease',
-                    fontSize: '0.875rem',
+                    fontSize: '0.75rem',
                     boxShadow: '0 2px 4px rgba(231, 76, 60, 0.3)'
                   }}
                   onMouseEnter={(e) => {
@@ -1119,7 +1276,7 @@ const RewardManagement = () => {
               fontSize: '0.9rem',
               color: '#64748b',
               margin: '0 0 2rem 0',
-              maxWidth: '400px',
+              maxWidth: '550px', // STANDARDIZED WIDTH
               marginLeft: 'auto',
               marginRight: 'auto'
             }}>
@@ -1190,13 +1347,59 @@ const RewardManagement = () => {
             boxSizing: 'border-box'
           }}
         >
+          <style>
+            {`
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.9rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.9rem !important;
+              }
+              .admin-modal .admin-btn-danger:hover {
+                background: #dc3545 !important;
+                border-color: #dc3545 !important;
+                color: white !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+            `}
+          </style>
           <div 
             className="admin-modal" 
             onClick={(e) => e.stopPropagation()}
             style={{
               animation: 'slideIn 0.3s ease-out',
               transform: 'scale(1)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+              background: '#f8f9fa',
+              borderRadius: '20px'
             }}
           >
             <div style={{ 
@@ -1204,9 +1407,8 @@ const RewardManagement = () => {
               textAlign: 'center', 
               marginBottom: '20px',
               padding: '24px 28px',
-              background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
               borderRadius: '20px 20px 0 0',
-              borderBottom: '2px solid rgba(33, 44, 89, 0.1)'
+              borderBottom: '1px solid #e9ecef'
             }}>
               <h3 style={{ 
                 margin: '0', 
@@ -1215,36 +1417,6 @@ const RewardManagement = () => {
                 fontWeight: '700',
                 fontFamily: "'Montserrat', sans-serif"
               }}>Confirm Delete</h3>
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="modal-close-btn"
-                style={{
-                  position: 'absolute',
-                  top: '24px',
-                  right: '28px',
-                  background: 'rgba(33, 44, 89, 0.1)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  color: '#6c757d'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.2)';
-                  e.target.style.color = '#212c59';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.1)';
-                  e.target.style.color = '#6c757d';
-                }}
-              >
-                ✕
-              </button>
             </div>
             
             <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
@@ -1256,33 +1428,6 @@ const RewardManagement = () => {
                 type="button"
                 onClick={() => setShowDeleteConfirm(null)}
                 className="admin-btn admin-btn-secondary"
-                style={{
-                  background: 'white',
-                  color: '#b08d57',
-                  border: '2px solid #b08d57',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                  flex: '1',
-                  minWidth: '120px'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#f8f6f0';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                }}
               >
                 Cancel
               </button>
@@ -1290,34 +1435,6 @@ const RewardManagement = () => {
                 type="button"
                 onClick={() => handleDeleteReward(showDeleteConfirm)}
                 className="admin-btn admin-btn-danger"
-                style={{
-                  background: 'white',
-                  color: '#dc3545',
-                  border: '2px solid #dc3545',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
-                  flex: '1',
-                  minWidth: '120px',
-                  outline: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#dc3545';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = 'white';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = '#dc3545';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(220, 53, 69, 0.1)';
-                }}
               >
                 Delete Reward
               </button>

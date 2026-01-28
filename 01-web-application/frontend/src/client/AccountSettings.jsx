@@ -83,6 +83,11 @@ const Header = styled.div`
       font-size: 1.8rem;
       min-width: auto;
     }
+    
+    /* Hide buttons in header on mobile */
+    button {
+      display: none;
+    }
   }
   
   @media (max-width: 480px) {
@@ -204,6 +209,7 @@ const FileInput = styled.label`
   &:hover {
     background: ${props => props.theme.brand};
     color: white;
+    border-color: #1a2447;
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(33, 44, 89, 0.3);
   }
@@ -354,6 +360,52 @@ const ButtonGroup = styled.div`
   }
 `;
 
+const MobileButtonContainer = styled.div`
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #e9ecef;
+  }
+  
+  @media (max-width: 480px) {
+    gap: 8px;
+    margin-top: 25px;
+    padding-top: 15px;
+  }
+`;
+
+const MobileEditButtonContainer = styled.div`
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: flex;
+    width: 100%;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #e9ecef;
+  }
+  
+  @media (max-width: 480px) {
+    margin-top: 25px;
+    padding-top: 15px;
+  }
+`;
+
+const DesktopButtonGroup = styled.div`
+  display: flex;
+  gap: 12px;
+  
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
 const Button = styled.button`
   padding: 12px 24px;
   border-radius: 12px;
@@ -397,9 +449,9 @@ const Button = styled.button`
     box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1);
 
     &:hover:not(:disabled) {
-      background: #f8f6f0;
-      border-color: #b08d57;
-      color: #b08d57;
+      background: #b08d57;
+      border-color: #9a7a4a;
+      color: white;
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3);
     }
@@ -411,6 +463,7 @@ const Button = styled.button`
     &:hover:not(:disabled) {
       background: ${props.theme.brand};
       color: white;
+      border-color: #1a2447;
       transform: translateY(-2px);
       box-shadow: 0 4px 15px rgba(33, 44, 89, 0.3);
     }
@@ -459,7 +512,7 @@ const AccountSettings = () => {
   const [selectedFile, setSelectedFile] = useState(null);
 
   // API URL configuration
-  const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
   const token = useMemo(() => localStorage.getItem('token') || sessionStorage.getItem('token'), []);
 
@@ -624,7 +677,7 @@ const AccountSettings = () => {
             !isEditing ? (
               <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
             ) : (
-              <ButtonGroup>
+              <DesktopButtonGroup>
                 <Button variant="primary" disabled={saving} onClick={handleSave}>
                   {saving ? 'Saving...' : 'Save'}
                 </Button>
@@ -648,7 +701,7 @@ const AccountSettings = () => {
                 }}>
                   Cancel
                 </Button>
-              </ButtonGroup>
+              </DesktopButtonGroup>
             )
           )}
         </Header>
@@ -771,6 +824,42 @@ const AccountSettings = () => {
           </ProfileGrid>
         ) : (
           <LoadingMessage>No profile data.</LoadingMessage>
+        )}
+        {/* Mobile-only buttons at bottom */}
+        {!loading && profile && (
+          <>
+            {!isEditing ? (
+              <MobileEditButtonContainer>
+                <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
+              </MobileEditButtonContainer>
+            ) : (
+              <MobileButtonContainer>
+                <Button variant="primary" disabled={saving} onClick={handleSave}>
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+                <Button variant="goldish" disabled={saving} onClick={() => { 
+                  setIsEditing(false); 
+                  setForm({ 
+                    fullName: profile.fullName, 
+                    username: profile.username, 
+                    email: profile.email, 
+                    birthday: profile.birthday, 
+                    gender: profile.gender, 
+                    employmentStatus: profile.employmentStatus || 'Prefer not to say' 
+                  }); 
+                  // Revert profile picture to original
+                  if (originalProfilePicture !== null) {
+                    setProfile((p) => ({ ...p, profilePicture: originalProfilePicture }));
+                  }
+                  // Reset file selection
+                  setSelectedFile(null);
+                  setOriginalProfilePicture(null);
+                }}>
+                  Cancel
+                </Button>
+              </MobileButtonContainer>
+            )}
+          </>
         )}
       </Section>
     </AccountContainer>

@@ -12,7 +12,7 @@ import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
 import ResponsiveModal from './components/ResponsiveModal';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
 
@@ -63,136 +63,197 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
     }
   };
 
+  // Scroll prevention
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.documentElement.style.overflow = 'unset';
+    };
+  }, [show]);
+
+  if (!show) return null;
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(8px)',
-        display: show ? 'flex' : 'none',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        animation: show ? 'fadeIn 0.3s ease-out' : 'none'
-      }}
-    >
-      <div 
-        className="admin-modal" 
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          animation: show ? 'slideIn 0.3s ease-out' : 'none',
-          transform: 'scale(1)',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
-              height: 'auto',
-              maxHeight: 'calc(100vh - 40px)',
-              width: '100%',
-              maxWidth: '550px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column'
-        }}
-      >
-        <div style={{ 
-          position: 'relative', 
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      animation: 'fadeIn 0.3s ease-out',
+      padding: '20px',
+      boxSizing: 'border-box'
+    }}>
+      <style>
+        {`
+          .admin-modal .admin-btn-primary {
+            background: white !important;
+            color: #212c59 !important;
+            border: 2px solid #212c59 !important;
+            border-radius: 8px !important;
+            padding: 8px 12px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            font-size: 0.85rem !important;
+            width: calc(50% - 40px) !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+          }
+          .admin-modal .admin-btn-primary:hover {
+            background: #212c59 !important;
+            border-color: #212c59 !important;
+            color: white !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
+          }
+          .admin-modal .admin-btn-secondary {
+            background: white !important;
+            color: #b08d57 !important;
+            border: 2px solid #b08d57 !important;
+            border-radius: 8px !important;
+            padding: 8px 12px !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+            flex: 0 0 auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            font-size: 0.85rem !important;
+            width: calc(50% - 40px) !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+          }
+          .admin-modal .admin-btn-secondary:hover {
+            background: #f8f6f0 !important;
+            border-color: #b08d57 !important;
+            color: #b08d57 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+          }
+          .admin-modal input,
+          .admin-modal select,
+          .admin-modal textarea,
+          .admin-modal .enhanced-dropdown,
+          .admin-modal .enhanced-dropdown .dropdown-button,
+          .admin-modal .enhanced-dropdown .dropdown-button input,
+          .admin-modal .form-control,
+          .admin-modal .admin-form-input {
+            background-color: #f8f9fa !important;
+            height: 40px !important;
+            min-height: 40px !important;
+            max-height: 40px !important;
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+            border: 2px solid #e9ecef !important;
+            border-radius: 6px !important;
+            box-sizing: border-box !important;
+          }
+          .admin-modal .admin-form-actions {
+            display: flex !important;
+            gap: 12px !important;
+            justify-content: center !important;
+            margin-top: 4px !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 0 !important;
+          }
+        `}
+      </style>
+      <div className="admin-modal" style={{
+        background: '#f8f9fa',
+        borderRadius: '16px',
+        padding: '12px 6px',
+        width: '100%',
+        maxWidth: '420px',
+        maxHeight: 'calc(100vh - 40px)',
+        overflow: 'auto',
+        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+      }} onClick={(e) => e.stopPropagation()}>
+        <div style={{
           display: 'flex',
+          justifyContent: 'center',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '5px',
-          padding: '10px 15px',
-          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-          borderRadius: '20px 20px 0 0',
-          borderBottom: '2px solid rgba(33, 44, 89, 0.1)',
-          flexShrink: 0
+          marginBottom: '8px',
+          paddingBottom: '8px',
+          borderBottom: '1px solid #e9ecef',
+          background: '#f8f9fa',
+          paddingTop: '8px'
         }}>
-          <h3 style={{ 
-            margin: '0', 
-            color: '#212c59', 
-            fontSize: '1.1rem', 
-            fontWeight: '700',
-            fontFamily: "'Montserrat', sans-serif"
-          }}>{editing ? "Edit Inventory Item" : "Add New Inventory Item"}</h3>
-          <button
-            onClick={() => {
-              // Dispatch event to close all dropdowns
-              document.dispatchEvent(new CustomEvent('modalClose'));
-              onHide();
-            }}
-            className="modal-close-btn"
-            style={{
-              background: 'rgba(33, 44, 89, 0.1)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              color: '#6c757d'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = 'rgba(33, 44, 89, 0.2)';
-              e.target.style.color = '#212c59';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'rgba(33, 44, 89, 0.1)';
-              e.target.style.color = '#6c757d';
-            }}
-          >
-            ✕
-          </button>
+          <h3 style={{margin: 0, color: '#212c59', fontWeight: '700', textAlign: 'center', fontSize: '1rem'}}>
+            {editing ? 'Edit Inventory Item' : 'Add New Inventory Item'}
+          </h3>
         </div>
-        
-         <form className="admin-form" style={{ flex: 1, padding: '0.75rem', display: 'flex', flexDirection: 'column' }}>
+        <form className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#f8f9fa', marginBottom: '0px', paddingBottom: '0px' }}>
            {/* Error Display inside Add/Edit Modal */}
            {modalError && (
-             <div className="form-error" style={{ 
-               marginBottom: 12,
-               color: '#dc3545',
-               background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-               padding: '10px 14px',
+             <div className="error-message" style={{
+               background: '#ffebee',
+               border: '1px solid #f44336',
+               color: '#f44336',
+               padding: '8px 12px',
                borderRadius: '8px',
-               textAlign: 'center',
-               fontSize: '13px',
-               lineHeight: '1.4',
-               fontFamily: "'Montserrat', sans-serif",
-               border: '1px solid #f5c6cb',
-               boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
-             }}>{modalError}</div>
+               marginBottom: '8px',
+               fontSize: '0.85rem'
+             }}>
+               <p>{modalError}</p>
+             </div>
            )}
-           {/* Item Name */}
-           <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-             <label className="admin-form-label" style={{ marginBottom: '0.25rem', fontSize: '0.9rem', fontWeight: '600', color: '#212c59' }}>Item Name</label>
-               <input
-                 type="text"
-                 value={form.name}
-                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                 className="admin-form-input"
-                 placeholder=""
-                 style={{ 
-                   padding: '0.6rem 0.8rem', 
-                   height: '40px',
-                   fontSize: '0.9rem',
-                   border: errors.name ? '2px solid #dc3545' : '1px solid #e9ecef',
-                   borderRadius: '8px',
-                   width: '100%',
-                   transition: 'border-color 0.3s ease'
-                 }}
-               />
+           
+           <div className="admin-form-group" style={{ marginBottom: '1px' }}>
+             <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Item Name</label>
+             <input
+               type="text"
+               required
+               value={form.name}
+               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+               className="admin-form-input"
+               placeholder="Enter item name"
+               style={{ 
+                 padding: '8px 12px',
+                 height: '40px',
+                 minHeight: '40px',
+                 maxHeight: '40px',
+                 lineHeight: '1.5',
+                 verticalAlign: 'middle',
+                 border: '2px solid #e9ecef',
+                 borderRadius: '6px',
+                 fontSize: '0.8rem',
+                 backgroundColor: '#f8f9fa',
+                 boxSizing: 'border-box',
+                 width: '100%'
+               }}
+             />
+             {errors.name && <div className="error-message">{errors.name}</div>}
            </div>
 
-           {/* Category */}
-           <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-             <label className="admin-form-label" style={{ marginBottom: '0.25rem', fontSize: '0.9rem', fontWeight: '600', color: '#212c59' }}>Category</label>
+           <div className="admin-form-group" style={{ marginBottom: '1px' }}>
+             <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Category</label>
              <div style={{ 
-               border: errors.category ? '2px solid #dc3545' : '1px solid #e9ecef',
-               borderRadius: '8px',
-               transition: 'border-color 0.3s ease'
+               border: '2px solid #e9ecef',
+               borderRadius: '6px',
+               backgroundColor: '#f8f9fa'
              }}>
                <EnhancedDropdown
                  options={CATEGORIES.map(c => ({ value: c, label: c }))}
@@ -202,12 +263,12 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
                  width="100%"
                />
              </div>
+             {errors.category && <div className="error-message">{errors.category}</div>}
            </div>
 
-           {/* Item Image */}
-           <div className="admin-form-group" style={{ marginBottom: '0.25rem' }}>
-             <label className="admin-form-label" style={{ marginBottom: '0.25rem', fontSize: '0.9rem', fontWeight: '600', color: '#212c59' }}>Item Image</label>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+           <div className="admin-form-group" style={{ marginBottom: '1px' }}>
+             <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Item Image</label>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                <input
                  type="file"
                  accept="image/*"
@@ -270,16 +331,16 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
                    }
                  }}
                          style={{ 
-                           padding: '0.75rem 1rem', 
-                           border: '1px solid #e9ecef',
-                           borderRadius: '8px',
+                           padding: '6px 8px', 
+                           border: '1px dashed #e9ecef',
+                           borderRadius: '6px',
                            cursor: 'pointer',
                            textAlign: 'center',
                            flex: 1,
                            background: '#f8f9fa',
                            transition: 'all 0.3s ease',
                            position: 'relative',
-                           height: '45px', 
+                           minHeight: '32px', 
                            display: 'flex',
                            alignItems: 'center',
                            justifyContent: 'center'
@@ -310,53 +371,63 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
                  </div>
                )}
              </div>
-             <div style={{ fontSize: '0.8rem', color: '#6c757d', marginTop: '0.5rem' }}>
+             <div style={{ fontSize: '0.75rem', color: '#6c757d', marginTop: '2px' }}>
                Upload an image so baristas can easily identify items with low stock
              </div>
            </div>
 
-           {/* Stock Information */}
-           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.25rem' }}>
-             <div className="admin-form-group">
-               <label className="admin-form-label" style={{ marginBottom: '0.25rem', fontSize: '0.9rem', fontWeight: '600', color: '#212c59' }}>Current Stock</label>
-                     <input
-                       type="number"
-                       min="0"
-                       value={form.currentStock}
-                       onChange={(e) => setForm((p) => ({ ...p, currentStock: e.target.value }))}
-                       className="admin-form-input"
-                       placeholder=""
-                       style={{
-                         padding: '0.6rem 0.8rem', 
-                         height: '40px',
-                         fontSize: '0.9rem',
-                         border: errors.currentStock ? '2px solid #dc3545' : '1px solid #e9ecef',
-                         borderRadius: '8px',
-                         width: '100%',
-                         transition: 'border-color 0.3s ease'
-                       }}
-                     />
+           <div className="admin-form-row" style={{ marginBottom: '1px', display: 'flex', gap: '1px' }}>
+             <div className="admin-form-group" style={{ flex: 1 }}>
+               <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Current Stock</label>
+               <input
+                 type="number"
+                 min="0"
+                 value={form.currentStock}
+                 onChange={(e) => setForm((p) => ({ ...p, currentStock: e.target.value }))}
+                 className="admin-form-input"
+                 placeholder="e.g. 10, 25, 50"
+                 style={{
+                   padding: '8px 12px',
+                   height: '40px',
+                   minHeight: '40px',
+                   maxHeight: '40px',
+                   lineHeight: '1.5',
+                   verticalAlign: 'middle',
+                   border: '2px solid #e9ecef',
+                   borderRadius: '6px',
+                   fontSize: '0.8rem',
+                   backgroundColor: '#f8f9fa',
+                   boxSizing: 'border-box',
+                   width: '100%'
+                 }}
+               />
+               {errors.currentStock && <div className="error-message">{errors.currentStock}</div>}
              </div>
-             
-             <div className="admin-form-group">
-               <label className="admin-form-label" style={{ marginBottom: '0.25rem', fontSize: '0.9rem', fontWeight: '600', color: '#212c59' }}>Min Threshold</label>
-                     <input
-                       type="number"
-                       min="0"
-                       value={form.minimumThreshold}
-                       onChange={(e) => setForm((p) => ({ ...p, minimumThreshold: e.target.value }))}
-                       className="admin-form-input"
-                       placeholder=""
-                       style={{
-                         padding: '0.6rem 0.8rem', 
-                         height: '40px',
-                         fontSize: '0.9rem',
-                         border: errors.minimumThreshold ? '2px solid #dc3545' : '1px solid #e9ecef',
-                         borderRadius: '8px',
-                         width: '100%',
-                         transition: 'border-color 0.3s ease'
-                       }}
-                     />
+             <div className="admin-form-group" style={{ flex: 1 }}>
+               <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Min Threshold</label>
+               <input
+                 type="number"
+                 min="0"
+                 value={form.minimumThreshold}
+                 onChange={(e) => setForm((p) => ({ ...p, minimumThreshold: e.target.value }))}
+                 className="admin-form-input"
+                 placeholder="e.g. 5, 10, 15"
+                 style={{
+                   padding: '8px 12px',
+                   height: '40px',
+                   minHeight: '40px',
+                   maxHeight: '40px',
+                   lineHeight: '1.5',
+                   verticalAlign: 'middle',
+                   border: '2px solid #e9ecef',
+                   borderRadius: '6px',
+                   fontSize: '0.8rem',
+                   backgroundColor: '#f8f9fa',
+                   boxSizing: 'border-box',
+                   width: '100%'
+                 }}
+               />
+               {errors.minimumThreshold && <div className="error-message">{errors.minimumThreshold}</div>}
              </div>
            </div>
 
@@ -365,12 +436,13 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
           
           <div className="admin-form-actions" style={{ 
             display: 'flex', 
-            gap: '1rem', 
-            justifyContent: 'flex-end', 
-            padding: '0.75rem',
-            borderTop: '1px solid #e9ecef',
-            background: '#f8f9fa',
-            flexShrink: 0
+            gap: '12px', 
+            justifyContent: 'center', 
+            marginTop: '0px',
+            paddingTop: '0px',
+            maxWidth: '100%',
+            width: '100%',
+            boxSizing: 'border-box'
           }}>
             <button
               type="button"
@@ -380,33 +452,6 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
                 onHide();
               }}
               className="admin-btn admin-btn-secondary"
-              style={{
-                background: 'white',
-                color: '#b08d57',
-                border: '2px solid #b08d57',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontWeight: '600',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                flex: '1',
-                minWidth: '120px'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#f8f6f0';
-                e.target.style.borderColor = '#b08d57';
-                e.target.style.color = '#b08d57';
-                e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'white';
-                e.target.style.borderColor = '#b08d57';
-                e.target.style.color = '#b08d57';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-              }}
             >
               Cancel
             </button>
@@ -414,34 +459,6 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
               type="button"
               onClick={handleSave}
               className="admin-btn admin-btn-primary"
-              style={{
-                background: 'white',
-                color: '#212c59',
-                border: '2px solid #212c59',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontWeight: '600',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                flex: '1',
-                minWidth: '120px',
-                outline: 'none'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#212c59';
-                e.target.style.borderColor = '#212c59';
-                e.target.style.color = 'white';
-                e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'white';
-                e.target.style.borderColor = '#212c59';
-                e.target.style.color = '#212c59';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
-              }}
             >
               {editing ? 'Save Changes' : 'Add Item'}
             </button>
@@ -1090,66 +1107,105 @@ const InventoryManagement = () => {
 
       {/* Delete Confirm Modal */}
       {showDelete && (
-        <ResponsiveModal
-          show={showDelete}
-          onHide={() => setShowDelete(false)}
-          title="Delete Item"
-          size="small"
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            animation: 'fadeIn 0.3s ease-out',
+            padding: '20px',
+            boxSizing: 'border-box'
+          }}
         >
-            <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
-              Are you sure you want to permanently delete this inventory item?
-              <br />
-              <span style={{ color: '#dc3545', fontSize: '0.9rem', fontWeight: '600' }}>
-                This action cannot be undone!
-              </span>
+          <style>
+            {`
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.9rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.9rem !important;
+              }
+              .admin-modal .admin-btn-danger:hover {
+                background: #dc3545 !important;
+                border-color: #dc3545 !important;
+                color: white !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+            `}
+          </style>
+          <div 
+            className="admin-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+              transform: 'scale(1)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+              background: '#f8f9fa',
+              borderRadius: '20px'
+            }}
+          >
+            <div style={{ 
+              position: 'relative', 
+              textAlign: 'center', 
+              marginBottom: '20px',
+              padding: '24px 28px',
+              borderRadius: '20px 20px 0 0',
+              borderBottom: '1px solid #e9ecef'
+            }}>
+              <h3 style={{ 
+                margin: '0', 
+                color: '#212c59', 
+                fontSize: '1.5rem', 
+                fontWeight: '700',
+                fontFamily: "'Montserrat', sans-serif"
+              }}>Confirm Delete</h3>
             </div>
             
-            {modalError && (
-              <div className="form-error" style={{ 
-                marginBottom: '20px', 
-                textAlign: 'center',
-                background: '#f8d7da',
-                color: '#721c24',
-                padding: '10px',
-                borderRadius: '8px',
-                border: '1px solid #f5c6cb'
-              }}>
-                {modalError}
-              </div>
-            )}
+            <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
+              Are you sure you want to delete this inventory item?
+            </div>
             
             <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
                 type="button"
                 onClick={() => setShowDelete(false)}
                 className="admin-btn admin-btn-secondary"
-                style={{
-                  background: 'white',
-                  color: '#b08d57',
-                  border: '2px solid #b08d57',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                  flex: '1',
-                  minWidth: '120px'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#f8f6f0';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                }}
               >
                 Cancel
               </button>
@@ -1157,39 +1213,12 @@ const InventoryManagement = () => {
                 type="button"
                 onClick={handleDelete}
                 className="admin-btn admin-btn-danger"
-                style={{
-                  background: 'white',
-                  color: '#dc3545',
-                  border: '2px solid #dc3545',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
-                  flex: '1',
-                  minWidth: '120px',
-                  outline: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#dc3545';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = 'white';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = '#dc3545';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(220, 53, 69, 0.1)';
-                }}
               >
                 Delete Item
               </button>
             </div>
-        </ResponsiveModal>
+          </div>
+        </div>
       )}
 
       {/* Floating Add Button */}

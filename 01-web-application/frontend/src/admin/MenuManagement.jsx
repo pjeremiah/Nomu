@@ -4,9 +4,8 @@ import { Coffee } from 'lucide-react';
 import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
-import ResponsiveModal from './components/ResponsiveModal';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
 const emptyForm = { name: '', description: '', price: '', secondPrice: '', category: 'Donuts', image: null };
@@ -159,8 +158,8 @@ const MenuManagement = () => {
       return;
     }
     
-    // For drinks, validate second price only if provided
-    if (addForm.category === 'Drinks' && addForm.secondPrice && addForm.secondPrice <= 0) {
+    // Validate second price only if provided
+    if (addForm.secondPrice && addForm.secondPrice <= 0) {
       setModalError('Please enter a valid second price');
       return;
     }
@@ -170,10 +169,8 @@ const MenuManagement = () => {
     fd.append('price', addForm.price);
     fd.append('description', addForm.description);
     fd.append('category', addForm.category);
-    if (addForm.category === 'Drinks') {
-      // Always send secondPrice, even if empty
-      fd.append('secondPrice', addForm.secondPrice || '');
-    }
+    // Always send secondPrice for all categories, even if empty
+    fd.append('secondPrice', addForm.secondPrice || '');
     if (addForm.image) fd.append('image', addForm.image);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -234,8 +231,8 @@ const MenuManagement = () => {
       return;
     }
     
-    // For drinks, validate second price only if provided
-    if (editForm.category === 'Drinks' && editForm.secondPrice && editForm.secondPrice <= 0) {
+    // Validate second price only if provided
+    if (editForm.secondPrice && editForm.secondPrice <= 0) {
       setModalError('Please enter a valid second price');
       return;
     }
@@ -245,10 +242,8 @@ const MenuManagement = () => {
     fd.append('price', editForm.price);
     fd.append('description', editForm.description);
     fd.append('category', editForm.category);
-    if (editForm.category === 'Drinks') {
-      // Always send secondPrice, even if empty (to clear it)
-      fd.append('secondPrice', editForm.secondPrice || '');
-    }
+    // Always send secondPrice for all categories, even if empty (to clear it)
+    fd.append('secondPrice', editForm.secondPrice || '');
     if (editForm.image) fd.append('image', editForm.image);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -348,7 +343,7 @@ const MenuManagement = () => {
 
       <div className="search-filter-container" style={{
         background: '#fff',
-        padding: '1.5rem',
+        padding: '1rem 1.5rem',
         borderRadius: '8px',
         boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
         marginBottom: '1.5rem'
@@ -358,7 +353,7 @@ const MenuManagement = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '1rem',
+          marginBottom: '0',
           width: '100%'
         }}>
           {/* Categories on the left */}
@@ -466,7 +461,7 @@ const MenuManagement = () => {
               <h3>{item.name}</h3>
               <div className="menu-item-meta">
                 <div className="price">
-                  {item.category === 'Drinks' && item.secondPrice 
+                  {item.secondPrice 
                     ? `₱${parseInt(item.price).toLocaleString()}/${parseInt(item.secondPrice).toLocaleString()}`
                     : `₱${parseInt(item.price).toLocaleString()}`
                   }
@@ -489,87 +484,212 @@ const MenuManagement = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 10000,
             animation: 'fadeIn 0.3s ease-out',
-            padding: '20px',
+            padding: '15px',
             boxSizing: 'border-box'
           }}
         >
+          <style>
+            {`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-form-group {
+                margin-bottom: 6px !important;
+                width: 100% !important;
+              }
+              .admin-form-label {
+                font-size: 0.8rem !important;
+                margin-bottom: 3px !important;
+                font-weight: 600 !important;
+                color: #212c59 !important;
+                display: block !important;
+                width: 100% !important;
+              }
+              .admin-form-input {
+                padding: 8px 10px !important;
+                height: 36px !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                font-size: 0.8rem !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                background: #f8f9fa !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .admin-form-input[type="textarea"], textarea.admin-form-input {
+                height: 70px !important;
+                min-height: 70px !important;
+                max-height: 70px !important;
+                resize: none !important;
+                padding: 8px 10px !important;
+              }
+              .admin-form-input[type="file"] {
+                display: none !important;
+              }
+              .file-upload-container {
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                width: 100% !important;
+                margin-bottom: 6px !important;
+              }
+              .file-upload-button {
+                background: #f8f9fa !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                padding: 8px 12px !important;
+                font-size: 0.8rem !important;
+                color: #212c59 !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                white-space: nowrap !important;
+                height: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .file-upload-button:hover {
+                background: #e9ecef !important;
+                border-color: #212c59 !important;
+              }
+              .file-upload-text {
+                background: #f8f9fa !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                padding: 8px 10px !important;
+                font-size: 0.8rem !important;
+                color: #6c757d !important;
+                flex: 1 !important;
+                height: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                min-width: 0 !important;
+              }
+              .admin-form-input:focus {
+                border-color: #212c59 !important;
+                box-shadow: 0 0 0 2px rgba(33, 44, 89, 0.1) !important;
+                outline: none !important;
+              }
+              .admin-form-row {
+                display: flex !important;
+                gap: 6px !important;
+                margin-bottom: 6px !important;
+                width: 100% !important;
+                align-items: flex-start !important;
+              }
+              .admin-form-row .admin-form-group {
+                flex: 1 !important;
+                margin-bottom: 0 !important;
+                width: auto !important;
+                min-width: 0 !important;
+              }
+              .admin-form-actions {
+                display: flex !important;
+                gap: 10px !important;
+                justify-content: center !important;
+                margin-top: 12px !important;
+                padding: 0 !important;
+                width: 100% !important;
+              }
+              .admin-btn {
+                padding: 10px 20px !important;
+                font-size: 0.85rem !important;
+                border-radius: 8px !important;
+                font-weight: 600 !important;
+                transition: all 0.2s ease !important;
+                cursor: pointer !important;
+                border: 2px solid !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border-color: #212c59 !important;
+              }
+              .admin-btn-primary:hover {
+                background: #212c59 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(33, 44, 89, 0.3) !important;
+              }
+              .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border-color: #b08d57 !important;
+              }
+              .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(176, 141, 87, 0.3) !important;
+              }
+            `}
+          </style>
           <div 
             className="admin-modal" 
             onClick={(e) => e.stopPropagation()}
             style={{
               animation: 'slideIn 0.3s ease-out',
               transform: 'scale(1)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
               height: 'auto',
               maxHeight: 'calc(100vh - 40px)',
               width: '100%',
-              maxWidth: '550px',
+              maxWidth: '420px',
               overflowY: 'auto',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              background: '#f8f9fa',
+              borderRadius: '16px',
+              padding: '12px 6px'
             }}
           >
             <div style={{ 
-              position: 'relative', 
-              textAlign: 'center', 
-              marginBottom: '20px',
-              padding: '24px 28px',
-              background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-              borderRadius: '20px 20px 0 0',
-              borderBottom: '2px solid rgba(33, 44, 89, 0.1)'
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '8px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #e9ecef',
+              background: '#f8f9fa',
+              paddingTop: '8px'
             }}>
               <h3 style={{ 
                 margin: '0', 
                 color: '#212c59', 
-                fontSize: '1.1rem', 
+                fontSize: '1rem', 
                 fontWeight: '700',
-                fontFamily: "'Montserrat', sans-serif"
+                fontFamily: "'Montserrat', sans-serif",
+                textAlign: 'center'
               }}>Add New Item</h3>
-              <button
-                onClick={() => {
-                  // Dispatch event to close all dropdowns
-                  document.dispatchEvent(new CustomEvent('modalClose'));
-                  setShowAdd(false);
-                  setModalError('');
-                }}
-                className="modal-close-btn"
-                style={{
-                  position: 'absolute',
-                  top: '24px',
-                  right: '28px',
-                  background: 'rgba(33, 44, 89, 0.1)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  color: '#6c757d'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.2)';
-                  e.target.style.color = '#212c59';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.1)';
-                  e.target.style.color = '#6c757d';
-                }}
-              >
-                ✕
-              </button>
             </div>
             
-            <form onSubmit={handleAdd} className="admin-form" style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column' }}>
+            <form onSubmit={handleAdd} className="admin-form" style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f8f9fa', gap: '0px', marginBottom: '0px', paddingBottom: '0px' }}>
               {/* Error Display inside Add Modal */}
               {modalError && (
                 <div className="form-error" style={{ 
@@ -605,7 +725,7 @@ const MenuManagement = () => {
                   onChange={(e) => setAddForm(p => ({...p, description:e.target.value}))}
                   className="admin-form-input"
                   placeholder="Enter description"
-                  rows={3}
+                  rows={2}
                 />
               </div>
               
@@ -622,48 +742,56 @@ const MenuManagement = () => {
                 </div>
                 
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Category</label>
-                  <EnhancedDropdown
-                    options={CATEGORIES.map(c => ({ value: c, label: c }))}
-                    value={addForm.category}
-                    onChange={(value) => setAddForm(p => ({...p, category: value}))}
-                    placeholder="Select category"
-                    width="100%"
+                  <label className="admin-form-label">Second Price (Optional)</label>
+                  <input
+                    type="number"
+                    value={addForm.secondPrice || ''}
+                    onChange={(e) => setAddForm(p => ({...p, secondPrice:e.target.value}))}
+                    className="admin-form-input"
+                    placeholder="Enter second price"
                   />
                 </div>
               </div>
               
-              {/* Second Price Field - Only show for Drinks */}
-              {addForm.category === 'Drinks' && (
-                <div className="admin-form-group" style={{ marginTop: '-1.5rem', marginBottom: '0' }}>
-                  <label className="admin-form-label">Second Price (Optional)</label>
-                  <input
-                    type="number"
-                    value={addForm.secondPrice}
-                    onChange={(e) => setAddForm(p => ({...p, secondPrice:e.target.value}))}
-                    className="admin-form-input"
-                    placeholder="Enter second price (optional)"
-                  />
-                </div>
-              )}
+              <div className="admin-form-group">
+                <label className="admin-form-label">Category</label>
+                <EnhancedDropdown
+                  options={CATEGORIES.map(c => ({ value: c, label: c }))}
+                  value={addForm.category}
+                  onChange={(value) => setAddForm(p => ({...p, category: value}))}
+                  placeholder="Select category"
+                  width="100%"
+                />
+              </div>
               
               <div className="admin-form-group">
                 <label className="admin-form-label">Upload Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFile(e, setAddForm)}
-                  className="admin-form-input"
-                />
+                <div className="file-upload-container">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFile(e, setAddForm)}
+                    className="admin-form-input"
+                    id="add-image-upload"
+                  />
+                  <label htmlFor="add-image-upload" className="file-upload-button">
+                    Choose File
+                  </label>
+                  <div className="file-upload-text">
+                    {addForm.image ? addForm.image.name : 'No file chosen'}
+                  </div>
+                </div>
               </div>
               
               <div className="admin-form-actions" style={{ 
                 display: 'flex', 
-                gap: '1rem', 
-                justifyContent: 'flex-end', 
-                padding: '1rem',
-                borderTop: '1px solid #e9ecef',
-                background: '#f8f9fa',
+                gap: '12px', 
+                justifyContent: 'center', 
+                marginTop: '0px',
+                paddingTop: '0px',
+                maxWidth: '100%',
+                width: '100%',
+                boxSizing: 'border-box',
                 flexShrink: 0
               }}>
                   <button
@@ -695,7 +823,7 @@ const MenuManagement = () => {
                       e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.background = 'white';
+                      e.target.style.background = '#f8f9fa';
                       e.target.style.borderColor = '#b08d57';
                       e.target.style.color = '#b08d57';
                       e.target.style.transform = 'translateY(0)';
@@ -711,14 +839,12 @@ const MenuManagement = () => {
                       background: 'white',
                       color: '#212c59',
                       border: '2px solid #212c59',
-                      borderRadius: '12px',
+                      borderRadius: '8px', // SLIGHT CURVE LIKE ADD NEW PROMO
                       padding: '12px 24px',
                       fontWeight: '600',
                       transition: 'all 0.3s ease',
                       cursor: 'pointer',
                       boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                      flex: '1',
-                      minWidth: '120px',
                       outline: 'none'
                     }}
                     onMouseEnter={(e) => {
@@ -729,7 +855,7 @@ const MenuManagement = () => {
                       e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.background = 'white';
+                      e.target.style.background = '#f8f9fa';
                       e.target.style.borderColor = '#212c59';
                       e.target.style.color = '#212c59';
                       e.target.style.transform = 'translateY(0)';
@@ -746,13 +872,217 @@ const MenuManagement = () => {
 
       {/* Edit Item Modal */}
       {showEdit && (
-        <ResponsiveModal
-          show={showEdit}
-          onHide={() => setShowEdit(false)}
-          title="Edit Item"
-          size="large"
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(4px)',
+            padding: '15px',
+            boxSizing: 'border-box'
+          }}
         >
-            <form onSubmit={handleEdit} className="admin-form" style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column' }}>
+          <style>
+            {`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-form-group {
+                margin-bottom: 6px !important;
+                width: 100% !important;
+              }
+              .admin-form-label {
+                font-size: 0.8rem !important;
+                margin-bottom: 3px !important;
+                font-weight: 600 !important;
+                color: #212c59 !important;
+                display: block !important;
+                width: 100% !important;
+              }
+              .admin-form-input {
+                padding: 8px 10px !important;
+                height: 36px !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                font-size: 0.8rem !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                background: #f8f9fa !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
+              .admin-form-input[type="textarea"], textarea.admin-form-input {
+                height: 70px !important;
+                min-height: 70px !important;
+                max-height: 70px !important;
+                resize: none !important;
+                padding: 8px 10px !important;
+              }
+              .admin-form-input[type="file"] {
+                display: none !important;
+              }
+              .file-upload-container {
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                width: 100% !important;
+                margin-bottom: 6px !important;
+              }
+              .file-upload-button {
+                background: #f8f9fa !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                padding: 8px 12px !important;
+                font-size: 0.8rem !important;
+                color: #212c59 !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                white-space: nowrap !important;
+                height: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .file-upload-button:hover {
+                background: #e9ecef !important;
+                border-color: #212c59 !important;
+              }
+              .file-upload-text {
+                background: #f8f9fa !important;
+                border: 2px solid #e9ecef !important;
+                border-radius: 6px !important;
+                padding: 8px 10px !important;
+                font-size: 0.8rem !important;
+                color: #6c757d !important;
+                flex: 1 !important;
+                height: 36px !important;
+                display: flex !important;
+                align-items: center !important;
+                min-width: 0 !important;
+              }
+              .admin-form-input:focus {
+                border-color: #212c59 !important;
+                box-shadow: 0 0 0 2px rgba(33, 44, 89, 0.1) !important;
+                outline: none !important;
+              }
+              .admin-form-row {
+                display: flex !important;
+                gap: 6px !important;
+                margin-bottom: 6px !important;
+                width: 100% !important;
+                align-items: flex-start !important;
+              }
+              .admin-form-row .admin-form-group {
+                flex: 1 !important;
+                margin-bottom: 0 !important;
+                width: auto !important;
+                min-width: 0 !important;
+              }
+              .admin-form-actions {
+                display: flex !important;
+                gap: 10px !important;
+                justify-content: center !important;
+                margin-top: 12px !important;
+                padding: 0 !important;
+                width: 100% !important;
+              }
+              .admin-btn {
+                padding: 10px 20px !important;
+                font-size: 0.85rem !important;
+                border-radius: 8px !important;
+                font-weight: 600 !important;
+                transition: all 0.2s ease !important;
+                cursor: pointer !important;
+                border: 2px solid !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+              }
+              .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border-color: #212c59 !important;
+              }
+              .admin-btn-primary:hover {
+                background: #212c59 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(33, 44, 89, 0.3) !important;
+              }
+              .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border-color: #b08d57 !important;
+              }
+              .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(176, 141, 87, 0.3) !important;
+              }
+            `}
+          </style>
+          <div 
+            className="admin-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+              transform: 'scale(1)',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              height: 'auto',
+              maxHeight: 'calc(100vh - 40px)',
+              width: '100%',
+              maxWidth: '420px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#f8f9fa',
+              borderRadius: '16px',
+              padding: '12px 6px'
+            }}
+          >
+            <div style={{ 
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '8px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #e9ecef',
+              background: '#f8f9fa',
+              paddingTop: '8px'
+            }}>
+              <h3 style={{ 
+                margin: '0', 
+                color: '#212c59', 
+                fontSize: '1rem', 
+                fontWeight: '700',
+                fontFamily: "'Montserrat', sans-serif",
+                textAlign: 'center'
+              }}>Edit Item</h3>
+            </div>
+            <form onSubmit={handleEdit} className="admin-form" style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f8f9fa', gap: '0px', marginBottom: '0px', paddingBottom: '0px' }}>
               {/* Error Display inside Edit Modal */}
               {modalError && (
                 <div className="form-error" style={{ 
@@ -786,7 +1116,7 @@ const MenuManagement = () => {
                   value={editForm.description}
                   onChange={(e) => setEditForm(p => ({...p, description:e.target.value}))}
                   className="admin-form-input"
-                  rows={3}
+                  rows={2}
                 />
               </div>
               
@@ -802,42 +1132,57 @@ const MenuManagement = () => {
                 </div>
                 
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Category</label>
-                  <EnhancedDropdown
-                    options={CATEGORIES.map(c => ({ value: c, label: c }))}
-                    value={editForm.category}
-                    onChange={(value) => setEditForm(p => ({...p, category: value}))}
-                    placeholder="Select category"
-                    width="100%"
-                  />
-                </div>
-              </div>
-              
-              {/* Second Price Field - Only show for Drinks */}
-              {editForm.category === 'Drinks' && (
-                <div className="admin-form-group" style={{ marginTop: '-1.5rem', marginBottom: '0' }}>
                   <label className="admin-form-label">Second Price (Optional)</label>
                   <input
                     type="number"
-                    value={editForm.secondPrice}
+                    value={editForm.secondPrice || ''}
                     onChange={(e) => setEditForm(p => ({...p, secondPrice:e.target.value}))}
                     className="admin-form-input"
-                    placeholder="Enter second price (optional)"
+                    placeholder="Enter second price"
                   />
                 </div>
-              )}
+              </div>
               
               <div className="admin-form-group">
-                <label className="admin-form-label">Upload Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFile(e, setEditForm)}
-                  className="admin-form-input"
+                <label className="admin-form-label">Category</label>
+                <EnhancedDropdown
+                  options={CATEGORIES.map(c => ({ value: c, label: c }))}
+                  value={editForm.category}
+                  onChange={(value) => setEditForm(p => ({...p, category: value}))}
+                  placeholder="Select category"
+                  width="100%"
                 />
               </div>
               
-              <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Upload Image</label>
+                <div className="file-upload-container">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFile(e, setEditForm)}
+                    className="admin-form-input"
+                    id="edit-image-upload"
+                  />
+                  <label htmlFor="edit-image-upload" className="file-upload-button">
+                    Choose File
+                  </label>
+                  <div className="file-upload-text">
+                    {editForm.image ? editForm.image.name : 'No file chosen'}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="admin-form-actions" style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                justifyContent: 'center', 
+                marginTop: '0px',
+                paddingTop: '0px',
+                maxWidth: '100%',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -850,14 +1195,12 @@ const MenuManagement = () => {
                     background: 'white',
                     color: '#b08d57',
                     border: '2px solid #b08d57',
-                    borderRadius: '12px',
+                    borderRadius: '8px', // SLIGHT CURVE LIKE ADD NEW PROMO
                     padding: '12px 24px',
                     fontWeight: '600',
                     transition: 'all 0.3s ease',
                     cursor: 'pointer',
                     boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                    flex: '1',
-                    minWidth: '120px'
                   }}
                   onMouseEnter={(e) => {
                     e.target.style.background = '#f8f6f0';
@@ -867,7 +1210,7 @@ const MenuManagement = () => {
                     e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
+                    e.target.style.background = '#f8f9fa';
                     e.target.style.borderColor = '#b08d57';
                     e.target.style.color = '#b08d57';
                     e.target.style.transform = 'translateY(0)';
@@ -883,14 +1226,12 @@ const MenuManagement = () => {
                     background: 'white',
                     color: '#212c59',
                     border: '2px solid #212c59',
-                    borderRadius: '12px',
+                    borderRadius: '8px', // SLIGHT CURVE LIKE ADD NEW PROMO
                     padding: '12px 24px',
                     fontWeight: '600',
                     transition: 'all 0.3s ease',
                     cursor: 'pointer',
                     boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                    flex: '1',
-                    minWidth: '120px',
                     outline: 'none'
                   }}
                   onMouseEnter={(e) => {
@@ -901,7 +1242,7 @@ const MenuManagement = () => {
                     e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.background = 'white';
+                    e.target.style.background = '#f8f9fa';
                     e.target.style.borderColor = '#212c59';
                     e.target.style.color = '#212c59';
                     e.target.style.transform = 'translateY(0)';
@@ -912,19 +1253,115 @@ const MenuManagement = () => {
                 </button>
               </div>
             </form>
-        </ResponsiveModal>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirm Modal */}
       {showDelete && (
-        <ResponsiveModal
-          show={showDelete}
-          onHide={() => setShowDelete(false)}
-          title="Delete Item"
-          size="small"
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(4px)'
+          }}
         >
+          <style>
+            {`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes slideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-danger:hover {
+                background: #dc3545 !important;
+                border-color: #dc3545 !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+            `}
+          </style>
+          <div 
+            className="admin-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'slideIn 0.3s ease-out',
+              transform: 'scale(1)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+              background: '#f8f9fa',
+              borderRadius: '20px'
+            }}
+          >
+            <div style={{ 
+              position: 'relative', 
+              textAlign: 'center', 
+              marginBottom: '20px',
+              padding: '24px 28px',
+              borderRadius: '20px 20px 0 0',
+              borderBottom: '1px solid #e9ecef'
+            }}>
+              <h3 style={{ 
+                margin: '0', 
+                color: '#212c59', 
+                fontSize: '1.5rem', 
+                fontWeight: '700',
+                fontFamily: "'Montserrat', sans-serif"
+              }}>Confirm Delete</h3>
+            </div>
+            
             <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
-              Are you sure you want to delete this item?
+              Are you sure you want to delete this menu item?
             </div>
             
             <div className="admin-form-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
@@ -936,33 +1373,6 @@ const MenuManagement = () => {
                   setShowDelete(false);
                 }}
                 className="admin-btn admin-btn-secondary"
-                style={{
-                  background: 'white',
-                  color: '#b08d57',
-                  border: '2px solid #b08d57',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                  flex: '1',
-                  minWidth: '120px'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#f8f6f0';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                }}
               >
                 Cancel
               </button>
@@ -970,39 +1380,12 @@ const MenuManagement = () => {
                 type="button"
                 onClick={handleDelete}
                 className="admin-btn admin-btn-danger"
-                style={{
-                  background: 'white',
-                  color: '#dc3545',
-                  border: '2px solid #dc3545',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
-                  flex: '1',
-                  minWidth: '120px',
-                  outline: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#dc3545';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = 'white';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#dc3545';
-                  e.target.style.color = '#dc3545';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(220, 53, 69, 0.1)';
-                }}
               >
                 Delete Item
               </button>
             </div>
-        </ResponsiveModal>
+          </div>
+        </div>
       )}
 
       {/* Floating Add Button */}
@@ -1013,6 +1396,7 @@ const MenuManagement = () => {
           pointerEvents: showLogoutConfirm ? 'none' : 'auto'
         }}>
           <button className="add-item-btn" onClick={() => {
+            setAddForm(emptyForm);
             setShowAdd(true);
             setModalError('');
           }}>

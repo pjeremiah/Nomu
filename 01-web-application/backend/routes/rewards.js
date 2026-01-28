@@ -20,6 +20,21 @@ router.get('/', authMiddleware, async (req, res) => {
       .populate('updatedBy', 'fullName email')
       .sort({ createdAt: -1 });
     
+    // Automatically update expired rewards based on end date
+    const now = new Date();
+    const updatePromises = rewards.map(async (reward) => {
+      // Only update if reward is currently marked as Active but has expired
+      if (reward.status === 'Active' && reward.endDate < now) {
+        await reward.updateStatus();
+      }
+      // Also update if reward is Scheduled but should be Active
+      else if (reward.status === 'Scheduled' && reward.startDate <= now && reward.endDate >= now) {
+        await reward.updateStatus();
+      }
+    });
+    
+    await Promise.all(updatePromises);
+    
     res.json(rewards);
   } catch (error) {
     console.error('Error fetching rewards:', error);
@@ -174,12 +189,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (startDate) reward.startDate = new Date(startDate);
     if (endDate) reward.endDate = new Date(endDate);
     if (usageLimit !== undefined) reward.usageLimit = parseInt(usageLimit);
-    if (status) reward.status = status;
+    
+    // Only set status manually if it's being explicitly set to Inactive
+    // Otherwise, let updateStatus() determine the correct status based on dates
+    if (status === 'Inactive') {
+      reward.status = 'Inactive';
+    }
     
     reward.updatedBy = userId;
 
-
-    await reward.save();
+    // Update status based on dates (this will handle expired -> active transitions)
+    await reward.updateStatus();
 
     // Log activity
     await ActivityService.logActivity({

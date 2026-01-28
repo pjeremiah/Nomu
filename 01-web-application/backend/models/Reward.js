@@ -104,15 +104,46 @@ rewardSchema.methods.useReward = function() {
   throw new Error('Reward cannot be used');
 };
 
-// Pre-save middleware to update status based on dates
-rewardSchema.pre('save', function(next) {
+// Method to update status based on dates
+rewardSchema.methods.updateStatus = function() {
   const now = new Date();
   
+  // Keep Inactive status if manually set
+  if (this.status === 'Inactive') {
+    return this.save();
+  }
+  
+  // Determine status based on current dates
   if (this.endDate < now) {
     this.status = 'Expired';
   } else if (this.startDate > now) {
     this.status = 'Scheduled';
-  } else if (this.status === 'Scheduled' && this.startDate <= now) {
+  } else {
+    // If we're within the date range, set to Active
+    // This handles the case where a reward was Expired but end date was moved to future
+    this.status = 'Active';
+  }
+  
+  return this.save();
+};
+
+// Pre-save middleware to update status based on dates
+rewardSchema.pre('save', function(next) {
+  const now = new Date();
+  
+  // Skip status update if manually set to Inactive
+  if (this.status === 'Inactive') {
+    return next();
+  }
+  
+  // Update status based on dates
+  if (this.endDate < now) {
+    this.status = 'Expired';
+  } else if (this.startDate > now) {
+    this.status = 'Scheduled';
+  } else {
+    // If we're within the date range, set to Active
+    // This handles the case where a reward was Expired but end date was moved to future
     this.status = 'Active';
   }
   

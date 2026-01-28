@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import Pagination from 'react-bootstrap/Pagination';
 import { FaTimes } from 'react-icons/fa';
 import styled from 'styled-components';
@@ -7,7 +7,7 @@ import axios from 'axios';
 import ForHomePageLocationImage from '../utils/Images/Home/ForHomePageLocation.jpg';
 import Navbar from '../components/Navbar';
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   const categories = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
   const itemsPerPage = 12;
 
@@ -485,31 +485,36 @@ import Navbar from '../components/Navbar';
 
   const ModalContent = styled.div`
     background: white;
-    border-radius: 20px;
-    max-width: 380px;
+    border-radius: 12px;
+    max-width: 400px;
     width: 100%;
-    max-height: 80vh;
+    max-height: 85vh;
     overflow: hidden;
     position: relative;
-    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.15), 0 10px 30px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     border: 1px solid rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(10px);
     
     @media (max-width: 1400px) {
-      max-width: 60vw;
-      max-height: 80vh;
+      max-width: 450px;
+      max-height: 85vh;
+    }
+    
+    @media (max-width: 1366px) {
+      max-width: 420px;
+      max-height: 85vh;
     }
     
     @media (max-width: 1200px) {
-      max-width: 55vw;
-      max-height: 80vh;
+      max-width: 400px;
+      max-height: 85vh;
     }
     
     @media (max-width: 1024px) {
-      max-width: 50vw;
-      max-height: 80vh;
+      max-width: 380px;
+      max-height: 85vh;
     }
     
     @media (max-width: 768px) {
@@ -570,9 +575,9 @@ import Navbar from '../components/Navbar';
 
   const ModalImage = styled.div`
     width: 100%;
-    height: 180px;
+    height: 200px;
     overflow: hidden;
-    border-radius: 20px 20px 0 0;
+    border-radius: 12px 12px 0 0;
     flex-shrink: 0;
     position: relative;
 
@@ -587,20 +592,24 @@ import Navbar from '../components/Navbar';
       transform: scale(1.02);
     }
     
+    @media (max-width: 1366px) {
+      height: 190px;
+    }
+    
     @media (max-width: 1200px) {
-      height: 150px;
-    }
-    
-    @media (max-width: 1024px) {
-      height: 140px;
-    }
-    
-    @media (max-width: 768px) {
       height: 180px;
     }
     
+    @media (max-width: 1024px) {
+      height: 170px;
+    }
+    
+    @media (max-width: 768px) {
+      height: 200px;
+    }
+    
     @media (max-width: 480px) {
-      height: 160px;
+      height: 180px;
     }
   `;
 
@@ -612,7 +621,7 @@ import Navbar from '../components/Navbar';
     flex-direction: column;
     min-height: 0;
     background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-    border-radius: 0 0 20px 20px;
+    border-radius: 0 0 12px 12px;
 
     h2 {
       font-size: 1.4rem;
@@ -652,6 +661,24 @@ import Navbar from '../components/Navbar';
       max-height: 150px;
       text-align: left;
       padding: 6px 0;
+    }
+    
+    @media (max-width: 1366px) {
+      padding: 18px;
+      
+      h2 {
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+      }
+      
+      .menu-modal-price {
+        font-size: 1.15rem;
+        margin-bottom: 14px;
+      }
+      
+      .menu-modal-description {
+        max-height: 140px;
+      }
     }
     
     @media (max-width: 1200px) {
@@ -748,20 +775,67 @@ import Navbar from '../components/Navbar';
   const [selectedItem, setSelectedItem] = useState(null);
   const [items, setItems] = useState([]);
   const [isScrolled, setIsScrolled] = useState(false);
+  const scrollPositionRef = useRef(0);
+  const originalScrollRestorationRef = useRef('auto');
+
+  // Disable browser's automatic scroll restoration to prevent jumps
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      originalScrollRestorationRef.current = window.history.scrollRestoration;
+      window.history.scrollRestoration = 'manual';
+    }
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = originalScrollRestorationRef.current;
+      }
+    };
+  }, []);
 
   // Prevent body scrolling when modal is open
   useEffect(() => {
     if (selectedItem) {
-      document.body.classList.add('modal-open');
-      document.documentElement.classList.add('modal-open');
+      // Save current scroll position BEFORE any changes
+      scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+      
+      // Prevent scrolling without using position: fixed to avoid jump
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      
+      // Lock scroll position by setting it on html element
+      document.documentElement.style.scrollBehavior = 'auto';
+      document.documentElement.scrollTop = scrollPositionRef.current;
     } else {
-      document.body.classList.remove('modal-open');
-      document.documentElement.classList.remove('modal-open');
+      // Restore scrolling - remove styles first
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      document.documentElement.style.scrollBehavior = '';
+      
+      // Restore scroll position AFTER styles are removed
+      // Use multiple methods to ensure it works
+      const savedPosition = scrollPositionRef.current;
+      if (savedPosition !== undefined && savedPosition !== null) {
+        // Immediate restoration
+        document.documentElement.scrollTop = savedPosition;
+        document.body.scrollTop = savedPosition;
+        
+        // Then use window.scrollTo after a microtask
+        Promise.resolve().then(() => {
+          window.scrollTo({
+            top: savedPosition,
+            behavior: 'auto'
+          });
+        });
+      }
     }
 
     return () => {
-      document.body.classList.remove('modal-open');
-      document.documentElement.classList.remove('modal-open');
+      // Cleanup on unmount
+      if (!selectedItem) {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.scrollBehavior = '';
+      }
     };
   }, [selectedItem]);
 
@@ -898,7 +972,7 @@ import Navbar from '../components/Navbar';
               <ModalDetails>
                 <h2>{selectedItem.name}</h2>
                 <p className="menu-modal-price">
-                  {selectedItem.category === 'Drinks' && selectedItem.secondPrice 
+                  {selectedItem.secondPrice 
                     ? `₱${Number(selectedItem.price).toFixed(0).toLocaleString()}/${Number(selectedItem.secondPrice).toFixed(0).toLocaleString()}`
                     : `₱${Number(selectedItem.price).toFixed(0).toLocaleString()}`
                   }

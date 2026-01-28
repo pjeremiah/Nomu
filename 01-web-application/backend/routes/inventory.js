@@ -136,7 +136,8 @@ router.get('/dashboard', authMiddleware, requireAdmin, async (req, res) => {
       InventoryItem.countDocuments({ status: 'active' }),
       InventoryItem.countDocuments({ 
         status: 'active',
-        $expr: { $lte: ['$currentStock', '$minimumThreshold'] }
+        currentStock: { $gt: 0 },
+        $expr: { $lt: ['$currentStock', '$minimumThreshold'] }
       }),
       InventoryItem.countDocuments({ 
         status: 'active',
@@ -161,11 +162,21 @@ router.get('/dashboard', authMiddleware, requireAdmin, async (req, res) => {
       ])
     ]);
 
+    // Debug: Find actual low stock items
+    const actualLowStockItems = await InventoryItem.find({ 
+      status: 'active',
+      currentStock: { $gt: 0 },
+      $expr: { $lt: ['$currentStock', '$minimumThreshold'] }
+    }).select('name currentStock minimumThreshold');
+
+    console.log('Low Stock Items:', actualLowStockItems);
+
     res.status(200).json({
       totalItems,
       lowStockItems,
       outOfStockItems,
-      categoryBreakdown
+      categoryBreakdown,
+      debugLowStock: actualLowStockItems
     });
   } catch (error) {
     console.error('Error fetching inventory dashboard:', error);

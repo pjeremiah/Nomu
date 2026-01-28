@@ -74,8 +74,8 @@ router.post('/signup',
         const hasBirthdayPassed = monthDiff > 0 || (monthDiff === 0 && today.getDate() >= birthday.getDate());
         const actualAge = hasBirthdayPassed ? ageInYears : ageInYears - 1;
         
-        if (actualAge < 1) {
-          throw new Error('You must be at least 1 year old to create an account');
+        if (actualAge < 13) {
+          throw new Error('You must be at least 13 years old to create an account');
         }
         return true;
       }),
@@ -663,7 +663,7 @@ router.post('/admin/verify-otp',
   ],
   validateInput,
   async (req, res) => {
-    const { email, otp, rememberFor30Days } = req.body;
+    const { email, otp, rememberFor1Day } = req.body;
     
     try {
       // Verify OTP
@@ -687,8 +687,8 @@ router.post('/admin/verify-otp',
       // Always show "Welcome" for admin accounts (not "Welcome Back")
       const isFirstLogin = true;
       
-      // Calculate rememberUntil date if rememberFor30Days is true
-      const rememberUntil = rememberFor30Days ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
+      // Calculate rememberUntil date if rememberFor1Day is true (24 hours)
+      const rememberUntil = rememberFor1Day ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
       
       // Update admin status, last login, and mark first login as completed
       await Admin.findByIdAndUpdate(admin._id, { 
@@ -704,7 +704,7 @@ router.post('/admin/verify-otp',
       req.shouldClearFailedAttempts = true;
       await clearFailedAttempts(req, res, () => {});
 
-      const tokenExpiry = rememberFor30Days ? '30d' : '1d';
+      const tokenExpiry = rememberFor1Day ? '1d' : '1d'; // 24 hours for remember account
       
       const token = jwt.sign({ 
         userId: admin._id, 
@@ -767,37 +767,41 @@ router.post('/login',
         }
         
         // Check if admin has valid rememberUntil date (skip OTP if still valid)
-        if (admin.rememberUntil && new Date() < admin.rememberUntil) {
-          // Update last login time and set status to active
-          await Admin.findByIdAndUpdate(admin._id, { 
-            lastLoginAt: new Date(),
-            status: 'active'
-          });
-          
-          // Clear failed attempts on successful login
-          req.shouldClearFailedAttempts = true;
-          await clearFailedAttempts(req, res, () => {});
-          
-          const role = admin.role || 'staff';
-          const token = jwt.sign({ 
-            userId: admin._id, 
-            email: admin.email, 
-            role: role, 
-            principalType: 'admin' 
-          }, JWT_SECRET, { expiresIn: '30d' });
-          
-          return res.status(200).json({
-            message: 'Admin login successful',
-            token,
-            user: {
-              id: admin._id,
-              email: admin.email,
-              fullName: admin.fullName,
-              role: role,
-              status: 'active',
-              isFirstLogin: false
-            }
-          });
+        if (admin.rememberUntil) {
+          // Convert to Date object if it's stored as a string (Mongoose should handle this, but ensure compatibility)
+          const rememberUntilDate = admin.rememberUntil instanceof Date ? admin.rememberUntil : new Date(admin.rememberUntil);
+          if (new Date() < rememberUntilDate) {
+            // Update last login time and set status to active
+            await Admin.findByIdAndUpdate(admin._id, { 
+              lastLoginAt: new Date(),
+              status: 'active'
+            });
+            
+            // Clear failed attempts on successful login
+            req.shouldClearFailedAttempts = true;
+            await clearFailedAttempts(req, res, () => {});
+            
+            const role = admin.role || 'staff';
+            const token = jwt.sign({ 
+              userId: admin._id, 
+              email: admin.email, 
+              role: role, 
+              principalType: 'admin' 
+            }, JWT_SECRET, { expiresIn: '30d' });
+            
+            return res.status(200).json({
+              message: 'Admin login successful',
+              token,
+              user: {
+                id: admin._id,
+                email: admin.email,
+                fullName: admin.fullName,
+                role: role,
+                status: 'active',
+                isFirstLogin: false
+              }
+            });
+          }
         }
         
         // Admin credentials are correct, proceed to OTP flow
@@ -907,8 +911,8 @@ router.post('/register',
         const hasBirthdayPassed = monthDiff > 0 || (monthDiff === 0 && today.getDate() >= birthday.getDate());
         const actualAge = hasBirthdayPassed ? ageInYears : ageInYears - 1;
         
-        if (actualAge < 1) {
-          throw new Error('You must be at least 1 year old to create an account');
+        if (actualAge < 13) {
+          throw new Error('You must be at least 13 years old to create an account');
         }
         return true;
       }),
@@ -1185,37 +1189,41 @@ router.post('/signin',
         }
         
         // Check if admin has valid rememberUntil date (skip OTP if still valid)
-        if (admin.rememberUntil && new Date() < admin.rememberUntil) {
-          // Update last login time and set status to active
-          await Admin.findByIdAndUpdate(admin._id, { 
-            lastLoginAt: new Date(),
-            status: 'active'
-          });
-          
-          // Clear failed attempts on successful login
-          req.shouldClearFailedAttempts = true;
-          await clearFailedAttempts(req, res, () => {});
-          
-          const role = admin.role || 'staff';
-          const token = jwt.sign({ 
-            userId: admin._id, 
-            email: admin.email, 
-            role: role, 
-            principalType: 'admin' 
-          }, JWT_SECRET, { expiresIn: '30d' });
-          
-          return res.status(200).json({
-            message: 'Admin login successful',
-            token,
-            user: {
-              id: admin._id,
-              email: admin.email,
-              fullName: admin.fullName,
-              role: role,
-              status: 'active',
-              isFirstLogin: false
-            }
-          });
+        if (admin.rememberUntil) {
+          // Convert to Date object if it's stored as a string (Mongoose should handle this, but ensure compatibility)
+          const rememberUntilDate = admin.rememberUntil instanceof Date ? admin.rememberUntil : new Date(admin.rememberUntil);
+          if (new Date() < rememberUntilDate) {
+            // Update last login time and set status to active
+            await Admin.findByIdAndUpdate(admin._id, { 
+              lastLoginAt: new Date(),
+              status: 'active'
+            });
+            
+            // Clear failed attempts on successful login
+            req.shouldClearFailedAttempts = true;
+            await clearFailedAttempts(req, res, () => {});
+            
+            const role = admin.role || 'staff';
+            const token = jwt.sign({ 
+              userId: admin._id, 
+              email: admin.email, 
+              role: role, 
+              principalType: 'admin' 
+            }, JWT_SECRET, { expiresIn: '30d' });
+            
+            return res.status(200).json({
+              message: 'Admin login successful',
+              token,
+              user: {
+                id: admin._id,
+                email: admin.email,
+                fullName: admin.fullName,
+                role: role,
+                status: 'active',
+                isFirstLogin: false
+              }
+            });
+          }
         }
         
         // Admin credentials are correct, proceed to OTP flow
@@ -1365,10 +1373,13 @@ router.post('/mobile/admin/login',
         return res.status(400).json({ message: 'Invalid email or password' });
       }
 
-      // Check if admin has valid rememberUntil date (skip OTP if still valid)
-      if (admin.rememberUntil && new Date() < admin.rememberUntil) {
-        // Update last login time and set status to active
-        await Admin.findByIdAndUpdate(admin._id, { 
+        // Check if admin has valid rememberUntil date (skip OTP if still valid)
+        if (admin.rememberUntil) {
+          // Convert to Date object if it's stored as a string (Mongoose should handle this, but ensure compatibility)
+          const rememberUntilDate = admin.rememberUntil instanceof Date ? admin.rememberUntil : new Date(admin.rememberUntil);
+          if (new Date() < rememberUntilDate) {
+          // Update last login time and set status to active
+          await Admin.findByIdAndUpdate(admin._id, {
           lastLoginAt: new Date(),
           status: 'active'
         });
@@ -1397,7 +1408,8 @@ router.post('/mobile/admin/login',
             isFirstLogin: false
           }
         });
-      }
+          }
+        }
       
       // Admin credentials are correct, proceed to OTP flow
       return res.status(200).json({

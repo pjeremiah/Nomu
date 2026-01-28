@@ -20,7 +20,7 @@ const Sidebar = styled.aside`
   position: fixed !important;
   top: 0;
   left: 0;
-  width: 200px;
+  width: 220px;
   height: 100vh;
   max-height: 100vh;
   background-image: url(${NavbarandFooterImg});
@@ -108,6 +108,9 @@ const AdminInfo = styled.div`
   padding: 8px;
   margin-bottom: 12px;
   text-align: center;
+  width: calc(100% - 10px);
+  margin-left: 2px;
+  margin-right: 2px;
 `;
 
 const AdminTitle = styled.div`
@@ -128,17 +131,22 @@ const NavItem = styled(NavLink)`
   align-items: center;
   gap: 8px;
   color: #ffffff;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 6px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   font-weight: 500;
   font-size: 12px;
+  white-space: nowrap;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
   
   &.active, &:hover { 
     background: rgba(255,255,255,0.15); 
-    transform: translateX(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
   
   &.disabled {
@@ -174,21 +182,23 @@ const DownloadButton = styled.a`
   align-items: center;
   gap: 8px;
   color: #ffffff;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 6px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   font-weight: 500;
   font-size: 12px;
+  white-space: nowrap;
+  width: 100%;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   
   &:hover { 
-    background: rgba(255,255,255,0.2); 
-    transform: translateX(4px);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255,255,255,0.15); 
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 `;
 
@@ -197,23 +207,27 @@ const LogoutButton = styled.button`
   align-items: center;
   gap: 8px;
   color: #ffffff;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 6px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   font-weight: 500;
-  background: none;
-  border: none;
-  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  width: calc(100% - 10px);
+  margin-left: 2px;
+  margin-right: 2px;
   text-align: left;
   cursor: pointer;
   font-size: 12px;
   font-family: inherit;
+  white-space: nowrap;
   
   &:hover { 
     background: rgba(255,255,255,0.15); 
-    transform: translateX(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
   
   &:focus {
@@ -222,7 +236,7 @@ const LogoutButton = styled.button`
   }
   
   &:active {
-    transform: translateX(2px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   }
 `;
 
@@ -284,8 +298,10 @@ const NavItemContainer = styled.div`
 /* Main content leaves space for sidebar */
 const Main = styled.main`
   flex: 1;
-  padding: 24px;
-  margin-left: 200px; /* same width as sidebar */
+  padding: 15px;
+  margin-left: 220px; /* same width as sidebar */
+  max-width: calc(100vw - 220px);
+  box-sizing: border-box;
 `;
 
 /* Fade In Animation - removed as it's not being used */
@@ -307,7 +323,7 @@ const AdminLayout = ({ children }) => {
         // Check both localStorage and sessionStorage for token
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (token) {
-          const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
           const response = await fetch(`${API_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -348,7 +364,7 @@ const AdminLayout = ({ children }) => {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (token) {
-          const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
           const response = await fetch(`${API_URL}/api/auth/heartbeat`, {
             method: 'POST',
             headers: {
@@ -390,7 +406,7 @@ const AdminLayout = ({ children }) => {
       // Check both localStorage and sessionStorage for token
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (token) {
-        const API_URL = process.env.REACT_APP_API_URL || 'https://nomu.cafe/api';
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         await fetch(`${API_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {
@@ -565,7 +581,7 @@ const AdminLayout = ({ children }) => {
       </Main>
 
       {showLogoutConfirm && (
-        <div
+        <div 
           style={{
             position: 'fixed',
             top: 0,
@@ -580,63 +596,81 @@ const AdminLayout = ({ children }) => {
             zIndex: 10000,
             animation: 'fadeIn 0.3s ease-out'
           }}
-          onClick={() => setShowLogoutConfirm(false)}
         >
+          <style>
+            {`
+              .admin-modal .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border: 2px solid #212c59 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-primary:hover {
+                background: #212c59 !important;
+                border-color: #212c59 !important;
+                color: white !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
+              }
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #b08d57 !important;
+                border-color: #9a7a4a !important;
+                color: white !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+            `}
+          </style>
           <div 
             className="admin-modal" 
             onClick={(e) => e.stopPropagation()}
             style={{
               animation: 'slideIn 0.3s ease-out',
               transform: 'scale(1)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: '0 15px 50px rgba(0, 0, 0, 0.2)', // STANDARDIZED SHADOW
+              background: '#f8f9fa',
+              borderRadius: '16px', // STANDARDIZED BORDER RADIUS
+              width: '92%', // STANDARDIZED WIDTH
+              maxWidth: '550px', // STANDARDIZED MAX WIDTH
+              maxHeight: 'calc(100vh - 30px)', // STANDARDIZED HEIGHT
+              padding: '28px' // STANDARDIZED PADDING
             }}
           >
             <div style={{ 
               position: 'relative', 
               textAlign: 'center', 
-              marginBottom: '20px',
-              padding: '24px 28px',
-              background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-              borderRadius: '20px 20px 0 0',
-              borderBottom: '2px solid rgba(33, 44, 89, 0.1)'
+              marginBottom: '24px', // STANDARDIZED MARGIN
+              padding: '0 0 18px 0', // STANDARDIZED PADDING
+              borderRadius: '16px 16px 0 0', // STANDARDIZED BORDER RADIUS
+              borderBottom: '1px solid #e9ecef'
             }}>
               <h3 style={{ 
                 margin: '0', 
                 color: '#212c59', 
-                fontSize: '1.5rem', 
+                fontSize: '1.25rem', // STANDARDIZED FONT SIZE 
                 fontWeight: '700',
                 fontFamily: "'Montserrat', sans-serif"
               }}>Confirm Logout</h3>
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="modal-close-btn"
-                style={{
-                  position: 'absolute',
-                  top: '24px',
-                  right: '28px',
-                  background: 'rgba(33, 44, 89, 0.1)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  color: '#6c757d'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.2)';
-                  e.target.style.color = '#212c59';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'rgba(33, 44, 89, 0.1)';
-                  e.target.style.color = '#6c757d';
-                }}
-              >
-                <X size={20} />
-              </button>
             </div>
             <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
               Are you sure you want to log out?
@@ -646,72 +680,13 @@ const AdminLayout = ({ children }) => {
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
                 className="admin-btn admin-btn-secondary"
-                style={{
-                  background: 'white',
-                  color: '#b08d57',
-                  border: '2px solid #b08d57',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(176, 141, 87, 0.1)',
-                  flex: '1',
-                  minWidth: '120px'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#f8f6f0';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(176, 141, 87, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#b08d57';
-                  e.target.style.color = '#b08d57';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(176, 141, 87, 0.1)';
-                }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
-                ref={(el) => {
-                  if (el) {
-                    el.style.setProperty('background', 'white', 'important');
-                    el.style.setProperty('color', '#212c59', 'important');
-                    el.style.setProperty('border', '2px solid #212c59', 'important');
-                    el.style.setProperty('border-color', '#212c59', 'important');
-                  }
-                }}
-                style={{
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  fontWeight: '600',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                  flex: '1',
-                  minWidth: '120px',
-                  outline: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#212c59';
-                  e.target.style.borderColor = '#212c59';
-                  e.target.style.color = 'white';
-                  e.target.style.transform = 'translateY(-1px)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'white';
-                  e.target.style.borderColor = '#212c59';
-                  e.target.style.color = '#212c59';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
-                }}
+                className="admin-btn admin-btn-primary"
               >
                 Logout
               </button>

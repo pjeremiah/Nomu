@@ -1,70 +1,36 @@
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Production builds
-build/
-dist/
-
 # Environment variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*.env
 
-# IDE files
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build outputs
+build/
+dist/
+*.log
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS generated files
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Logs
-logs
-*.log
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env
-
-# Flutter/Dart
+# Flutter
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -73,88 +39,13 @@ jspm_packages/
 .pub/
 build/
 
-# Gradle
-.gradle/
-**/.gradle/
-**/gradle/
-**/gradle/wrapper/dists/
-**/gradle/wrapper/gradle-wrapper.jar
-**/gradle/wrapper/gradle-wrapper.properties
-
-# Android
-*.jks
-key.properties
-**/android/**/gradle-wrapper.jar
-**/android/.gradle
-**/android/captures/
-**/android/gradlew
-**/android/gradlew.bat
-**/android/local.properties
-**/android/**/GeneratedPluginRegistrant.java
-
-# iOS
-**/ios/**/*.mode1v3
-**/ios/**/*.mode2v3
-**/ios/**/*.moved-aside
-**/ios/**/*.pbxuser
-**/ios/**/*.perspectivev3
-**/ios/**/*sync/
-**/ios/**/.sconsign.dblite
-**/ios/**/.tags*
-**/ios/**/.vagrant/
-**/ios/**/DerivedData/
-**/ios/**/Icon?
-**/ios/**/Pods/
-**/ios/**/.symlinks/
-**/ios/**/profile
-**/ios/**/xcuserdata
-**/ios/.generated/
-**/ios/Flutter/App.framework
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/app.flx
-**/ios/Flutter/app.zip
-**/ios/Flutter/flutter_assets/
-**/ios/Flutter/flutter_export_environment.sh
-**/ios/ServiceDefinitions.json
-**/ios/Runner/GeneratedPluginRegistrant.*
-
-# Windows
-*.exe
-*.msi
-*.msm
-*.msp
+# Mobile
+*.apk
+*.aab
+*.ipa
+*.app
 
 # Temporary files
 *.tmp
 *.temp
-
-# System files
-Application Data/
-AppData/
-Contacts/
-Cookies/
-Desktop/
-Documents/
-Downloads/
-Favorites/
-Links/
-Local Settings/
-Music/
-My Documents/
-NetHood/
-OneDrive/
-PrintHood/
-Recent/
-Saved Games/
-Searches/
-SendTo/
-Start Menu/
-Templates/
-Videos/
-WPS Cloud Files/
-ZAP/
-Zomboid/
-ntuser.dat*
-ntuser.ini
+.cache/

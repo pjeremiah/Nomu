@@ -6,16 +6,19 @@ import { ChevronDown, Check } from 'lucide-react';
 const DropdownContainer = styled.div`
   position: relative;
   display: block;
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
   vertical-align: top;
   align-self: stretch;
   flex: 1;
   min-width: 0;
   margin-top: 0;
   margin-bottom: 0;
+  flex-shrink: 0;
 
   /* Mobile: ensure full-width */
   @media (max-width: 768px) {
@@ -37,60 +40,45 @@ const DropdownButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 8px 12px;
-  height: 36px !important;
-  box-sizing: border-box;
-  line-height: 1.2;
-  vertical-align: top;
-  background: #ffffff;
-  border: 1px solid #e9ecef !important;
-  border-radius: 10px !important;
-  border-top: 1px solid #e9ecef !important;
-  border-right: 1px solid #e9ecef !important;
-  border-bottom: 2px solid #e9ecef !important;
-  border-left: 1px solid #e9ecef !important;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 2px solid #e9ecef;
   font-family: 'Montserrat', sans-serif;
-  font-size: 13px;
+  font-size: 1rem;
   font-weight: 500;
   color: ${props => props.$hasValue ? '#212c59' : '#a0a0a0'};
   cursor: pointer;
   text-align: left;
   direction: ltr;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  box-sizing: border-box !important;
+  background: #ffffff;
   position: relative;
   overflow: hidden;
-  margin: 0;
+  margin: 0 !important;
   outline: none;
   align-self: stretch;
   margin-top: 0;
   margin-bottom: 0;
+  flex-shrink: 0;
 
-  /* Match input styling exactly - same as SignUpForm */
   @media (max-width: 768px) {
     width: 100%;
-    height: 36px !important;
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 14px 16px;
+    font-size: 0.95rem;
     box-sizing: border-box;
-    line-height: 1.2;
-    vertical-align: middle;
     display: flex;
     align-items: center;
   }
 
   @media (max-width: 480px) {
     width: 100%;
-    height: 36px !important;
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
     box-sizing: border-box;
-    line-height: 1.2;
-    vertical-align: middle;
     display: flex;
     align-items: center;
   }
@@ -109,8 +97,6 @@ const DropdownButton = styled.button`
 
   &:hover {
     border-color: #212c59;
-    box-shadow: 0 6px 20px rgba(33, 44, 89, 0.12), 0 3px 10px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
 
     &::before {
       opacity: 1;
@@ -120,8 +106,7 @@ const DropdownButton = styled.button`
   &:focus {
     outline: none;
     border-color: #212c59;
-    box-shadow: 0 0 0 3px rgba(33, 44, 89, 0.1), 0 6px 20px rgba(33, 44, 89, 0.12);
-    transform: translateY(-2px);
+    box-shadow: 0 0 0 3px rgba(33, 44, 89, 0.1);
   }
 
   &:active {
@@ -130,8 +115,7 @@ const DropdownButton = styled.button`
 
   &.open {
     border-color: #212c59;
-    box-shadow: 0 6px 20px rgba(33, 44, 89, 0.12), 0 3px 10px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
+    box-shadow: 0 0 0 3px rgba(33, 44, 89, 0.1);
   }
 `;
 
@@ -166,6 +150,8 @@ const DropdownMenu = styled.div`
   top: ${props => props.$buttonRect ? `${props.$buttonRect.bottom + 4}px` : '0'};
   left: ${props => props.$buttonRect ? `${props.$buttonRect.left}px` : '0'};
   width: ${props => props.$buttonRect ? `${props.$buttonRect.width}px` : '200px'};
+  min-width: ${props => props.$buttonRect ? `${props.$buttonRect.width}px` : '200px'};
+  max-width: ${props => props.$buttonRect ? `${props.$buttonRect.width}px` : '200px'};
   background: white;
   border: 2px solid #e9ecef;
   border-radius: 12px;
@@ -179,29 +165,9 @@ const DropdownMenu = styled.div`
     }
     return 'translateY(0) scale(1)';
   }};
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  overflow: visible;
-  max-height: 300px;
-  overflow-y: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
   transform-origin: top center;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-  }
 `;
 
 const DropdownItem = styled.button`
@@ -301,6 +267,7 @@ const EnhancedGenderDropdown = ({
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
   const portalRef = useRef(null);
+  const scrollYRef = useRef(0);
 
   const genderOptions = [
     { value: '', label: 'Select gender' },
@@ -365,17 +332,43 @@ const EnhancedGenderDropdown = ({
   }, []);
 
   useEffect(() => {
+    const preventScroll = (e) => {
+      // Prevent scroll on wheel, touchmove, and keydown (arrow keys, space, etc.)
+      if (e.type === 'wheel' || e.type === 'touchmove') {
+        e.preventDefault();
+      }
+      if (e.type === 'keydown' && ['ArrowUp', 'ArrowDown', 'Space', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+      }
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('touchstart', handleClickOutside);
+      // Prevent scrolling by blocking scroll events
+      document.addEventListener('wheel', preventScroll, { passive: false });
+      document.addEventListener('touchmove', preventScroll, { passive: false });
+      document.addEventListener('keydown', preventScroll);
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'relative';
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('wheel', preventScroll);
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('keydown', preventScroll);
+      document.body.style.overflow = '';
+      document.body.style.position = '';
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('wheel', preventScroll);
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('keydown', preventScroll);
+      document.body.style.overflow = '';
+      document.body.style.position = '';
     };
   }, [isOpen, handleClickOutside]);
 
@@ -389,8 +382,8 @@ const EnhancedGenderDropdown = ({
         className={isOpen ? 'open' : ''}
         $hasValue={value !== ''}
         style={{ 
-          border: isOpen ? '2px solid #212c59' : '1px solid #e9ecef',
-          boxShadow: isOpen ? '0 0 0 3px rgba(33, 44, 89, 0.1)' : '0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.1)'
+          border: isOpen ? '2px solid #212c59' : '2px solid #e9ecef',
+          boxShadow: isOpen ? '0 0 0 3px rgba(33, 44, 89, 0.1)' : 'none'
         }}
       >
         <DropdownText>{selectedOption.label}</DropdownText>

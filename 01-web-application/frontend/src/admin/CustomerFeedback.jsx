@@ -5,17 +5,31 @@ import { MdNotifications } from 'react-icons/md';
 import { X } from 'lucide-react';
 import PageHeader from './components/PageHeader';
 
+// Function to mask email addresses for privacy
+const maskEmail = (email) => {
+  if (!email) return '';
+  const [localPart, domain] = email.split('@');
+  if (localPart.length <= 2) {
+    return `${localPart[0]}***@${domain}`;
+  }
+  const maskedLocal = localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1];
+  return `${maskedLocal}@${domain}`;
+};
+
 const CustomerFeedback = () => {
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modalError, setModalError] = useState('');
   const [showReplyModal, setShowReplyModal] = useState(false);
+  const [showViewReplyModal, setShowViewReplyModal] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [viewingFeedback, setViewingFeedback] = useState(null);
+  const [adminName, setAdminName] = useState('Admin');
 
   // Prevent body scrolling when modal is open
   useEffect(() => {
-    if (showReplyModal) {
+    if (showReplyModal || showViewReplyModal) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -28,7 +42,7 @@ const CustomerFeedback = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showReplyModal]);
+  }, [showReplyModal, showViewReplyModal]);
   const [replyMessage, setReplyMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,7 +51,7 @@ const CustomerFeedback = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       
       const response = await fetch(`${API_URL}/api/feedback`, {
         headers: {
@@ -76,7 +90,7 @@ const CustomerFeedback = () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const API_URL = process.env.REACT_APP_API_URL || 'https://nomu-backend.onrender.com';
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       
       const response = await fetch(`${API_URL}/api/feedback/reply/${selectedFeedback._id}`, {
         method: 'POST',
@@ -125,6 +139,45 @@ const CustomerFeedback = () => {
     setShowReplyModal(true);
   };
 
+  // Open view reply modal
+  const openViewReplyModal = async (feedbackItem) => {
+    setViewingFeedback(feedbackItem);
+    
+    // Get admin name from JWT token and fetch full name from server
+    let adminNameValue = 'Admin';
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const userId = payload.userId;
+        
+        // Fetch admin details from server to get fullName
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const response = await fetch(`${API_URL}/api/admins/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const adminData = await response.json();
+          adminNameValue = adminData.fullName || adminData.name || 'Admin';
+        } else {
+          // Fallback to email if API call fails
+          adminNameValue = payload.email || 'Admin';
+        }
+      }
+    } catch (err) {
+      console.error('Error getting admin name:', err);
+      // Final fallback
+      adminNameValue = 'Admin';
+    }
+    
+    setAdminName(adminNameValue);
+    setShowViewReplyModal(true);
+  };
+
   // Format date
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -143,8 +196,9 @@ const CustomerFeedback = () => {
         <span style={{
           display: 'inline-flex',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: '0.375rem',
-          padding: '0.375rem 0.75rem',
+          padding: '0.5rem 0.875rem',
           borderRadius: '20px',
           fontSize: '0.8rem',
           fontWeight: '600',
@@ -152,7 +206,10 @@ const CustomerFeedback = () => {
           letterSpacing: '0.025em',
           background: '#d4edda',
           color: '#155724',
-          border: '1px solid #c3e6cb'
+          border: '1px solid #c3e6cb',
+          lineHeight: '1',
+          height: '28px',
+          minWidth: '80px'
         }}>
           <FaCheckCircle size={12} />
           REPLIED
@@ -163,8 +220,9 @@ const CustomerFeedback = () => {
       <span style={{
         display: 'inline-flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: '0.375rem',
-        padding: '0.375rem 0.75rem',
+        padding: '0.5rem 0.875rem',
         borderRadius: '20px',
         fontSize: '0.8rem',
         fontWeight: '600',
@@ -172,7 +230,10 @@ const CustomerFeedback = () => {
         letterSpacing: '0.025em',
         background: '#fff3cd',
         color: '#856404',
-        border: '1px solid #ffeaa7'
+        border: '1px solid #ffeaa7',
+        lineHeight: '1',
+        height: '28px',
+        minWidth: '80px'
       }}>
         <FaClock size={12} />
         PENDING
@@ -450,7 +511,7 @@ const CustomerFeedback = () => {
             e.target.style.boxShadow = '0 6px 12px rgba(33, 44, 89, 0.4)';
           }}
           onMouseOut={(e) => {
-            e.target.style.background = 'white';
+            e.target.style.background = '#f8f9fa';
             e.target.style.color = '#212c59';
             e.target.style.borderColor = '#212c59';
             e.target.style.transform = 'translateY(0)';
@@ -505,7 +566,7 @@ const CustomerFeedback = () => {
               fontSize: '0.9rem',
               color: '#64748b',
               margin: '0',
-              maxWidth: '400px',
+              maxWidth: '550px', // STANDARDIZED WIDTH
               marginLeft: 'auto',
               marginRight: 'auto'
             }}>
@@ -520,7 +581,7 @@ const CustomerFeedback = () => {
               padding: '1.5rem 2rem',
               borderBottom: '2px solid #b08d57',
               display: 'grid',
-              gridTemplateColumns: '1.5fr 1.5fr 2fr 1fr 1fr 1fr',
+              gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(200px, 1.5fr) minmax(180px, 1.2fr) minmax(100px, 0.8fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr)',
               gap: '1rem',
               alignItems: 'center',
               fontWeight: '700',
@@ -529,19 +590,19 @@ const CustomerFeedback = () => {
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                 <FaStar style={{ color: '#b08d57', fontSize: '1rem' }} />
                 CUSTOMER
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                 <MessageSquare style={{ color: '#b08d57', fontSize: '1rem' }} />
                 EMAIL
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                 <FaReply style={{ color: '#b08d57', fontSize: '1rem' }} />
                 MESSAGE
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                 <div style={{ 
                   width: '8px', 
                   height: '8px', 
@@ -550,11 +611,11 @@ const CustomerFeedback = () => {
                 }} />
                 STATUS
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                 <FaClock style={{ color: '#b08d57', fontSize: '1rem' }} />
                 DATE
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                 <FaCog style={{ color: '#b08d57', fontSize: '1rem' }} />
                 ACTIONS
               </div>
@@ -568,7 +629,7 @@ const CustomerFeedback = () => {
                   padding: '1.5rem 2rem',
                   borderBottom: index < feedback.length - 1 ? '1px solid #f1f5f9' : 'none',
                   display: 'grid',
-                  gridTemplateColumns: '1.5fr 1.5fr 2fr 1fr 1fr 1fr',
+                  gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(200px, 1.5fr) minmax(180px, 1.2fr) minmax(100px, 0.8fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr)',
                   gap: '1rem',
                   alignItems: 'center',
                   transition: 'background-color 0.2s ease',
@@ -586,27 +647,27 @@ const CustomerFeedback = () => {
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  height: '100%'
+                  justifyContent: 'flex-start',
+                  height: '100%',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  color: '#212c59',
+                  lineHeight: '1.2'
                 }}>
-                  <div style={{
-                    fontSize: '1rem',
-                    fontWeight: '700',
-                    color: '#212c59'
-                  }}>
-                    {item.name}
-                  </div>
+                  {item.name}
                 </div>
 
                 {/* EMAIL Column */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'flex-start',
                   height: '100%',
                   fontSize: '0.9rem',
                   color: '#64748b',
-                  lineHeight: '1.4'
-                }}>
-                  {item.email}
+                  lineHeight: '1.2'
+                }} title={`Full email: ${item.email}`}>
+                  {maskEmail(item.email)}
                 </div>
 
                 {/* MESSAGE Column */}
@@ -614,12 +675,15 @@ const CustomerFeedback = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'center',
+                  alignItems: 'flex-start',
                   height: '100%',
                   fontSize: '0.9rem',
                   color: '#495057',
-                  lineHeight: '1.4'
+                  lineHeight: '1.2'
                 }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ 
+                    marginBottom: '0.5rem'
+                  }}>
                     {item.message.length > 100 
                       ? `${item.message.substring(0, 100)}...` 
                       : item.message
@@ -635,10 +699,9 @@ const CustomerFeedback = () => {
                         cursor: 'pointer',
                         textDecoration: 'underline',
                         padding: '0',
-                        fontWeight: '600',
-                        alignSelf: 'flex-start'
+                        fontWeight: '600'
                       }}
-                      onClick={() => alert(`Full message:\n\n${item.message}`)}
+                      onClick={() => openViewReplyModal(item)}
                     >
                       View Full
                     </button>
@@ -649,7 +712,9 @@ const CustomerFeedback = () => {
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  height: '100%'
+                  justifyContent: 'flex-start',
+                  height: '100%',
+                  minHeight: '60px'
                 }}>
                   {getStatusBadge(item.status)}
                 </div>
@@ -658,10 +723,11 @@ const CustomerFeedback = () => {
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'flex-start',
                   height: '100%',
                   fontSize: '0.85rem',
                   color: '#6c757d',
-                  lineHeight: '1.4'
+                  lineHeight: '1.2'
                 }}>
                   {formatDate(item.createdAt)}
                 </div>
@@ -669,16 +735,17 @@ const CustomerFeedback = () => {
                 {/* ACTIONS Column */}
                 <div style={{
                   display: 'flex',
-                  gap: '0.5rem',
-                  justifyContent: 'center',
+                  gap: '0.125rem',
+                  justifyContent: 'flex-start',
                   alignItems: 'center',
-                  height: '100%'
+                  height: '100%',
+                  minHeight: '60px'
                 }}>
                   <button
                     style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '4px',
                       border: 'none',
                       color: 'white',
                       background: '#212c59',
@@ -690,42 +757,7 @@ const CustomerFeedback = () => {
                       fontSize: '0.875rem',
                       boxShadow: '0 2px 4px rgba(33, 44, 89, 0.3)'
                     }}
-                    onClick={async () => {
-                      if (item.status === 'replied') {
-                        // Get admin name from JWT token and fetch full name from server
-                        let adminName = 'Admin';
-                        try {
-                          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-                          if (token) {
-                            const payload = JSON.parse(atob(token.split('.')[1]));
-                            const userId = payload.userId;
-                            
-                            // Fetch admin details from server to get fullName
-                            const response = await fetch(`/api/admins/${userId}`, {
-                              headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
-                              }
-                            });
-                            
-                            if (response.ok) {
-                              const adminData = await response.json();
-                              adminName = adminData.fullName || adminData.name || 'Admin';
-                            } else {
-                              // Fallback to email if API call fails
-                              adminName = payload.email || 'Admin';
-                            }
-                          }
-                        } catch (err) {
-                          console.error('Error getting admin name:', err);
-                          // Final fallback
-                          adminName = 'Admin';
-                        }
-                        alert(`${adminName.toUpperCase()} REPLY:\n\n${item.reply}\n\nReplied on: ${formatDate(item.repliedAt)}`);
-                      } else {
-                        alert('No admin reply yet. Status: Pending Reply');
-                      }
-                    }}
+                    onClick={() => openViewReplyModal(item)}
                     title="View Admin Reply"
                     onMouseEnter={(e) => {
                       e.target.style.backgroundColor = '#1e3a8a';
@@ -743,9 +775,9 @@ const CustomerFeedback = () => {
                   {item.status === 'pending' && (
                     <button
                       style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '4px',
                         border: 'none',
                         color: 'white',
                         background: '#28a745',
@@ -798,45 +830,72 @@ const CustomerFeedback = () => {
           padding: '20px',
           boxSizing: 'border-box'
         }}>
-          <div style={{
+          <style>
+            {`
+              .admin-modal .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border: 2px solid #212c59 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.95rem !important;
+              }
+              .admin-modal .admin-btn-primary:hover {
+                background: #212c59 !important;
+                border-color: #212c59 !important;
+                color: white !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
+              }
+              .admin-modal .admin-btn-secondary {
+                background: white !important;
+                color: #b08d57 !important;
+                border: 2px solid #b08d57 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-secondary:hover {
+                background: #f8f6f0 !important;
+                border-color: #b08d57 !important;
+                color: #b08d57 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+              }
+              .admin-modal .admin-btn-primary {
+                font-size: 0.85rem !important;
+              }
+            `}
+          </style>
+          <div className="admin-modal" style={{
             background: 'white',
-            borderRadius: '12px',
-            padding: '24px',
+            borderRadius: '16px', // STANDARDIZED BORDER RADIUS
+            padding: '28px', // STANDARDIZED PADDING
             width: '100%',
-            maxWidth: '600px',
-            maxHeight: 'calc(100vh - 40px)',
+            maxWidth: '550px', // STANDARDIZED WIDTH
+            maxHeight: 'calc(100vh - 30px)', // STANDARDIZED HEIGHT
             overflow: 'auto',
             boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
           }} onClick={(e) => e.stopPropagation()}>
             <div style={{
               display: 'flex',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
               alignItems: 'center',
               marginBottom: '20px',
               paddingBottom: '16px',
               borderBottom: '1px solid #e9ecef'
             }}>
-              <h3 style={{margin: 0, color: '#212c59', fontWeight: '700'}}>Reply to Feedback</h3>
-              <button 
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                  color: '#6c757d',
-                  padding: '4px',
-                  borderRadius: '4px',
-                  transition: 'all 0.2s ease'
-                }}
-                onClick={() => {
-                  setShowReplyModal(false);
-                  setModalError('');
-                }}
-                onMouseOver={(e) => e.target.style.background = '#f8f9fa'}
-                onMouseOut={(e) => e.target.style.background = 'none'}
-              >
-                <X size={20} />
-              </button>
+              <h3 style={{margin: 0, color: '#212c59', fontWeight: '700', textAlign: 'center', fontSize: '1rem'}}>Reply to Feedback</h3>
             </div>
             
             <div style={{marginBottom: '20px'}}>
@@ -847,7 +906,7 @@ const CustomerFeedback = () => {
                 marginBottom: '12px',
                 borderLeft: '3px solid #212c59'
               }}>
-                <strong style={{color: '#212c59'}}>From:</strong> {selectedFeedback.name} ({selectedFeedback.email})
+                <strong style={{color: '#212c59'}}>From:</strong> {selectedFeedback.name} (<span title={`Full email: ${selectedFeedback.email}`}>{maskEmail(selectedFeedback.email)}</span>)
               </div>
               <div style={{
                 background: '#f8f9fa',
@@ -909,48 +968,273 @@ const CustomerFeedback = () => {
                 gap: '12px',
                 justifyContent: 'flex-end'
               }}>
-                                                                   <button
+                                                                                   <button
                     type="button"
-                    style={{
-                      background: 'white',
-                      color: '#212c59',
-                      border: '2px solid #212c59',
-                      padding: '10px 20px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.2s ease'
-                    }}
+                    className="admin-btn admin-btn-secondary"
                     onClick={() => {
                       setShowReplyModal(false);
                       setModalError('');
                     }}
                     disabled={submitting}
-                    onMouseOver={(e) => !submitting && (e.target.style.background = '#f8f9fa')}
-                    onMouseOut={(e) => !submitting && (e.target.style.background = 'white')}
                   >
                     Cancel
                   </button>
-                                 <button
+                 <button
                    type="submit"
-                   style={{
-                     background: '#212c59',
-                     color: 'white',
-                     border: '2px solid #b08d57',
-                     padding: '10px 20px',
-                     borderRadius: '8px',
-                     cursor: 'pointer',
-                     fontWeight: '600',
-                     transition: 'all 0.2s ease'
-                   }}
+                   className="admin-btn admin-btn-primary"
                    disabled={submitting}
-                   onMouseOver={(e) => !submitting && (e.target.style.background = '#1e3a8a')}
-                   onMouseOut={(e) => !submitting && (e.target.style.background = '#212c59')}
                  >
                    {submitting ? 'Sending...' : 'Send Reply'}
                  </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Reply Modal */}
+      {showViewReplyModal && viewingFeedback && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          animation: 'fadeIn 0.3s ease-out',
+          padding: '20px',
+          boxSizing: 'border-box'
+        }}>
+          <style>
+            {`
+              @keyframes fadeIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.95) translateY(-10px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .admin-modal .admin-btn-primary {
+                background: white !important;
+                color: #212c59 !important;
+                border: 2px solid #212c59 !important;
+                border-radius: 8px !important;
+                padding: 12px 24px !important;
+                font-weight: 600 !important;
+                transition: all 0.3s ease !important;
+                cursor: pointer !important;
+                box-shadow: 0 2px 8px rgba(33, 44, 89, 0.1) !important;
+                flex: 1 !important;
+                font-size: 0.85rem !important;
+              }
+              .admin-modal .admin-btn-primary:hover {
+                background: #212c59 !important;
+                border-color: #212c59 !important;
+                color: white !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
+              }
+            `}
+          </style>
+          <div className="admin-modal" style={{
+            background: '#f8f9fa',
+            borderRadius: '16px',
+            padding: '12px 6px',
+            width: '100%',
+            maxWidth: '550px',
+            maxHeight: 'calc(100vh - 40px)',
+            overflow: 'auto',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '8px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #e9ecef',
+              background: '#f8f9fa',
+              paddingTop: '8px',
+              paddingLeft: '12px',
+              paddingRight: '12px'
+            }}>
+              <h3 style={{margin: 0, color: '#212c59', fontWeight: '700', textAlign: 'center', fontSize: '1rem'}}>
+                {viewingFeedback.status === 'replied' ? 'View Admin Reply' : 'Customer Feedback'}
+              </h3>
+            </div>
+            
+            <div style={{padding: '0px', marginBottom: '0px', paddingBottom: '0px', background: '#f8f9fa'}}>
+              <div style={{
+                background: '#f8f9fa',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '12px',
+                marginLeft: '12px',
+                marginRight: '12px',
+                borderLeft: '3px solid #212c59'
+              }}>
+                <strong style={{color: '#212c59'}}>From:</strong> {viewingFeedback.name} (<span title={`Full email: ${viewingFeedback.email}`}>{maskEmail(viewingFeedback.email)}</span>)
+              </div>
+              <div style={{
+                background: '#f8f9fa',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '12px',
+                marginLeft: '12px',
+                marginRight: '12px',
+                borderLeft: '3px solid #28a745'
+              }}>
+                <strong style={{color: '#212c59'}}>Message:</strong>
+                <div style={{marginTop: '8px', color: '#495057', lineHeight: '1.5'}}>{viewingFeedback.message}</div>
+              </div>
+
+              {/* Admin Reply Section */}
+              {viewingFeedback.status === 'replied' && viewingFeedback.reply ? (
+                <div style={{
+                  background: '#ffffff',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  marginBottom: '12px',
+                  marginLeft: '12px',
+                  marginRight: '12px',
+                  borderLeft: '3px solid #212c59',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <strong style={{color: '#212c59', fontSize: '0.9rem'}}>Admin Reply:</strong>
+                  <div style={{marginTop: '8px', color: '#495057', lineHeight: '1.6', fontSize: '0.9rem', whiteSpace: 'pre-wrap'}}>
+                    {viewingFeedback.reply}
+                  </div>
+                  <div style={{marginTop: '12px', fontSize: '0.75rem', color: '#6c757d'}}>
+                    Replied by: <strong>{adminName}</strong> on {viewingFeedback.repliedAt ? formatDate(viewingFeedback.repliedAt) : 'N/A'}
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#fff3cd',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  marginBottom: '12px',
+                  marginLeft: '12px',
+                  marginRight: '12px',
+                  borderLeft: '3px solid #ffc107',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <div style={{color: '#856404', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    <FaClock size={16} />
+                    <strong>Status: Pending Reply</strong>
+                  </div>
+                  <div style={{marginTop: '8px', color: '#856404', fontSize: '0.85rem'}}>
+                    No admin reply has been sent yet for this feedback.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{
+              marginTop: '0px',
+              paddingTop: '0px',
+              justifyContent: 'center',
+              display: 'flex',
+              gap: '12px',
+              paddingLeft: '12px',
+              paddingRight: '12px',
+              paddingBottom: '12px'
+            }}>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary"
+                onClick={() => {
+                  setShowViewReplyModal(false);
+                  setViewingFeedback(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '0.85rem',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer',
+                  border: '2px solid #b08d57',
+                  background: 'white',
+                  color: '#b08d57',
+                  flex: 1,
+                  minWidth: 0,
+                  maxWidth: 'none',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#f8f6f0';
+                  e.target.style.borderColor = '#b08d57';
+                  e.target.style.color = '#b08d57';
+                  e.target.style.transform = 'translateY(-1px)';
+                  e.target.style.boxShadow = '0 4px 8px rgba(176, 141, 87, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'white';
+                  e.target.style.borderColor = '#b08d57';
+                  e.target.style.color = '#b08d57';
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
+                }}
+              >
+                Close
+              </button>
+              {viewingFeedback.status === 'pending' && (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-primary"
+                  onClick={() => {
+                    setShowViewReplyModal(false);
+                    setViewingFeedback(null);
+                    openReplyModal(viewingFeedback);
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '0.85rem',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                    border: '2px solid #28a745',
+                    background: 'white',
+                    color: '#28a745',
+                    flex: 1,
+                    minWidth: 0,
+                    maxWidth: 'none',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#28a745';
+                    e.target.style.color = 'white';
+                    e.target.style.transform = 'translateY(-1px)';
+                    e.target.style.boxShadow = '0 4px 8px rgba(40, 167, 69, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'white';
+                    e.target.style.color = '#28a745';
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                >
+                  Reply
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
