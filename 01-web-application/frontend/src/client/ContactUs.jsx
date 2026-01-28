@@ -1,0 +1,817 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Container, Row, Col, Form, Button } from 'react-bootstrap';
+import { FaFacebookF, FaInstagram, FaTiktok, FaTimes } from 'react-icons/fa';
+import styled from 'styled-components';
+import { useTheme } from 'styled-components';
+import Logo from '../utils/Images/Logo.png';
+import ForContactUsPageImg from '../utils/Images/Contact Us/ForContactUsPage.jpg';
+import SignInForm from './SignInForm';
+import SignUpForm from './SignUpForm';
+import FeedbackSuccessModal from '../components/FeedbackSuccessModal';
+import { useAuth } from '../contexts/AuthContext';
+
+// Styled Components
+const ContactContainer = styled.div`
+  font-family: 'Montserrat', sans-serif;
+  
+  /* Override Bootstrap container padding on mobile */
+  .container {
+    @media (max-width: 768px) {
+      padding-left: 15px !important;
+      padding-right: 15px !important;
+    }
+    
+    @media (max-width: 480px) {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+  }
+  
+  /* Ensure rows have no gutters on mobile */
+  .row {
+    @media (max-width: 768px) {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+  
+  /* Ensure columns have no padding on mobile */
+  .col, .col-md-6 {
+    @media (max-width: 768px) {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+  }
+`;
+
+const HeroSection = styled.div`
+  position: relative;
+  height: 50vh;
+  overflow: hidden;
+  animation: fadeIn 1s ease forwards;
+`;
+
+const HeroImage = styled.img`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+`;
+
+const HeroOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0 20px;
+  z-index: 2;
+  font-family: 'Montserrat', sans-serif;
+
+  h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+  }
+
+  p {
+    font-size: 1.2rem;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+  }
+
+  @media (max-width: 768px) {
+    h1 {
+      font-size: 2.5rem;
+    }
+    
+    p {
+      font-size: 1rem;
+    }
+  }
+`;
+
+const ContentSection = styled.div`
+  background: ${props => props.theme.bgLight};
+  padding: 80px 0;
+  min-height: 100vh;
+`;
+
+const ContactForm = styled.div`
+  background: white;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+  
+  @media (max-width: 768px) {
+    padding: 25px 20px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  }
+  
+  @media (max-width: 480px) {
+    padding: 20px 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Ensure form elements take full width and have proper spacing */
+  .form-control {
+    @media (max-width: 768px) {
+      width: 100% !important;
+      box-sizing: border-box;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+  
+  .form-group {
+    @media (max-width: 768px) {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+  
+  .btn {
+    @media (max-width: 768px) {
+      width: 100% !important;
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+    
+    @media (max-width: 480px) {
+      padding: 10px 16px;
+      font-size: 0.85rem;
+    }
+  }
+  
+  /* Ensure form labels are properly aligned */
+  .form-label {
+    @media (max-width: 768px) {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+`;
+
+const ContactDescription = styled.div`
+  padding: 20px;
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: ${props => props.theme.text_primary};
+
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: ${props => props.theme.brand};
+    margin-bottom: 20px;
+  }
+
+  h5 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: ${props => props.theme.brand};
+    margin-top: 30px;
+    margin-bottom: 15px;
+  }
+
+  ul {
+    list-style-type: disc;
+    padding-left: 20px;
+    margin: 1rem 0;
+  }
+
+  li {
+    margin-bottom: 12px;
+    color: ${props => props.theme.text_secondary};
+    line-height: 1.6;
+  }
+`;
+
+const SocialIcons = styled.div`
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 20px;
+
+  a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    background: white;
+    color: #b08d57;
+    border: 2px solid #b08d57;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(33, 44, 89, 0.3);
+
+    &:hover {
+      background: #b08d57;
+      color: white;
+      border: 2px solid #9a7a4a;
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(176, 141, 87, 0.4);
+    }
+  }
+`;
+
+const Footer = styled.footer`
+  background: #212c59;
+  color: white;
+  text-align: center;
+  padding: 60px 20px;
+  font-family: 'Montserrat', sans-serif;
+
+  .footer-logo {
+    width: 120px;
+    height: auto;
+    margin-bottom: 20px;
+  }
+
+  p {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 15px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .social-icons {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 30px;
+
+    a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      background: white;
+      color: #b08d57;
+      border: 2px solid #b08d57;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(33, 44, 89, 0.3);
+
+      &:hover {
+        background: #b08d57;
+        color: white;
+        border: 2px solid #9a7a4a;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(176, 141, 87, 0.4);
+      }
+    }
+  }
+`;
+
+// Modal Styled Components (copied from Navbar)
+const ModalBackdrop = styled.div`
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(8px) !important;
+  z-index: 2000 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  animation: ${props => props.$isClosing ? 'modalFadeOut 0.3s ease-out' : 'modalFadeIn 0.3s ease-out'} !important;
+  will-change: opacity;
+
+  @keyframes modalFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modalFadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+`;
+
+const ModalContent = styled.div`
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 2.5rem;
+  border-radius: 20px;
+  position: relative;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 
+    0 20px 60px rgba(33, 44, 89, 0.3),
+    0 8px 25px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: ${props => props.$isClosing ? 'none' : 'modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'};
+  transform-origin: center;
+
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.8) translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @media (max-width: 768px) {
+    width: 96% !important;
+    max-width: none !important;
+    padding: 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  @media (max-width: 480px) {
+    width: 98% !important;
+    max-width: none !important;
+    padding: 0.75rem !important;
+    border-radius: 12px !important;
+  }
+`;
+
+const CloseModalButton = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(33, 44, 89, 0.1);
+  border: 2px solid #212c59;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #212c59;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+  font-weight: 600;
+
+  &:hover {
+    background: #212c59;
+    border-color: #212c59;
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
+  }
+`;
+
+const ContactUs = () => {
+  const theme = useTheme();
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
+  const [isModalClosing, setIsModalClosing] = useState(false);
+  const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
+  const [isFormPreFilled, setIsFormPreFilled] = useState(false);
+  const [showFeedbackSuccessModal, setShowFeedbackSuccessModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
+  // Use global auth context
+  const { isAuthenticated, user } = useAuth();
+  
+  // Handle window resize for mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle scroll prevention - using Menu modal approach to avoid flicker
+  const scrollPositionRef = useRef(0);
+  
+  useEffect(() => {
+    // Always prevent background scroll when modals are open OR closing (both desktop and mobile)
+    // This prevents flickering during the closing animation
+    if (showSignIn || showSignUp || isModalClosing) {
+      // Save current scroll position BEFORE any changes
+      scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+      
+      // Prevent scrolling without using position: fixed/relative to avoid jump/flicker
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      
+      // Lock scroll position by setting it on html element
+      document.documentElement.style.scrollBehavior = 'auto';
+      document.documentElement.scrollTop = scrollPositionRef.current;
+    } else {
+      // Modal is fully closed - wait for animation to complete before restoring scroll
+      // Animation is 300ms (fadeOut), so wait slightly longer to ensure it's done
+      const timer = setTimeout(() => {
+        // Restore scrolling - remove styles first
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.scrollBehavior = '';
+        
+        // Restore scroll position AFTER styles are removed
+        const savedPosition = scrollPositionRef.current;
+        if (savedPosition !== undefined && savedPosition !== null) {
+          // Use requestAnimationFrame to ensure smooth restoration
+          requestAnimationFrame(() => {
+            document.documentElement.scrollTop = savedPosition;
+            document.body.scrollTop = savedPosition;
+            
+            // Then use window.scrollTo after a microtask for final positioning
+            Promise.resolve().then(() => {
+              window.scrollTo({
+                top: savedPosition,
+                behavior: 'auto'
+              });
+            });
+          });
+        }
+      }, 300); // Match the closeModal timeout
+      
+      return () => clearTimeout(timer);
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (!showSignIn && !showSignUp && !isModalClosing) {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.scrollBehavior = '';
+      }
+    };
+  }, [showSignIn, showSignUp, isModalClosing]);
+
+  const [formValues, setFormValues] = useState({
+    name: '',
+    email: '',
+    message: '',
+  });
+
+
+  // No need for local user data fetching - using global auth context
+
+  // Function to check auth status and update state
+  // Pre-fill form when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const userName = user.fullName || user.name || user.username || '';
+      const userEmail = user.email || '';
+      
+      if (userName && userEmail) {
+        setFormValues(prev => ({
+          ...prev,
+          name: userName,
+          email: userEmail
+        }));
+        setIsFormPreFilled(true);
+      }
+    } else {
+      setIsFormPreFilled(false);
+    }
+  }, [isAuthenticated, user]);
+
+  // No need for auth checking - using global auth context
+
+  // Debug form values changes
+
+  const validateEmail = (email) => {
+    const validDomains = ['@gmail.com', '@yahoo.com'];
+    return validDomains.some(domain => email.toLowerCase().endsWith(domain));
+  };
+
+  const handleSignInSuccess = (userData) => {
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignIn(false);
+      setShowSignUp(false);
+      setIsModalClosing(false);
+    }, 300);
+    // No need for alerts - user is already logged in
+    console.log('ContactUs: Sign in successful, userData:', userData);
+  };
+
+  const handleSignUpSuccess = (userData) => {
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignIn(false);
+      setShowSignUp(false);
+      setIsModalClosing(false);
+    }, 300);
+    // No need for alerts - user is already logged in
+    console.log('ContactUs: Sign up successful, userData:', userData);
+  };
+
+  const handleSwitchToSignUp = () => {
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignIn(false);
+      setIsModalClosing(false);
+      setShowSignUp(true);
+    }, 300);
+  };
+
+  const handleSwitchToSignIn = () => {
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setShowSignUp(false);
+      setIsModalClosing(false);
+      setShowSignIn(true);
+    }, 300);
+  };
+
+  const handleFormChange = (e) => {
+    // Prevent changes to name and email when logged in
+    if (isAuthenticated && (e.target.name === 'name' || e.target.name === 'email')) {
+      return;
+    }
+    setFormValues({ ...formValues, [e.target.name]: e.target.value });
+  };
+
+  const handleTextboxClick = (e, fieldName) => {
+    // Show sign-in modal if user is not logged in
+    if (!isAuthenticated) {
+      e.preventDefault();
+      e.target.blur(); // Remove focus from the textbox
+      setShowSignIn(true);
+    }
+  };
+
+  const handleTextboxFocus = (e, fieldName) => {
+    // Show sign-in modal if user is not logged in
+    if (!isAuthenticated) {
+      e.preventDefault();
+      e.target.blur(); // Remove focus from the textbox
+      setShowSignIn(true);
+    }
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+
+    // Check if user is logged in
+    if (!isAuthenticated) {
+      setShowSignIn(true);
+      return;
+    }
+
+    // Check if form fields are empty
+    if (!formValues.name.trim() || !formValues.email.trim() || !formValues.message.trim()) {
+      alert('Please fill in all the required fields before sending your message.');
+      return;
+    }
+
+    // Validate email format
+    if (!validateEmail(formValues.email)) {
+      alert('Please use a valid email address');
+      return;
+    }
+
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_URL}/api/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formValues),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setShowFeedbackSuccessModal(true);
+        // Clear only the message field after successful submission, keep name and email if user is logged in
+        setFormValues(prev => ({
+          ...prev,
+          message: ''
+        }));
+      } else {
+        const data = await response.json();
+        alert(data.message || 'Failed to send message. Please try again.');
+      }
+    } catch (error) {
+
+      alert('An error occurred while sending the message. Please try again.');
+    }
+  };
+
+
+
+  return (
+    <ContactContainer>
+      {/* Hero Section */}
+      <HeroSection>
+        <HeroImage src={ForContactUsPageImg} alt="Nomu Cafe Contact Hero" />
+        <HeroOverlay>
+          <h1>CONTACT US</h1>
+          <p>Whether it's feedback or flavor, we'd love to hear from you.</p>
+        </HeroOverlay>
+      </HeroSection>
+
+      {/* Contact Form & Description */}
+      <ContentSection>
+        <Container>
+          <Row className="mb-5 gy-4">
+            <Col md={6} className="order-1 order-md-1">
+              <ContactDescription>
+                <h1>Get in touch</h1>
+                <p>We're all ears and ready to chat! Whether you've got questions, feedback, or just want to say hello, we're here to listen.</p>
+                
+                <ul>
+                  <li>Got thoughts? We're listening.</li>
+                  <li>Curious about our menu? Ask away!</li>
+                  <li>Suggestions to make us better? Bring 'em on.</li>
+                  <li>Just want to say hello? We love that too!</li>
+                </ul>
+
+                {!isAuthenticated && (
+                  <div className="alert alert-info" role="alert" style={{ marginTop: '0', marginBottom: '0' }}>
+                    <h5>Why Sign In?</h5>
+                    <p className="mb-2">Signing in helps us:</p>
+                    <ul className="mb-0" style={{ fontSize: '0.9em' }}>
+                      <li>Provide personalized responses to your inquiries</li>
+                      <li>Keep track of your previous interactions with us</li>
+                      <li>Ensure the authenticity of feedback</li>
+                      <li>Protect against spam and automated messages</li>
+                    </ul>
+                  </div>
+                )}
+
+                <h5>Follow Us</h5>
+                <SocialIcons>
+                  <a href="https://www.facebook.com/nomuPH" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                    <FaFacebookF />
+                  </a>
+                  <a href="https://www.instagram.com/nomu.ph/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                    <FaInstagram />
+                  </a>
+                  <a href="https://www.tiktok.com/@nomu.ph" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                    <FaTiktok />
+                  </a>
+                </SocialIcons>
+              </ContactDescription>
+            </Col>
+
+            <Col md={6} className="order-2 order-md-2">
+              <ContactForm>
+                <Form onSubmit={handleFormSubmit}>
+                  <Form.Group controlId="formName" className="mb-3">
+                    <Form.Label>Name</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Your Name"
+                      name="name"
+                      value={formValues.name}
+                      onChange={handleFormChange}
+                      onClick={(e) => handleTextboxClick(e, 'name')}
+                      onFocus={(e) => handleTextboxFocus(e, 'name')}
+                      readOnly={isAuthenticated}
+                      style={isAuthenticated ? { 
+                        backgroundColor: '#e9ecef', 
+                        cursor: 'not-allowed',
+                        borderColor: '#ced4da'
+                      } : {}}
+                    />
+                  </Form.Group>
+
+                  <Form.Group controlId="formEmail" className="mb-3">
+                    <Form.Label>Email</Form.Label>
+                    <Form.Control
+                      type="email"
+                      placeholder="Your Email"
+                      name="email"
+                      value={formValues.email}
+                      onChange={handleFormChange}
+                      onClick={(e) => handleTextboxClick(e, 'email')}
+                      onFocus={(e) => handleTextboxFocus(e, 'email')}
+                      readOnly={isAuthenticated}
+                      style={isAuthenticated ? { 
+                        backgroundColor: '#e9ecef', 
+                        cursor: 'not-allowed',
+                        borderColor: '#ced4da'
+                      } : {}}
+                    />
+                  </Form.Group>
+
+                  <Form.Group controlId="formMessage" className="mb-3">
+                    <Form.Label>Message</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={4}
+                      placeholder="Your Message"
+                      name="message"
+                      value={formValues.message}
+                      onChange={handleFormChange}
+                      onClick={(e) => handleTextboxClick(e, 'message')}
+                      onFocus={(e) => handleTextboxFocus(e, 'message')}
+                    />
+                  </Form.Group>
+
+                  <Button 
+                    className="contact-button-blue" 
+                    type="submit"
+                  >
+                    Send Feedback
+                  </Button>
+                </Form>
+              </ContactForm>
+            </Col>
+          </Row>
+        </Container>
+      </ContentSection>
+
+      {/* Footer */}
+      <Footer>
+        <img src={Logo} alt="Nomu Cafe Logo" className="footer-logo" />
+        <p>Not just a café. A feeling you'll come back for.</p>
+        <p>A place where every sip tells a story, and every visit feels like coming home.</p>
+        <p>Crafted with care, rooted in Japanese flavors, and always served with warmth.</p>
+        <nav aria-label="Social media links">
+          <div className="social-icons">
+            <a href="https://www.facebook.com/nomuPH" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+              <FaFacebookF />
+            </a>
+            <a href="https://www.instagram.com/nomu.ph/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+              <FaInstagram />
+            </a>
+            <a href="https://www.tiktok.com/@nomu.ph" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+              <FaTiktok />
+            </a>
+          </div>
+        </nav>
+      </Footer>
+
+      {/* Sign In/Sign Up Modal */}
+      {(showSignIn || showSignUp || isModalClosing) && (
+        <ModalBackdrop $isClosing={isModalClosing}>
+          <ModalContent $isClosing={isModalClosing} onClick={e => e.stopPropagation()}>
+            {showSignIn ? (
+              <SignInForm
+                preventRedirect={true}
+                onSubmit={handleSignInSuccess}
+                onSwitch={handleSwitchToSignUp}
+                onOTPStateChange={setIsOTPFormShowing}
+              />
+            ) : (
+              <SignUpForm
+                preventRedirect={true}
+                onSubmit={handleSignUpSuccess}
+                onSwitch={handleSwitchToSignIn}
+                onOTPStateChange={setIsOTPFormShowing}
+              />
+            )}
+            {!isOTPFormShowing && (
+              <CloseModalButton onClick={() => {
+                setIsModalClosing(true);
+                setTimeout(() => {
+                  setShowSignIn(false);
+                  setShowSignUp(false);
+                  setIsModalClosing(false);
+                }, 300);
+              }}>
+                <FaTimes />
+              </CloseModalButton>
+            )}
+          </ModalContent>
+        </ModalBackdrop>
+      )}
+
+      {/* Feedback Success Modal */}
+      <FeedbackSuccessModal 
+        isOpen={showFeedbackSuccessModal} 
+        onClose={() => setShowFeedbackSuccessModal(false)} 
+      />
+
+    </ContactContainer>
+  );
+};
+
+export default ContactUs;

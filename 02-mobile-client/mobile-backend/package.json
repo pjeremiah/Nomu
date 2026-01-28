@@ -1,0 +1,42 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "migrate": "node migration.js",
+    "run-migration": "node run-migration.js",
+    "migrate-promo-images": "node migrate-promo-images.js",
+    "verify-gridfs": "node verify-gridfs-endpoints.js",
+    "debug-gridfs": "node debug-gridfs.js",
+    "find-database": "node find-correct-database.js",
+    "test-endpoints": "node test-endpoints.js",
+    "install-deps": "npm install --legacy-peer-deps"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^2.2.0",
+    "bonjour": "^3.5.0",
+    "cors": "^2.8.5",
+    "dialogflow": "^1.2.0",
+    "directly": "^2.0.6",
+    "dotenv": "^17.2.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.1.0",
+    "gridfs-stream": "^1.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.15.1",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.1",
+    "multer-gridfs-storage": "^5.0.2",
+    "nodemailer": "^7.0.5",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  }
+}
