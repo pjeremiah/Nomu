@@ -339,12 +339,10 @@ const ModalOverlay = styled.div`
   }
   
   @media (max-width: 768px) {
-    /* Mobile-specific improvements */
+    /* Mobile: allow modal content to scroll; don't block touch */
     width: 100vw !important;
     height: 100vh !important;
     overflow: hidden !important;
-    touch-action: none !important;
-    overscroll-behavior: none !important;
     padding: 0 !important;
   }
 `;
@@ -385,17 +383,18 @@ const ModalContent = styled.div`
   }
   
   @media (max-width: 768px) {
-    /* Mobile-specific improvements */
+    /* Mobile: fixed 100vh so content overflows and user can scroll to bottom of post */
     max-width: 100vw !important;
     max-height: 100vh !important;
     width: 100vw !important;
     height: 100vh !important;
     border-radius: 0 !important;
     flex-direction: column !important;
-    min-height: 100vh !important;
     overflow-y: auto !important;
+    overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
+    overscroll-behavior-y: contain !important;
   }
 `;
 
@@ -506,6 +505,13 @@ const MediaSection = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+
+  /* Mobile only: fixed height so modal content can scroll to bottom */
+  @media (max-width: 768px) {
+    flex: 0 0 auto;
+    min-height: 55vh;
+    max-height: 70vh;
+  }
 `;
 
 const MediaContainer = styled.div`
@@ -589,6 +595,11 @@ const InnerNavButton = styled.button`
     opacity: 0.3;
     cursor: not-allowed;
   }
+
+  /* Mobile only: hide arrows – use swipe instead */
+  @media (max-width: 768px) {
+    display: none !important;
+  }
 `;
 
 const InnerLeftArrow = styled(InnerNavButton)`
@@ -658,13 +669,13 @@ const DetailsSection = styled.div`
   }
   
   @media (max-width: 768px) {
-    flex: 1;
+    flex: 0 0 auto; /* Don't grow/shrink – height = content so modal can scroll to bottom */
     flex-basis: auto;
     min-width: 0;
+    min-height: 0;
     border-left: none;
     border-top: 1px solid #e9ecef;
-    min-height: 0; /* Allow flex item to shrink */
-    overflow: hidden; /* Enable scrolling within this section */
+    overflow: visible;
   }
 `;
 
@@ -1255,6 +1266,57 @@ const MobileCommentBackdrop = styled.div`
   }
 `;
 
+/* Mobile only: fullscreen image/video overlay when user taps media */
+const MobileFullscreenOverlay = styled.div`
+  display: none;
+  @media (max-width: 768px) {
+    display: ${props => props.$open ? 'flex' : 'none'};
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #000;
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 50px 0 20px;
+    box-sizing: border-box;
+  }
+`;
+
+const MobileFullscreenMedia = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  img, video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+`;
+
+const MobileFullscreenClose = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 2001;
+  padding: 0;
+`;
+
 const ViewMoreComments = styled.div`
   font-size: 14px;
   color: #8e8e8e;
@@ -1451,7 +1513,12 @@ const Gallery = () => {
   const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
   const [isModalClosing, setIsModalClosing] = useState(false);
   const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
-  
+  const [showMobileImageFullscreen, setShowMobileImageFullscreen] = useState(false);
+
+  /* Mobile only: swipe vs tap – refs to avoid opening fullscreen when user swiped */
+  const touchStartXRef = useRef(0);
+  const swipeHandledRef = useRef(false);
+
   // Use global auth context
   const { isAuthenticated, user, checkAuthentication, login } = useAuth();
   
@@ -1725,11 +1792,12 @@ const Gallery = () => {
       
       // Add event listeners to prevent scroll on background only
       const preventScroll = (e) => {
-        // Allow scrolling inside modal content
+        // Allow scrolling inside modal content (gallery post modal + sign-in/sign-up modals)
         const target = e.target;
         const isInsideModal = target.closest('.signin-modal-content') || 
                               target.closest('[class*="ModalContent"]') ||
-                              target.closest('[class*="AuthModalContent"]');
+                              target.closest('[class*="AuthModalContent"]') ||
+                              target.closest('[data-gallery-modal]'); // gallery post modal – allow touch scroll on mobile
         
         if (!isInsideModal) {
           e.preventDefault();
@@ -2139,6 +2207,7 @@ const Gallery = () => {
     setCurrentMediaIndex(0);
     setCurrentPostIndex(0);
     setShowMobileComments(false);
+    setShowMobileImageFullscreen(false);
     setExpandedComments({}); // Reset expanded comments when modal closes
   };
 
@@ -2292,11 +2361,34 @@ const Gallery = () => {
       {/* Instagram-style Post Detail Modal */}
       {showModal && selectedPost && (
         <ModalOverlay>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalContent data-gallery-modal onClick={(e) => e.stopPropagation()}>
             {/* Left Side - Media Section */}
             <MediaSection>
-              <MediaContainer>
-                <MainMedia>
+              <MediaContainer
+                {...(isMobile && {
+                  onTouchStart: (e) => {
+                    touchStartXRef.current = e.touches[0].clientX;
+                    swipeHandledRef.current = false;
+                  },
+                  onTouchEnd: (e) => {
+                    if (selectedPost.media.length > 1) {
+                      const delta = touchStartXRef.current - e.changedTouches[0].clientX;
+                      if (Math.abs(delta) > 50) {
+                        if (delta > 0) nextMedia();
+                        else prevMedia();
+                        swipeHandledRef.current = true;
+                      }
+                    }
+                  },
+                  onClick: (e) => {
+                    if (!isMobile) return;
+                    if (swipeHandledRef.current) return;
+                    if (e.target.closest('button')) return;
+                    if (e.target.closest('[data-media-tap]')) setShowMobileImageFullscreen(true);
+                  }
+                })}
+              >
+                <MainMedia data-media-tap={isMobile ? '' : undefined} style={isMobile ? { cursor: 'pointer' } : undefined}>
                   {selectedPost.media[currentMediaIndex].type === 'video' ? (
                     <MainVideo 
                       key={`video-${selectedPost._id}-${currentMediaIndex}`}
@@ -2560,6 +2652,47 @@ const Gallery = () => {
               </DetailsBody>
             </DetailsSection>
           </ModalContent>
+
+          {/* Mobile only: fullscreen image/video when user taps media */}
+          {isMobile && showMobileImageFullscreen && (
+            <MobileFullscreenOverlay
+              $open={true}
+              onClick={() => setShowMobileImageFullscreen(false)}
+              role="button"
+              tabIndex={0}
+              aria-label="Close fullscreen"
+            >
+              <MobileFullscreenClose
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMobileImageFullscreen(false);
+                }}
+                aria-label="Close"
+              >
+                <FaTimes />
+              </MobileFullscreenClose>
+              <MobileFullscreenMedia onClick={(e) => e.stopPropagation()}>
+                {selectedPost.media[currentMediaIndex].type === 'video' ? (
+                  <MainVideo
+                    key={`fs-video-${selectedPost._id}-${currentMediaIndex}`}
+                    controls
+                    controlsList="nodownload nofullscreen noremoteplayback"
+                    disablePictureInPicture
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <source src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`} type={selectedPost.media[currentMediaIndex].mimetype} />
+                  </MainVideo>
+                ) : (
+                  <MainImage
+                    key={`fs-image-${selectedPost._id}-${currentMediaIndex}`}
+                    src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`}
+                    alt={`Media ${currentMediaIndex + 1}`}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
+              </MobileFullscreenMedia>
+            </MobileFullscreenOverlay>
+          )}
         </ModalOverlay>
       )}
 
