@@ -383,11 +383,13 @@ const ModalContent = styled.div`
   }
   
   @media (max-width: 768px) {
-    /* Mobile: fixed 100vh so content overflows and user can scroll to bottom of post */
+    /* Mobile: fixed height so content overflows and user can scroll to bottom of post */
     max-width: 100vw !important;
     max-height: 100vh !important;
+    max-height: 100dvh !important;
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important;
     border-radius: 0 !important;
     flex-direction: column !important;
     overflow-y: auto !important;
@@ -1331,26 +1333,36 @@ const MobileFullscreenOverlay = styled.div`
     left: 0;
     right: 0;
     bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
     background: #000;
     z-index: 2000;
     align-items: center;
     justify-content: center;
-    padding: 50px 0 20px;
+    padding: 0;
     box-sizing: border-box;
+    overflow: hidden;
   }
 `;
 
 const MobileFullscreenMedia = styled.div`
-  width: 100%;
+  width: 100vw;
   height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   position: relative;
+  flex: 1;
   img, video {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    max-height: 100dvh;
     object-fit: contain;
   }
 `;
@@ -1376,8 +1388,8 @@ const MobileFullscreenSlide = styled.div`
 
 const MobileFullscreenClose = styled.button`
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: max(16px, env(safe-area-inset-top, 16px));
+  right: max(16px, env(safe-area-inset-right, 16px));
   background: rgba(255, 255, 255, 0.2);
   border: 2px solid rgba(255, 255, 255, 0.8);
   color: white;
@@ -1602,6 +1614,7 @@ const Gallery = () => {
   const swipeHandledRef = useRef(false);
   const fullscreenTouchStartXRef = useRef(0);
   const fullscreenHadPinchRef = useRef(false);
+  const modalContentRef = useRef(null);
 
   // Use global auth context
   const { isAuthenticated, user, checkAuthentication, login } = useAuth();
@@ -1683,6 +1696,20 @@ const Gallery = () => {
   useEffect(() => {
     setMobileZoomScale(1);
   }, [currentMediaIndex, showMobileImageFullscreen]);
+
+  /* Mobile only: scroll modal to top when opened so user can scroll to see whole post (fixes opening from top of gallery page) */
+  useEffect(() => {
+    if (!isMobile || !showModal || !selectedPost) return;
+    const el = modalContentRef.current;
+    if (!el) return;
+    const scrollToTop = () => {
+      el.scrollTo(0, 0);
+    };
+    scrollToTop();
+    requestAnimationFrame(scrollToTop);
+    const t = setTimeout(scrollToTop, 50);
+    return () => clearTimeout(t);
+  }, [isMobile, showModal, selectedPost]);
 
   // Clear likes when user logs out
   useEffect(() => {
@@ -2478,7 +2505,7 @@ const Gallery = () => {
       {/* Instagram-style Post Detail Modal */}
       {showModal && selectedPost && (
         <ModalOverlay>
-          <ModalContent data-gallery-modal onClick={(e) => e.stopPropagation()}>
+          <ModalContent ref={modalContentRef} data-gallery-modal onClick={(e) => e.stopPropagation()}>
             {/* Left Side - Media Section */}
             <MediaSection>
               <MediaContainer
@@ -2885,16 +2912,16 @@ const Gallery = () => {
               >
                 <MobileFullscreenStrip
                   style={{
-                    width: `${selectedPost.media.length * 100}%`,
-                    transform: `translateX(-${(currentMediaIndex / selectedPost.media.length) * 100}%)`
+                    width: `${selectedPost.media.length * 100}vw`,
+                    transform: `translateX(-${currentMediaIndex * 100}vw)`
                   }}
                 >
                   {selectedPost.media.map((mediaItem, index) => (
                     <MobileFullscreenSlide
                       key={`fs-${selectedPost._id}-${index}`}
                       style={{
-                        width: `${100 / selectedPost.media.length}%`,
-                        flexBasis: `${100 / selectedPost.media.length}%`,
+                        width: '100vw',
+                        flexBasis: '100vw',
                         flexShrink: 0
                       }}
                     >
