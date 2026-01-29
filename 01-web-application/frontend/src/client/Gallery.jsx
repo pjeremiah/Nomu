@@ -506,11 +506,11 @@ const MediaSection = styled.div`
   align-items: center;
   justify-content: center;
 
-  /* Mobile only: fixed height so modal content can scroll to bottom */
+  /* Mobile only: one full-width slide, enough height so images fit */
   @media (max-width: 768px) {
     flex: 0 0 auto;
-    min-height: 55vh;
-    max-height: 70vh;
+    min-height: 60vh;
+    max-height: 75vh;
   }
 `;
 
@@ -521,6 +521,56 @@ const MediaContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+`;
+
+/* Instagram-like smooth slide strip (desktop + mobile) */
+const MediaStripWrapper = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  /* Mobile only: force one slide per view, avoid flex % issues */
+  @media (max-width: 768px) {
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+`;
+
+const MediaStrip = styled.div`
+  display: flex;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+  /* width set inline: n * 100% (desktop) or n * 100vw (mobile) */
+`;
+
+const MediaSlide = styled.div`
+  flex: 0 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-width: 0;
+  /* width set inline per slide */
+`;
+
+/* Mobile only: pinch-zoom wrapper */
+const MobileZoomWrapper = styled.div`
+  display: none;
+  @media (max-width: 768px) {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 `;
 
 const MainMedia = styled.div`
@@ -685,6 +735,11 @@ const DetailsHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+
+  /* Mobile only: safe area so close button isn't cut off */
+  @media (max-width: 768px) {
+    padding-top: max(16px, env(safe-area-inset-top, 16px));
+  }
 `;
 
 const Username = styled.div`
@@ -1291,11 +1346,32 @@ const MobileFullscreenMedia = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  position: relative;
   img, video {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
   }
+`;
+
+/* Fullscreen strip – same smooth transition */
+const MobileFullscreenStrip = styled.div`
+  display: flex;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+  /* width set inline: n * 100% */
+`;
+
+const MobileFullscreenSlide = styled.div`
+  flex: 0 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  /* width set inline per slide: (100/n)% */
 `;
 
 const MobileFullscreenClose = styled.button`
@@ -1515,9 +1591,17 @@ const Gallery = () => {
   const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
   const [showMobileImageFullscreen, setShowMobileImageFullscreen] = useState(false);
 
+  /* Mobile only: pinch-to-zoom */
+  const [mobileZoomScale, setMobileZoomScale] = useState(1);
+  const pinchStartDistanceRef = useRef(0);
+  const pinchStartScaleRef = useRef(1);
+  const pinchHandledRef = useRef(false);
+
   /* Mobile only: swipe vs tap – refs to avoid opening fullscreen when user swiped */
   const touchStartXRef = useRef(0);
   const swipeHandledRef = useRef(false);
+  const fullscreenTouchStartXRef = useRef(0);
+  const fullscreenHadPinchRef = useRef(false);
 
   // Use global auth context
   const { isAuthenticated, user, checkAuthentication, login } = useAuth();
@@ -1594,6 +1678,11 @@ const Gallery = () => {
       fetchLikes(selectedPost._id);
     }
   }, [selectedPost, isAuthenticated]);
+
+  /* Reset mobile zoom when changing media or closing fullscreen */
+  useEffect(() => {
+    setMobileZoomScale(1);
+  }, [currentMediaIndex, showMobileImageFullscreen]);
 
   // Clear likes when user logs out
   useEffect(() => {
@@ -2189,6 +2278,34 @@ const Gallery = () => {
     }
   };
 
+  /* Mobile only: pinch distance helper */
+  const getPinchDistance = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    return Math.hypot(touches[1].clientX - touches[0].clientX, touches[1].clientY - touches[0].clientY);
+  };
+
+  /* Mobile only: pinch-to-zoom handlers */
+  const handlePinchStart = (e) => {
+    if (e.touches.length === 2) {
+      pinchStartDistanceRef.current = getPinchDistance(e.touches);
+      pinchStartScaleRef.current = mobileZoomScale;
+      pinchHandledRef.current = true;
+    }
+  };
+  const handlePinchMove = (e) => {
+    if (e.touches.length === 2 && pinchStartDistanceRef.current > 0) {
+      e.preventDefault();
+      pinchHandledRef.current = true;
+      const dist = getPinchDistance(e.touches);
+      const scale = (dist / pinchStartDistanceRef.current) * pinchStartScaleRef.current;
+      setMobileZoomScale(Math.min(Math.max(scale, 0.5), 4));
+    }
+  };
+  const handlePinchEnd = () => {
+    pinchStartDistanceRef.current = 0;
+    setTimeout(() => { pinchHandledRef.current = false; }, 100);
+  };
+
   const handlePostClick = (post, postIndex) => {
     setSelectedPost(post);
     setCurrentPostIndex(postIndex);
@@ -2382,40 +2499,107 @@ const Gallery = () => {
                   },
                   onClick: (e) => {
                     if (!isMobile) return;
-                    if (swipeHandledRef.current) return;
+                    if (swipeHandledRef.current || pinchHandledRef.current) return;
                     if (e.target.closest('button')) return;
                     if (e.target.closest('[data-media-tap]')) setShowMobileImageFullscreen(true);
                   }
                 })}
               >
-                <MainMedia data-media-tap={isMobile ? '' : undefined} style={isMobile ? { cursor: 'pointer' } : undefined}>
-                  {selectedPost.media[currentMediaIndex].type === 'video' ? (
-                    <MainVideo 
-                      key={`video-${selectedPost._id}-${currentMediaIndex}`}
-                      controls
-                      controlsList="nodownload nofullscreen noremoteplayback"
-                      disablePictureInPicture
-                      onLoadedMetadata={(e) => {
-                        const video = e.target;
-                        const isPortrait = video.videoHeight > video.videoWidth;
-                        video.classList.toggle('video-portrait', isPortrait);
-                        video.classList.toggle('video-landscape', !isPortrait);
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        return false;
-                      }}
-                    >
-                      <source src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`} type={selectedPost.media[currentMediaIndex].mimetype} />
-                    </MainVideo>
-                  ) : (
-                    <MainImage 
-                      key={`image-${selectedPost._id}-${currentMediaIndex}`}
-                      src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`} 
-                      alt={`Media ${currentMediaIndex + 1}`}
-                    />
-                  )}
-                </MainMedia>
+                <MediaStripWrapper>
+                  <MediaStrip
+                    style={
+                      isMobile
+                        ? {
+                            width: `${selectedPost.media.length * 100}vw`,
+                            transform: `translateX(-${currentMediaIndex * 100}vw)`
+                          }
+                        : {
+                            width: `${selectedPost.media.length * 100}%`,
+                            transform: `translateX(-${(currentMediaIndex / selectedPost.media.length) * 100}%)`
+                          }
+                    }
+                  >
+                    {selectedPost.media.map((mediaItem, index) => (
+                      <MediaSlide
+                        key={`${selectedPost._id}-${index}`}
+                        style={
+                          isMobile
+                            ? { width: '100vw', flexBasis: '100vw', flexShrink: 0 }
+                            : {
+                                width: `${100 / selectedPost.media.length}%`,
+                                flexBasis: `${100 / selectedPost.media.length}%`,
+                                flexShrink: 0
+                              }
+                        }
+                      >
+                        {isMobile ? (
+                          <MobileZoomWrapper
+                            onTouchStart={handlePinchStart}
+                            onTouchMove={handlePinchMove}
+                            onTouchEnd={handlePinchEnd}
+                            onTouchCancel={handlePinchEnd}
+                            style={{ touchAction: 'none' }}
+                          >
+                            <MainMedia
+                              data-media-tap=""
+                              style={{ cursor: 'pointer', transform: `scale(${mobileZoomScale})`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}
+                            >
+                              {mediaItem.type === 'video' ? (
+                                <MainVideo
+                                  key={`video-${selectedPost._id}-${index}`}
+                                  controls
+                                  controlsList="nodownload nofullscreen noremoteplayback"
+                                  disablePictureInPicture
+                                  onLoadedMetadata={(e) => {
+                                    const video = e.target;
+                                    const isPortrait = video.videoHeight > video.videoWidth;
+                                    video.classList.toggle('video-portrait', isPortrait);
+                                    video.classList.toggle('video-landscape', !isPortrait);
+                                  }}
+                                  onContextMenu={(e) => { e.preventDefault(); return false; }}
+                                >
+                                  <source src={`${API_BASE}${mediaItem.url}`} type={mediaItem.mimetype} />
+                                </MainVideo>
+                              ) : (
+                                <MainImage
+                                  key={`image-${selectedPost._id}-${index}`}
+                                  src={`${API_BASE}${mediaItem.url}`}
+                                  alt={`Media ${index + 1}`}
+                                />
+                              )}
+                            </MainMedia>
+                          </MobileZoomWrapper>
+                        ) : (
+                          <MainMedia>
+                            {mediaItem.type === 'video' ? (
+                              <MainVideo
+                                key={`video-${selectedPost._id}-${index}`}
+                                controls
+                                controlsList="nodownload nofullscreen noremoteplayback"
+                                disablePictureInPicture
+                                onLoadedMetadata={(e) => {
+                                  const video = e.target;
+                                  const isPortrait = video.videoHeight > video.videoWidth;
+                                  video.classList.toggle('video-portrait', isPortrait);
+                                  video.classList.toggle('video-landscape', !isPortrait);
+                                }}
+                                onContextMenu={(e) => { e.preventDefault(); return false; }}
+                              >
+                                <source src={`${API_BASE}${mediaItem.url}`} type={mediaItem.mimetype} />
+                              </MainVideo>
+                            ) : (
+                              <MainImage
+                                key={`image-${selectedPost._id}-${index}`}
+                                src={`${API_BASE}${mediaItem.url}`}
+                                alt={`Media ${index + 1}`}
+                              />
+                            )}
+                          </MainMedia>
+                        )}
+                      </MediaSlide>
+                    ))}
+                  </MediaStrip>
+                </MediaStripWrapper>
 
                 {/* Inner Navigation Arrows (for multiple media in same post) */}
                 {selectedPost.media.length > 1 && (
@@ -2653,7 +2837,7 @@ const Gallery = () => {
             </DetailsSection>
           </ModalContent>
 
-          {/* Mobile only: fullscreen image/video when user taps media */}
+          {/* Mobile only: fullscreen – swipeable strip, pinch zoom, smooth transition */}
           {isMobile && showMobileImageFullscreen && (
             <MobileFullscreenOverlay
               $open={true}
@@ -2671,24 +2855,89 @@ const Gallery = () => {
               >
                 <FaTimes />
               </MobileFullscreenClose>
-              <MobileFullscreenMedia onClick={(e) => e.stopPropagation()}>
-                {selectedPost.media[currentMediaIndex].type === 'video' ? (
-                  <MainVideo
-                    key={`fs-video-${selectedPost._id}-${currentMediaIndex}`}
-                    controls
-                    controlsList="nodownload nofullscreen noremoteplayback"
-                    disablePictureInPicture
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <source src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`} type={selectedPost.media[currentMediaIndex].mimetype} />
-                  </MainVideo>
-                ) : (
-                  <MainImage
-                    key={`fs-image-${selectedPost._id}-${currentMediaIndex}`}
-                    src={`${API_BASE}${selectedPost.media[currentMediaIndex].url}`}
-                    alt={`Media ${currentMediaIndex + 1}`}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+              <MobileFullscreenMedia
+                onClick={(e) => e.stopPropagation()}
+                onTouchStart={(e) => {
+                  if (e.touches.length === 1) {
+                    fullscreenTouchStartXRef.current = e.touches[0].clientX;
+                    fullscreenHadPinchRef.current = false;
+                  }
+                  if (e.touches.length === 2) handlePinchStart(e);
+                }}
+                onTouchMove={(e) => {
+                  if (e.touches.length === 2) {
+                    fullscreenHadPinchRef.current = true;
+                    handlePinchMove(e);
+                  }
+                }}
+                onTouchEnd={(e) => {
+                  if (e.touches.length === 2) handlePinchEnd();
+                  if (e.changedTouches.length === 1 && selectedPost.media.length > 1 && !fullscreenHadPinchRef.current) {
+                    const delta = fullscreenTouchStartXRef.current - e.changedTouches[0].clientX;
+                    if (Math.abs(delta) > 50) {
+                      if (delta > 0) nextMedia();
+                      else prevMedia();
+                    }
+                  }
+                }}
+                onTouchCancel={() => handlePinchEnd()}
+                style={{ touchAction: 'none' }}
+              >
+                <MobileFullscreenStrip
+                  style={{
+                    width: `${selectedPost.media.length * 100}%`,
+                    transform: `translateX(-${(currentMediaIndex / selectedPost.media.length) * 100}%)`
+                  }}
+                >
+                  {selectedPost.media.map((mediaItem, index) => (
+                    <MobileFullscreenSlide
+                      key={`fs-${selectedPost._id}-${index}`}
+                      style={{
+                        width: `${100 / selectedPost.media.length}%`,
+                        flexBasis: `${100 / selectedPost.media.length}%`,
+                        flexShrink: 0
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transform: `scale(${mobileZoomScale})`,
+                          transformOrigin: 'center center',
+                          transition: 'transform 0.1s ease-out'
+                        }}
+                      >
+                        {mediaItem.type === 'video' ? (
+                          <MainVideo
+                            key={`fs-video-${selectedPost._id}-${index}`}
+                            controls
+                            controlsList="nodownload nofullscreen noremoteplayback"
+                            disablePictureInPicture
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <source src={`${API_BASE}${mediaItem.url}`} type={mediaItem.mimetype} />
+                          </MainVideo>
+                        ) : (
+                          <MainImage
+                            key={`fs-image-${selectedPost._id}-${index}`}
+                            src={`${API_BASE}${mediaItem.url}`}
+                            alt={`Media ${index + 1}`}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </MobileFullscreenSlide>
+                  ))}
+                </MobileFullscreenStrip>
+                {selectedPost.media.length > 1 && (
+                  <MediaIndicator style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 2002 }}>
+                    {selectedPost.media.map((_, index) => (
+                      <Dot key={index} active={index === currentMediaIndex} />
+                    ))}
+                  </MediaIndicator>
                 )}
               </MobileFullscreenMedia>
             </MobileFullscreenOverlay>
