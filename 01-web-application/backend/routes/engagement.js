@@ -151,28 +151,31 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Create comment
+    // Create comment (ensure postId is valid for ref)
     const comment = await Comment.create({
       user: userId,
       post: postId,
       content: content.trim()
     });
 
-    // Populate user details
+    // Populate user details and return same shape as GET comments
     await comment.populate('user', 'fullName profilePicture');
+
+    const userDoc = comment.user;
+    const commentPayload = {
+      id: String(comment._id),
+      content: comment.content,
+      user: {
+        id: userDoc?._id ? String(userDoc._id) : String(userId),
+        name: userDoc?.fullName ?? 'Unknown',
+        profilePicture: userDoc?.profilePicture ?? ''
+      },
+      createdAt: comment.createdAt
+    };
 
     res.status(201).json({
       message: 'Comment added successfully',
-      comment: {
-        id: comment._id,
-        content: comment.content,
-        user: {
-          id: comment.user._id,
-          name: comment.user.fullName,
-          profilePicture: comment.user.profilePicture
-        },
-        createdAt: comment.createdAt
-      }
+      comment: commentPayload
     });
   } catch (error) {
     console.error('❌ Error adding comment:', error);
@@ -180,33 +183,41 @@ router.post('/comment/:postId', authMiddleware, async (req, res) => {
   }
 });
 
-// Get comments for a post
+// Get comments for a post (no auth required - comments are public)
 router.get('/comments/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 100 } = req.query;
 
     const comments = await Comment.find({ post: postId })
       .populate('user', 'fullName profilePicture')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(Number(limit) || 100)
+      .skip((Number(page) - 1) * (Number(limit) || 100))
+      .lean();
 
     const totalComments = await Comment.countDocuments({ post: postId });
 
-    res.json({
-      comments: comments.map(comment => ({
-        id: comment._id,
-        content: comment.content,
+    const normalizedComments = comments.map(comment => {
+      const userId = comment.user?._id ?? comment.user;
+      const userName = comment.user?.fullName ?? 'Unknown';
+      const userProfile = comment.user?.profilePicture ?? '';
+      return {
+        id: String(comment._id),
+        content: comment.content || '',
         user: {
-          id: comment.user._id,
-          name: comment.user.fullName,
-          profilePicture: comment.user.profilePicture
+          id: userId ? String(userId) : '',
+          name: userName,
+          profilePicture: userProfile
         },
         createdAt: comment.createdAt
-      })),
+      };
+    });
+
+    res.json({
+      comments: normalizedComments,
       totalComments,
-      hasMore: totalComments > page * limit
+      hasMore: totalComments > Number(page) * (Number(limit) || 100)
     });
   } catch (error) {
     console.error('Error fetching comments:', error);

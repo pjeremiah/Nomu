@@ -1916,13 +1916,17 @@ const Gallery = () => {
       
       if (response.ok) {
         const data = await response.json();
+        const list = Array.isArray(data?.comments) ? data.comments : [];
         setComments(prev => ({
           ...prev,
-          [postId]: data.comments
+          [postId]: list
         }));
+      } else {
+        setComments(prev => ({ ...prev, [postId]: [] }));
       }
     } catch (error) {
       console.error('Error fetching comments:', error);
+      setComments(prev => ({ ...prev, [postId]: [] }));
     }
   };
 
@@ -2029,10 +2033,13 @@ const Gallery = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setComments(prev => ({
-          ...prev,
-          [postId]: [data.comment, ...(prev[postId] || [])]
-        }));
+        const added = data?.comment;
+        if (added) {
+          setComments(prev => ({
+            ...prev,
+            [postId]: [{ ...added, id: String(added.id) }, ...(prev[postId] || [])]
+          }));
+        }
         setEngagementStats(prev => ({
           ...prev,
           [postId]: {
@@ -2041,6 +2048,8 @@ const Gallery = () => {
           }
         }));
         setNewComment('');
+        // Refetch comments from server so list persists after refresh
+        fetchComments(postId);
       }
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -2070,7 +2079,7 @@ const Gallery = () => {
       if (response.ok) {
         setComments(prev => ({
           ...prev,
-          [postId]: (prev[postId] || []).filter(comment => comment.id !== commentId)
+          [postId]: (prev[postId] || []).filter(comment => String(comment.id) !== String(commentId))
         }));
         setEngagementStats(prev => ({
           ...prev,
@@ -2413,11 +2422,11 @@ const Gallery = () => {
                           ? comments[selectedPost._id] 
                           : comments[selectedPost._id].slice(0, 3)
                         ).map((comment) => (
-                          <CommentItem key={comment.id}>
+                          <CommentItem key={String(comment.id)}>
                             <CommentUser>
                               <CommentAvatar>
-                                {comment.user.profilePicture ? (
-                                  <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user.name} />
+                                {comment.user?.profilePicture ? (
+                                  <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user?.name} />
                                 ) : (
                                   <div style={{ 
                                     width: '100%', 
@@ -2430,19 +2439,19 @@ const Gallery = () => {
                                     fontSize: '12px',
                                     fontWeight: 'bold'
                                   }}>
-                                    {comment.user.name.charAt(0)}
+                                    {(comment.user?.name || '?').charAt(0)}
                                   </div>
                                 )}
                               </CommentAvatar>
                               <CommentContent>
                                 <CommentText>
-                                  <strong>{comment.user.name}</strong> {comment.content}
+                                  <strong>{comment.user?.name ?? 'User'}</strong> {comment.content}
                                 </CommentText>
                                 <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
                               </CommentContent>
-                              {isAuthenticated && user && user.id === comment.user.id && (
+                              {isAuthenticated && user && String(user.id) === String(comment.user?.id) && (
                                 <button
-                                  onClick={() => handleDeleteComment(comment.id, selectedPost._id)}
+                                  onClick={() => handleDeleteComment(String(comment.id), selectedPost._id)}
                                   style={{
                                     background: 'none',
                                     border: 'none',
@@ -2577,11 +2586,11 @@ const Gallery = () => {
             >
               {comments[selectedPost._id] && comments[selectedPost._id].length > 0 ? (
                 comments[selectedPost._id].map((comment) => (
-                  <CommentItem key={comment.id} style={{ marginBottom: '16px' }}>
+                  <CommentItem key={String(comment.id)} style={{ marginBottom: '16px' }}>
                     <CommentUser>
                       <CommentAvatar>
-                        {comment.user.profilePicture ? (
-                          <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user.name} />
+                        {comment.user?.profilePicture ? (
+                          <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user?.name} />
                         ) : (
                           <div style={{ 
                             width: '100%', 
@@ -2594,20 +2603,20 @@ const Gallery = () => {
                             fontSize: '12px',
                             fontWeight: 'bold'
                           }}>
-                            {comment.user.name.charAt(0)}
+                            {(comment.user?.name || '?').charAt(0)}
                           </div>
                         )}
                       </CommentAvatar>
                       <CommentContent>
                         <CommentText>
-                          <strong>{comment.user.name}</strong> {comment.content}
+                          <strong>{comment.user?.name ?? 'User'}</strong> {comment.content}
                         </CommentText>
                         <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
                       </CommentContent>
-                      {isAuthenticated && user && user.id === comment.user.id && (
+                      {isAuthenticated && user && String(user.id) === String(comment.user?.id) && (
                         <button
                           onClick={() => {
-                            handleDeleteComment(comment.id, selectedPost._id);
+                            handleDeleteComment(String(comment.id), selectedPost._id);
                           }}
                           style={{
                             background: 'none',
