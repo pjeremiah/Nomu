@@ -558,6 +558,13 @@ const MediaSlide = styled.div`
   position: relative;
   min-width: 0;
   /* width set inline per slide */
+
+  /* Mobile only: clip zoom to this slide so next/prev image is never visible when zooming */
+  @media (max-width: 768px) {
+    overflow: hidden;
+    contain: paint; /* strict clip: nothing from this slide can draw outside */
+    isolation: isolate; /* own stacking context so only this slide is visible */
+  }
 `;
 
 /* Mobile only: pinch-zoom wrapper */
@@ -572,6 +579,8 @@ const MobileZoomWrapper = styled.div`
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
+    overflow: hidden;
+    contain: paint; /* clip zoom to current slide only */
   }
 `;
 
@@ -1383,7 +1392,10 @@ const MobileFullscreenSlide = styled.div`
   align-items: center;
   justify-content: center;
   min-width: 0;
-  /* width set inline per slide: (100/n)% */
+  overflow: hidden;
+  contain: paint; /* clip zoom to this slide only – no next/prev visible when zoomed */
+  isolation: isolate;
+  /* width set inline per slide */
 `;
 
 const MobileFullscreenClose = styled.button`
