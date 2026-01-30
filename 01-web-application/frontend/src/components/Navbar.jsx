@@ -54,6 +54,12 @@ const Nav = styled.div`
   };
   box-shadow: ${props => props.$isScrolled || props.$isAccountSettings ? '0 2px 10px rgba(0, 0, 0, 0.1)' : 'none'};
 
+  /* Mobile only: always use solid background so Nomu logo is visible over gallery/modal dark content */
+  @media screen and (max-width: 768px) {
+    background: rgba(33, 44, 89, 0.95);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+
   > * {
     position: relative;
     z-index: 1;
@@ -124,6 +130,10 @@ const NavLogo = styled(LinkR)`
 
 const Logo = styled.img`
   height: 50px;
+  /* Mobile only: ensure logo stands out over dark gallery/modal background */
+  @media screen and (max-width: 768px) {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  }
 `;
 
 const MobileAppIcon = styled.a`

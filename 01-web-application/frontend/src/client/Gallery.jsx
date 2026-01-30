@@ -1621,6 +1621,15 @@ const Gallery = () => {
   const pinchStartScaleRef = useRef(1);
   const pinchHandledRef = useRef(false);
 
+  /* Mobile only: fullscreen pan when zoomed (drag to see every part of image/video) */
+  const [mobilePanX, setMobilePanX] = useState(0);
+  const [mobilePanY, setMobilePanY] = useState(0);
+  const fullscreenPanStartXRef = useRef(0);
+  const fullscreenPanStartYRef = useRef(0);
+  const fullscreenPanStartOffsetXRef = useRef(0);
+  const fullscreenPanStartOffsetYRef = useRef(0);
+  const fullscreenHadPanRef = useRef(false);
+
   /* Mobile only: swipe vs tap – refs to avoid opening fullscreen when user swiped */
   const touchStartXRef = useRef(0);
   const swipeHandledRef = useRef(false);
@@ -1704,9 +1713,11 @@ const Gallery = () => {
     }
   }, [selectedPost, isAuthenticated]);
 
-  /* Reset mobile zoom when changing media or closing fullscreen */
+  /* Reset mobile zoom and pan when changing media or closing fullscreen */
   useEffect(() => {
     setMobileZoomScale(1);
+    setMobilePanX(0);
+    setMobilePanY(0);
   }, [currentMediaIndex, showMobileImageFullscreen]);
 
   /* Mobile only: scroll modal to top when opened so user can scroll to see whole post (fixes opening from top of gallery page) */
@@ -2337,7 +2348,14 @@ const Gallery = () => {
       pinchHandledRef.current = true;
       const dist = getPinchDistance(e.touches);
       const scale = (dist / pinchStartDistanceRef.current) * pinchStartScaleRef.current;
-      setMobileZoomScale(Math.min(Math.max(scale, 0.5), 4));
+      /* In fullscreen: min scale 1 (cannot zoom out below regular size); outside fullscreen allow 0.5 */
+      const minScale = showMobileImageFullscreen ? 1 : 0.5;
+      const newScale = Math.min(Math.max(scale, minScale), 4);
+      setMobileZoomScale(newScale);
+      if (showMobileImageFullscreen && newScale <= 1) {
+        setMobilePanX(0);
+        setMobilePanY(0);
+      }
     }
   };
   /* Mobile only: when not in fullscreen, snap zoom back to 1 on finger release (Instagram-like); in fullscreen zoom persists */
@@ -2904,6 +2922,11 @@ const Gallery = () => {
                   if (e.touches.length === 1) {
                     fullscreenTouchStartXRef.current = e.touches[0].clientX;
                     fullscreenHadPinchRef.current = false;
+                    fullscreenHadPanRef.current = false;
+                    fullscreenPanStartXRef.current = e.touches[0].clientX;
+                    fullscreenPanStartYRef.current = e.touches[0].clientY;
+                    fullscreenPanStartOffsetXRef.current = mobilePanX;
+                    fullscreenPanStartOffsetYRef.current = mobilePanY;
                   }
                   if (e.touches.length === 2) handlePinchStart(e);
                 }}
@@ -2911,11 +2934,24 @@ const Gallery = () => {
                   if (e.touches.length === 2) {
                     fullscreenHadPinchRef.current = true;
                     handlePinchMove(e);
+                  } else if (e.touches.length === 1 && mobileZoomScale > 1) {
+                    e.preventDefault();
+                    fullscreenHadPanRef.current = true;
+                    const dx = e.touches[0].clientX - fullscreenPanStartXRef.current;
+                    const dy = e.touches[0].clientY - fullscreenPanStartYRef.current;
+                    let newPanX = fullscreenPanStartOffsetXRef.current + dx;
+                    let newPanY = fullscreenPanStartOffsetYRef.current + dy;
+                    const maxPanX = (window.innerWidth * (mobileZoomScale - 1)) / 2;
+                    const maxPanY = (window.innerHeight * (mobileZoomScale - 1)) / 2;
+                    newPanX = Math.min(Math.max(newPanX, -maxPanX), maxPanX);
+                    newPanY = Math.min(Math.max(newPanY, -maxPanY), maxPanY);
+                    setMobilePanX(newPanX);
+                    setMobilePanY(newPanY);
                   }
                 }}
                 onTouchEnd={(e) => {
                   if (e.touches.length === 2) handlePinchEnd();
-                  if (e.changedTouches.length === 1 && selectedPost.media.length > 1 && !fullscreenHadPinchRef.current) {
+                  if (e.changedTouches.length === 1 && selectedPost.media.length > 1 && !fullscreenHadPinchRef.current && !fullscreenHadPanRef.current && mobileZoomScale <= 1) {
                     const delta = fullscreenTouchStartXRef.current - e.changedTouches[0].clientX;
                     if (Math.abs(delta) > 50) {
                       if (delta > 0) nextMedia();
@@ -2948,7 +2984,7 @@ const Gallery = () => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          transform: `scale(${mobileZoomScale})`,
+                          transform: `translate(${mobilePanX}px, ${mobilePanY}px) scale(${mobileZoomScale})`,
                           transformOrigin: 'center center',
                           transition: 'transform 0.1s ease-out'
                         }}
