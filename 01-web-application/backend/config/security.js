@@ -19,10 +19,10 @@ module.exports = {
 
   // Rate Limiting Configuration
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 5 * 60 * 1000, // 5 minutes
     maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-    authWindowMs: 15 * 60 * 1000, // 15 minutes
-    authMaxRequests: 5, // 5 attempts per 15 minutes
+    authWindowMs: 5 * 60 * 1000, // 5 minutes
+    authMaxRequests: 5, // 5 attempts per 5 minutes
     uploadWindowMs: 60 * 60 * 1000, // 1 hour
     uploadMaxRequests: 10 // 10 uploads per hour
   },

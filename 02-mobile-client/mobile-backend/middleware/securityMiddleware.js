@@ -91,7 +91,7 @@ async function notifyCustomerApproachingLimit(customerId, limitType, currentCoun
 // Configuration from environment variables
 const config = {
   // IP-based rate limiting
-  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 5 * 60 * 1000, // 5 minutes
   rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   
   // Employee limits

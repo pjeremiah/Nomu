@@ -7,7 +7,7 @@ const { body, validationResult } = require('express-validator');
 // Rate limiting middleware
 const createRateLimiter = (windowMs, max, message) => {
   return rateLimit({
-    windowMs: windowMs || 15 * 60 * 1000, // 15 minutes default
+    windowMs: windowMs || 5 * 60 * 1000, // 5 minutes default
     max: max || 100, // limit each IP to 100 requests per windowMs
     message: {
       error: 'Too many requests from this IP, please try again later.',
@@ -27,28 +27,28 @@ const createRateLimiter = (windowMs, max, message) => {
 
 // Specific rate limiters for different endpoints
 const authRateLimiter = createRateLimiter(
-  15 * 60 * 1000, // 15 minutes
-  10, // 10 attempts per 15 minutes (increased to allow for failed attempt tracking)
+  5 * 60 * 1000, // 5 minutes
+  10, // 10 attempts per 5 minutes (increased to allow for failed attempt tracking)
   'Too many authentication attempts'
 );
 
 // Rate limiter for signup attempts
 const signupRateLimiter = createRateLimiter(
-  60 * 60 * 1000, // 1 hour
-  3, // 3 signup attempts per hour
+  5 * 60 * 1000, // 5 minutes
+  3, // 3 signup attempts per 5 minutes
   'Too many signup attempts'
 );
 
 // Rate limiter for OTP verification attempts
 const otpRateLimiter = createRateLimiter(
-  15 * 60 * 1000, // 15 minutes
-  10, // 10 OTP attempts per 15 minutes
+  5 * 60 * 1000, // 5 minutes
+  10, // 10 OTP attempts per 5 minutes
   'Too many OTP verification attempts'
 );
 
 const generalRateLimiter = createRateLimiter(
-  15 * 60 * 1000, // 15 minutes
-  500, // 500 requests per 15 minutes (increased for admin dashboard usage)
+  5 * 60 * 1000, // 5 minutes
+  500, // 500 requests per 5 minutes (increased for admin dashboard usage)
   'Too many requests'
 );
 

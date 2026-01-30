@@ -201,7 +201,7 @@ async function notifyAbuseEscalation(employeeId, violationCount, timeWindow) {
 // Configuration from environment variables
 const config = {
   // IP-based rate limiting
-  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 5 * 60 * 1000, // 5 minutes
   rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // More realistic for production
   
   // Employee limits
