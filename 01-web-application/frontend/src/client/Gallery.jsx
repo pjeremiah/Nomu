@@ -2340,9 +2340,13 @@ const Gallery = () => {
       setMobileZoomScale(Math.min(Math.max(scale, 0.5), 4));
     }
   };
+  /* Mobile only: when not in fullscreen, snap zoom back to 1 on finger release (Instagram-like); in fullscreen zoom persists */
   const handlePinchEnd = () => {
     pinchStartDistanceRef.current = 0;
     setTimeout(() => { pinchHandledRef.current = false; }, 100);
+    if (!showMobileImageFullscreen) {
+      setMobileZoomScale(1);
+    }
   };
 
   const handlePostClick = (post, postIndex) => {
