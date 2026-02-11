@@ -140,6 +140,7 @@ const NavItem = styled(NavLink)`
   font-size: 12px;
   white-space: nowrap;
   width: 100%;
+  box-sizing: border-box;
   background: transparent;
   border: 1px solid transparent;
   
@@ -156,24 +157,18 @@ const NavItem = styled(NavLink)`
   }
   
   &.locked {
-    opacity: 0.6;
     cursor: not-allowed;
     position: relative;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.65);
+    pointer-events: auto;
+    padding-right: 12px;
+    overflow: hidden;
   }
   
-  &.locked::after {
-    content: '';
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  &.locked:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.65);
   }
 `;
 
@@ -248,14 +243,24 @@ const NavIcon = styled.div`
   height: 14px;
 `;
 
+const NavLabel = styled.span`
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
 const LockIcon = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
   margin-left: auto;
-  opacity: 0.7;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.45);
+  opacity: 0.85;
 `;
 
 const Tooltip = styled.div`
@@ -565,9 +570,9 @@ const AdminLayout = ({ children }) => {
                     onClick={(e) => e.preventDefault()}
                   >
                     <NavIcon>{item.icon}</NavIcon>
-                    {item.label}
+                    <NavLabel>{item.label}</NavLabel>
                     <LockIcon>
-                      <Lock size={14} />
+                      <Lock size={14} strokeWidth={2} />
                     </LockIcon>
                     <Tooltip className="tooltip">
                       {item.tooltip}
