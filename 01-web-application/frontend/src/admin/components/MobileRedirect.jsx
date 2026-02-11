@@ -287,8 +287,8 @@ const MobileRedirect = () => {
       // Trigger auth change event for other components
       window.dispatchEvent(new CustomEvent('authChanged'));
       
-      // Redirect to home page (client side)
-      navigate('/', { replace: true });
+      // Redirect to admin login (so user can sign in again or see desktop-only message on mobile)
+      navigate('/login', { replace: true });
       
     } catch (error) {
       console.error('Logout error:', error);
@@ -298,7 +298,7 @@ const MobileRedirect = () => {
       sessionStorage.removeItem('user');
       sessionStorage.removeItem('bypassMobileCheck');
       window.dispatchEvent(new CustomEvent('authChanged'));
-      navigate('/', { replace: true });
+      navigate('/login', { replace: true });
     }
   };
 

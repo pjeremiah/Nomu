@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { FaChartBar, FaCoffee } from 'react-icons/fa';
+import { FaChartBar, FaCoffee, FaTrophy, FaFileDownload } from 'react-icons/fa';
+import { jsPDF } from 'jspdf';
+import { applyPlugin } from 'jspdf-autotable';
+applyPlugin(jsPDF);
 
-const BestSellerAnalytics = ({ period = 'monthly' }) => {
+const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
   const [analyticsData, setAnalyticsData] = useState({
     bestSellers: [],
     bestSellersByCategory: { categories: {}, categoryTotals: {} }
@@ -12,6 +15,176 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const getPeriodDateRange = (p) => {
+    const now = new Date();
+    let startDate, endDate;
+    if (p === 'daily' || p === 'today') {
+      startDate = endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (p === 'weekly' || p === 'week') {
+      const dayOfWeek = now.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMonday);
+      const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
+    } else if (p === 'monthly' || p === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (p === 'yearly' || p === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear(), 11, 31);
+    } else {
+      return null;
+    }
+    const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return startDate.getTime() === endDate.getTime() ? fmt(startDate) : `${fmt(startDate)} – ${fmt(endDate)}`;
+  };
+
+  const handleExportPDF = () => {
+    const rows = analyticsData.bestSellers || [];
+    const totalQty = rows.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+    const top3Share = rows.length >= 3
+      ? rows.slice(0, 3).reduce((sum, item) => sum + parseFloat(item.quantityPercentage || 0), 0).toFixed(1)
+      : null;
+    const bestSellerName = rows.length > 0 ? rows[0].itemName : null;
+    const periodLabel = getPeriodDateRange(period) || period;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 18;
+
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('Best Seller Analytics Report', pageW / 2, y, { align: 'center' });
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Period: ${period}`, 14, y);
+    doc.text(`Date range: ${periodLabel}`, 14, y + 6);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y + 12);
+    y += 22;
+
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('Summary', 14, y);
+    y += 8;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    doc.text(`Top Items: ${rows.length}`, 14, y);
+    doc.text(`Total Quantity: ${formatNumber(totalQty)}`, 14, y + 6);
+    y += 16;
+
+    if (bestSellerName || top3Share != null) {
+      doc.setFont(undefined, 'bold');
+      doc.text('Insights', 14, y);
+      y += 6;
+      doc.setFont(undefined, 'normal');
+      if (bestSellerName) {
+        doc.text(`#1 this period: ${bestSellerName}`, 14, y);
+        y += 6;
+      }
+      if (top3Share != null) {
+        doc.text(`Top 3 items account for ${top3Share}% of quantity sold.`, 14, y);
+        y += 8;
+      }
+      y += 4;
+    }
+
+    const addNewPageIfNeeded = (requiredSpace = 40) => {
+      if (y > doc.internal.pageSize.getHeight() - requiredSpace) {
+        doc.addPage();
+        y = 18;
+      }
+    };
+
+    doc.setFont(undefined, 'bold');
+    doc.text('1. Top Selling Items', 14, y);
+    y += 6;
+    doc.autoTable({
+      startY: y,
+      head: [['Item Name', 'Quantity']],
+      body: rows.map((item) => [
+        String(item.itemName || ''),
+        String(formatNumber(item.totalQuantity || 0))
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 14;
+    addNewPageIfNeeded(60);
+
+    const categories = analyticsData.bestSellersByCategory?.categories || {};
+    if (Object.keys(categories).length > 0) {
+      doc.setFont(undefined, 'bold');
+      doc.text('2. By Category', 14, y);
+      y += 6;
+      Object.entries(categories).forEach(([category, items]) => {
+        addNewPageIfNeeded(40);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(category, 14, y);
+        y += 6;
+        doc.autoTable({
+          startY: y,
+          head: [['Item Name', 'Quantity']],
+          body: (items || []).map((item) => [
+            String(item.itemName || ''),
+            String(formatNumber(item.totalQuantity || 0))
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          margin: { left: 14 }
+        });
+        y = doc.lastAutoTable.finalY + 10;
+      });
+      y += 4;
+      addNewPageIfNeeded(50);
+    }
+
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    doc.text('3. Detailed Performance', 14, y);
+    y += 6;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Rank', 'Item Name', 'Quantity', 'Customers', 'Share %']],
+      body: rows.map((item, i) => [
+        String(i + 1),
+        String(item.itemName || ''),
+        String(formatNumber(item.totalQuantity || 0)),
+        String(formatNumber(item.uniqueCustomers || 0)),
+        `${item.quantityPercentage || 0}%`
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 18 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 22 }
+      },
+      margin: { left: 14 }
+    });
+
+    y = doc.lastAutoTable.finalY + 12;
+    if (y > 270) {
+      doc.addPage();
+      y = 18;
+    }
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text('Nomu Cafe – Best Seller Analytics', 14, doc.internal.pageSize.getHeight() - 10);
+
+    doc.save(`best-sellers-${period}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  useImperativeHandle(ref, () => ({ exportPDF: handleExportPDF }), [handleExportPDF]);
 
   const fetchAnalyticsData = useCallback(async () => {
     try {
@@ -186,6 +359,12 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
     );
   }
 
+  const periodLabel = getPeriodDateRange(period);
+  const top3Share = analyticsData.bestSellers.length >= 3
+    ? analyticsData.bestSellers.slice(0, 3).reduce((sum, item) => sum + parseFloat(item.quantityPercentage || 0), 0).toFixed(1)
+    : null;
+  const bestSellerName = analyticsData.bestSellers.length > 0 ? analyticsData.bestSellers[0].itemName : null;
+
   return (
     <div className="bestseller-analytics-container">
       {/* No Data Message */}
@@ -205,6 +384,33 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
           <div style={{ fontSize: '0.9rem' }}>
             {analyticsData.noDataMessage}
           </div>
+        </div>
+      )}
+
+      {/* Period date range + Export PDF (same row, right-aligned) */}
+      {periodLabel && (
+        <div className="period-date-range" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', fontSize: '0.9rem', color: '#6c757d' }}>
+          <span>Reporting period: <strong>{periodLabel}</strong></span>
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            title="Export report as PDF (Top Selling Items, By Category, Detailed Performance)"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              background: '#003466',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer'
+            }}
+          >
+            <FaFileDownload /> Export PDF
+          </button>
         </div>
       )}
 
@@ -229,6 +435,24 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
               <div className="summary-label">Total Quantity</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Insights card */}
+      {analyticsData.bestSellers.length > 0 && (top3Share || bestSellerName) && (
+        <div className="insights-card">
+          <div className="insights-card-header">
+            <FaTrophy style={{ color: '#f9a825', marginRight: '8px', fontSize: '1.1rem' }} />
+            <span>Insights</span>
+          </div>
+          <ul className="insights-list">
+            {bestSellerName && (
+              <li>#1 this period: <strong>{bestSellerName}</strong></li>
+            )}
+            {top3Share != null && (
+              <li>Your top 3 items account for <strong>{top3Share}%</strong> of quantity sold.</li>
+            )}
+          </ul>
         </div>
       )}
 
@@ -270,7 +494,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
         {Object.keys(analyticsData.bestSellersByCategory.categories).length > 0 && (
           <div className="chart-card">
             <div className="chart-header">
-              <h4>Best Sellers by Category</h4>
+              <h4>By Category</h4>
             </div>
             <div className="category-charts">
               {Object.entries(analyticsData.bestSellersByCategory.categories).map(([category, items]) => (
@@ -318,7 +542,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
                 </thead>
                 <tbody>
                   {analyticsData.bestSellers.map((item, index) => (
-                    <tr key={item.itemName}>
+                    <tr key={item.itemName} className={index === 0 ? 'best-seller-row' : ''}>
                       <td className="rank-cell">
                         <div className={`rank-badge rank-${index + 1}`}>
                           {index + 1}
@@ -384,6 +608,84 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
           font-size: 14px;
           color: #6c757d;
           margin-top: 4px;
+        }
+        
+        .insights-card {
+          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+          border: 1px solid #90caf9;
+          border-radius: 12px;
+          padding: 16px 20px;
+          margin-bottom: 24px;
+        }
+        
+        .insights-card-header {
+          display: flex;
+          align-items: center;
+          font-weight: 600;
+          color: #1565c0;
+          margin-bottom: 10px;
+          font-size: 15px;
+        }
+        
+        .insights-list {
+          margin: 0;
+          padding-left: 20px;
+          color: #37474f;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+        
+        .insights-list li {
+          margin-bottom: 4px;
+        }
+        
+        .chart-header-with-export {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+          text-align: left;
+        }
+        
+        .chart-header-with-export h4 {
+          margin: 0;
+        }
+        
+        .export-csv-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          background: #003466;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        
+        .export-csv-btn:hover {
+          background: #002244;
+        }
+        
+        .best-seller-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #f9a825;
+          background: rgba(249, 168, 37, 0.15);
+          padding: 2px 8px;
+          border-radius: 6px;
+          white-space: nowrap;
+        }
+        
+        .best-seller-row {
+          background: rgba(249, 168, 37, 0.06);
         }
         
         .charts-grid {
@@ -453,14 +755,31 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
           border-bottom: 2px solid #dee2e6;
         }
         
+        .performance-table th:nth-child(3),
+        .performance-table th:nth-child(4) {
+          text-align: center;
+        }
+        
+        .performance-table th:nth-child(5) {
+          text-align: right;
+        }
+        
         .performance-table td {
           padding: 12px 8px;
           border-bottom: 1px solid #dee2e6;
         }
         
-        .rank-cell {
+        .performance-table td:nth-child(3),
+        .performance-table td:nth-child(4) {
           text-align: center;
+        }
+        
+        .rank-cell {
           width: 60px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
         }
         
         .rank-badge {
@@ -488,11 +807,11 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
         }
         
         .number-cell, .percentage-cell {
-          text-align: right;
           font-family: 'Courier New', monospace;
         }
         
         .percentage-cell {
+          text-align: right;
           color: #1976d2;
           font-weight: 500;
         }
@@ -543,6 +862,7 @@ const BestSellerAnalytics = ({ period = 'monthly' }) => {
       `}</style>
     </div>
   );
-};
+});
+BestSellerAnalytics.displayName = 'BestSellerAnalytics';
 
 export default BestSellerAnalytics;

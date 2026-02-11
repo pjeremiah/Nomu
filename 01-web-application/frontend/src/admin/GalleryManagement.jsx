@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar, FaEdit, FaInstagram, FaHeart, FaComment, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar, FaEdit, FaInstagram, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { Grid3X3 } from 'lucide-react';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -1999,67 +1999,6 @@ const GalleryManagement = () => {
                      </div>
 
                      <div>
-                       {/* Action Buttons */}
-                       <div style={{
-                         display: 'flex',
-                         gap: '15px',
-                         padding: '15px 0',
-                         borderTop: '1px solid #e9ecef',
-                         borderBottom: '1px solid #e9ecef'
-                       }}>
-                         <button 
-                           style={{
-                             background: 'none',
-                             border: 'none',
-                             fontSize: '24px',
-                             color: '#333',
-                             cursor: 'pointer',
-                             padding: '5px',
-                             transition: 'all 0.2s ease'
-                           }}
-                           onMouseEnter={(e) => {
-                             e.target.style.color = '#0095f6';
-                             e.target.style.transform = 'scale(1.1)';
-                           }}
-                           onMouseLeave={(e) => {
-                             e.target.style.color = '#333';
-                             e.target.style.transform = 'scale(1)';
-                           }}
-                         >
-                           <FaHeart />
-                         </button>
-                         <button 
-                           style={{
-                             background: 'none',
-                             border: 'none',
-                             fontSize: '24px',
-                             color: '#333',
-                             cursor: 'pointer',
-                             padding: '5px',
-                             transition: 'all 0.2s ease'
-                           }}
-                           onMouseEnter={(e) => {
-                             e.target.style.color = '#0095f6';
-                             e.target.style.transform = 'scale(1.1)';
-                           }}
-                           onMouseLeave={(e) => {
-                             e.target.style.color = '#333';
-                             e.target.style.transform = 'scale(1)';
-                           }}
-                         >
-                           <FaComment />
-                         </button>
-                       </div>
-
-                       <div style={{
-                         fontSize: '14px',
-                         color: '#333',
-                         marginBottom: '15px',
-                         padding: '15px 0'
-                       }}>
-                         {postLikes[selectedPost._id] || 0} likes
-                       </div>
-
                        <div style={{
                          fontSize: '12px',
                          color: '#8e8e8e',
@@ -2071,25 +2010,6 @@ const GalleryManagement = () => {
                            day: 'numeric',
                            year: 'numeric'
                          }).toUpperCase()}
-                       </div>
-
-                       <div style={{
-                         padding: '15px 0',
-                         borderTop: '1px solid #e9ecef',
-                         marginTop: '15px'
-                       }}>
-                         <input 
-                           type="text"
-                           placeholder="Add a comment..."
-                           style={{
-                             width: '100%',
-                             border: 'none',
-                             outline: 'none',
-                             fontSize: '14px',
-                             color: '#333',
-                             background: 'transparent'
-                           }}
-                         />
                        </div>
                      </div>
                    </div>

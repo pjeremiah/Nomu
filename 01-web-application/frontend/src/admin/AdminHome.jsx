@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaChartBar, FaChartLine, FaUsers, FaCoffee, FaStar, FaClock, FaSpinner, FaTag, FaExclamationTriangle } from 'react-icons/fa';
+import { FaChartBar, FaChartLine, FaUsers, FaCoffee, FaStar, FaClock, FaSpinner, FaTag, FaExclamationTriangle, FaFileDownload } from 'react-icons/fa';
 import { BarChart3 } from 'lucide-react';
 import { MdTrendingUp } from 'react-icons/md';
 import Pagination from 'react-bootstrap/Pagination';
@@ -148,7 +148,7 @@ const AdminHome = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [bestSellersPeriod, setBestSellersPeriod] = useState('monthly');
-  
+
   // Abuse alert states
   const [abuseAlerts, setAbuseAlerts] = useState([]);
   const [abuseAlertStats, setAbuseAlertStats] = useState({});
@@ -553,12 +553,7 @@ const AdminHome = () => {
         title="Best Seller Analytics" 
         icon={FaChartLine}
         extraContent={
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            marginLeft: 'auto'
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
             <span style={{
               fontSize: '0.85rem',
               color: '#6c757d',

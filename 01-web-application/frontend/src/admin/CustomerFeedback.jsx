@@ -3,6 +3,7 @@ import { FaEye, FaReply, FaClock, FaCheckCircle, FaStar, FaSpinner, FaCog } from
 import { MessageSquare } from 'lucide-react';
 import { MdNotifications } from 'react-icons/md';
 import { X } from 'lucide-react';
+import Pagination from 'react-bootstrap/Pagination';
 import PageHeader from './components/PageHeader';
 
 // Function to mask email addresses for privacy
@@ -16,6 +17,8 @@ const maskEmail = (email) => {
   return `${maskedLocal}@${domain}`;
 };
 
+const PAGE_SIZE = 10;
+
 const CustomerFeedback = () => {
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +29,7 @@ const CustomerFeedback = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [viewingFeedback, setViewingFeedback] = useState(null);
   const [adminName, setAdminName] = useState('Admin');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Prevent body scrolling when modal is open
   useEffect(() => {
@@ -77,6 +81,18 @@ const CustomerFeedback = () => {
   useEffect(() => {
     fetchFeedback();
   }, []);
+
+  // Pagination: max 10 per page
+  const totalPages = Math.max(1, Math.ceil(feedback.length / PAGE_SIZE));
+  const paginatedFeedback = feedback.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset to page 1 when feedback list shrinks and current page would be out of range
+  useEffect(() => {
+    setCurrentPage(prev => {
+      const total = Math.max(1, Math.ceil(feedback.length / PAGE_SIZE));
+      return prev > total && total >= 1 ? 1 : prev;
+    });
+  }, [feedback.length]);
 
   // Handle reply submission
   const handleReplySubmit = async (e) => {
@@ -622,12 +638,12 @@ const CustomerFeedback = () => {
             </div>
 
             {/* Table Rows */}
-            {feedback.map((item, index) => (
+            {paginatedFeedback.map((item, index) => (
               <div
                 key={item._id}
                 style={{
                   padding: '1.5rem 2rem',
-                  borderBottom: index < feedback.length - 1 ? '1px solid #f1f5f9' : 'none',
+                  borderBottom: index < paginatedFeedback.length - 1 ? '1px solid #f1f5f9' : 'none',
                   display: 'grid',
                   gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(200px, 1.5fr) minmax(180px, 1.2fr) minmax(100px, 0.8fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr)',
                   gap: '1rem',
@@ -811,6 +827,45 @@ const CustomerFeedback = () => {
           </>
         )}
       </div>
+
+      {/* Pagination - same style as Admin Dashboard Recent Activity */}
+      {!loading && feedback.length > PAGE_SIZE && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          marginTop: '1rem',
+          paddingTop: '1rem',
+          borderTop: '1px solid #e9ecef'
+        }}>
+          <div style={{
+            fontSize: '0.8rem',
+            color: '#6c757d',
+            marginBottom: '0.5rem'
+          }}>
+            Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, feedback.length)} of {feedback.length} feedback
+          </div>
+          <Pagination size="sm">
+            <Pagination.Prev
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            />
+            {[...Array(totalPages).keys()].map(number => (
+              <Pagination.Item
+                key={number + 1}
+                active={number + 1 === currentPage}
+                onClick={() => setCurrentPage(number + 1)}
+              >
+                {number + 1}
+              </Pagination.Item>
+            ))}
+            <Pagination.Next
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            />
+          </Pagination>
+        </div>
+      )}
 
       {/* Reply Modal */}
       {showReplyModal && selectedFeedback && (

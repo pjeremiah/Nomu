@@ -8,6 +8,60 @@ const Admin = require('../models/Admin');
 const authMiddleware = require('../middleware/authMiddleware');
 const ActivityService = require('../services/activityService');
 
+// =============================================================================
+// BEST SELLER ANALYTICS – DATA SOURCE (same for daily, weekly, monthly, yearly)
+// =============================================================================
+// Collection: users (User model)
+// Field: pastOrders (array of { drink: string, quantity: number, date: Date })
+// Date field used for filtering: pastOrders.date
+// All periods (today, week, month, year) use this same collection and date field;
+// only the date range (start/end) changes via getDateRangeForPeriod().
+// =============================================================================
+
+/**
+ * Returns start and end dates for best-seller period filtering.
+ * Used by both /best-sellers and /best-sellers-by-category so all periods share the same logic.
+ * @param {string} period - 'today' | 'week' | 'month' | 'year'
+ * @returns {{ startDate: Date, endDate: Date } | null}
+ */
+function getDateRangeForPeriod(period) {
+  const now = new Date();
+  let startDate;
+  let endDate;
+  switch (period) {
+    case 'today':
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      endDate.setHours(23, 59, 59, 999);
+      break;
+    case 'week':
+      const dayOfWeek = now.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMonday);
+      startDate.setHours(0, 0, 0, 0);
+      const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
+      endDate.setHours(23, 59, 59, 999);
+      break;
+    case 'month':
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      endDate.setHours(23, 59, 59, 999);
+      break;
+    case 'year':
+      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), 11, 31);
+      endDate.setHours(23, 59, 59, 999);
+      break;
+    default:
+      return null;
+  }
+  return { startDate, endDate };
+}
+
 // Helper function to calculate age from birthday
 const calculateAge = (birthday) => {
   const today = new Date();
@@ -29,10 +83,10 @@ const calculateAge = (birthday) => {
   return Math.max(0, age);
 };
 
-// Helper function to categorize age into ranges
+// Helper function to categorize age into ranges (minimum 13 years old)
 const categorizeAge = (age) => {
-  if (age === 0) return '1-17'; // Handle future birthdays as young users
-  if (age >= 1 && age <= 17) return '1-17';
+  if (age < 13) return null; // Exclude under 13 from age distribution
+  if (age >= 13 && age <= 17) return '13-17';
   if (age >= 18 && age <= 25) return '18-25';
   if (age >= 26 && age <= 32) return '26-32';
   if (age >= 33 && age <= 40) return '33-40';
@@ -90,7 +144,7 @@ router.get('/age-ranges', authMiddleware, async (req, res) => {
     const users = await User.find({ role: 'Customer' });
     
     const ageRanges = {
-      '1-17': 0,
+      '13-17': 0,
       '18-25': 0,
       '26-32': 0,
       '33-40': 0,
@@ -101,7 +155,7 @@ router.get('/age-ranges', authMiddleware, async (req, res) => {
       if (user.birthday) {
         const age = calculateAge(user.birthday);
         const range = categorizeAge(age);
-        if (ageRanges[range] !== undefined) {
+        if (range && ageRanges[range] !== undefined) {
           ageRanges[range]++;
         }
       }
@@ -185,17 +239,31 @@ router.get('/users-with-spending', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Aggregate spending data from orders collection
+    // Aggregate spending data from orders (support userId/totalAmount and customerId/transactionTotal)
     const spendingData = await Order.aggregate([
       {
-        $match: { status: 'completed' } // Only completed orders
+        $addFields: {
+          amount: { $ifNull: ['$totalAmount', '$transactionTotal'] },
+          userRef: { $ifNull: ['$userId', '$customerId'] }
+        }
+      },
+      {
+        $match: {
+          userRef: { $exists: true, $ne: null },
+          amount: { $exists: true, $gt: 0 },
+          $or: [
+            { status: 'completed' },
+            { status: { $exists: false } },
+            { status: null }
+          ]
+        }
       },
       {
         $group: {
-          _id: '$userId',
-          totalSpent: { $sum: '$totalAmount' },
+          _id: '$userRef',
+          totalSpent: { $sum: '$amount' },
           ordersCount: { $sum: 1 },
-          lastOrderDate: { $max: '$orderDate' }
+          lastOrderDate: { $max: { $ifNull: ['$orderDate', '$createdAt'] } }
         }
       },
       {
@@ -240,28 +308,57 @@ router.get('/users-with-spending', authMiddleware, async (req, res) => {
 });
 
 // Get highest spenders by employment status - using orders collection only
+// Supports both schemas: (userId, totalAmount, status, employmentStatus) and (customerId, transactionTotal)
 router.get('/highest-spenders-by-employment', authMiddleware, async (req, res) => {
   try {
     if (!['superadmin', 'manager', 'staff'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Simple aggregation using only orders collection
+    // Normalize order fields: amount and user ref (barista/mobile may use customerId + transactionTotal)
     const spendingByEmployment = await Order.aggregate([
       {
-        $match: { 
-          status: 'completed',
+        $addFields: {
+          amount: { $ifNull: ['$totalAmount', '$transactionTotal'] },
+          userRef: { $ifNull: ['$userId', '$customerId'] }
+        }
+      },
+      {
+        $match: {
+          userRef: { $exists: true, $ne: null },
+          amount: { $exists: true, $gt: 0 },
+          $or: [
+            { status: 'completed' },
+            { status: { $exists: false } },
+            { status: null }
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userRef',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: false } },
+      {
+        $addFields: {
+          employmentStatus: { $ifNull: ['$employmentStatus', '$user.employmentStatus'] }
+        }
+      },
+      {
+        $match: {
           employmentStatus: { $in: ['Employed', 'Student'] }
         }
       },
       {
         $group: {
           _id: '$employmentStatus',
-          totalSpent: { $sum: '$totalAmount' },
+          totalSpent: { $sum: '$amount' },
           totalOrders: { $sum: 1 },
-          users: {
-            $addToSet: '$userId'
-          }
+          users: { $addToSet: '$userRef' }
         }
       },
       {
@@ -270,15 +367,28 @@ router.get('/highest-spenders-by-employment', authMiddleware, async (req, res) =
           totalSpent: 1,
           totalOrders: 1,
           userCount: { $size: '$users' },
-          averageSpent: { $divide: ['$totalSpent', { $size: '$users' }] }
+          averageSpent: {
+            $cond: [
+              { $gt: [{ $size: '$users' }, 0] },
+              { $divide: ['$totalSpent', { $size: '$users' }] },
+              0
+            ]
+          }
         }
-      },
-      {
-        $sort: { totalSpent: -1 }
       }
     ]);
 
-    res.json(spendingByEmployment);
+    // Always return both Employed and Student (real data; use 0 when no orders)
+    const byStatus = {};
+    spendingByEmployment.forEach((row) => {
+      byStatus[row.employmentStatus] = row;
+    });
+    const result = [
+      byStatus['Employed'] || { employmentStatus: 'Employed', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 },
+      byStatus['Student'] || { employmentStatus: 'Student', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 }
+    ];
+
+    res.json(result);
   } catch (error) {
     console.error('Error fetching highest spenders by employment:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -471,7 +581,7 @@ router.get('/recent-activity', authMiddleware, async (req, res) => {
   }
 });
 
-// Get best seller items analytics
+// Get best seller items analytics (data source: users.pastOrders – see comment at top of file)
 router.get('/best-sellers', authMiddleware, async (req, res) => {
   try {
     if (!['superadmin', 'manager', 'staff'].includes(req.user.role)) {
@@ -480,65 +590,20 @@ router.get('/best-sellers', authMiddleware, async (req, res) => {
 
     const { period = 'all', limit = 10 } = req.query;
     
-    // Build date filter based on period
+    // Same date range logic for all periods: users.pastOrders.date
     let dateFilter = {};
     if (period !== 'all') {
-      const now = new Date();
-      let startDate;
-      let endDate;
-      
-      switch (period) {
-        case 'today':
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case 'week':
-          // Calculate start of current week (Monday)
-          const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday (0) to 6 days back
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMonday);
-          startDate.setHours(0, 0, 0, 0); // Set to midnight
-          // End of week is Sunday 23:59:59
-          const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case 'month':
-          // Start: 1st of current month at 00:00:00
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          startDate.setHours(0, 0, 0, 0);
-          // End: Last day of current month at 23:59:59
-          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case 'year':
-          // Start: January 1st at 00:00:00
-          startDate = new Date(now.getFullYear(), 0, 1);
-          startDate.setHours(0, 0, 0, 0);
-          // End: December 31st at 23:59:59
-          endDate = new Date(now.getFullYear(), 11, 31);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        default:
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Default to last 30 days
-      }
-      
-      // Build date filter with both start and end dates
-      if (endDate) {
-        dateFilter = { 'pastOrders.date': { $gte: startDate, $lte: endDate } };
-      } else {
-        dateFilter = { 'pastOrders.date': { $gte: startDate } };
+      const range = getDateRangeForPeriod(period);
+      if (range) {
+        dateFilter = { 'pastOrders.date': { $gte: range.startDate, $lte: range.endDate } };
       }
     }
 
-
-    // Aggregate past orders to get best sellers
+    // Aggregate past orders (users collection) to get best sellers
     const bestSellers = await User.aggregate([
       { $match: { role: 'Customer' } },
       { $unwind: '$pastOrders' },
-      { $match: Object.keys(dateFilter).length > 0 ? { 'pastOrders.date': dateFilter['pastOrders.date'] } : {} },
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
       { 
         $group: { 
           _id: '$pastOrders.drink',
@@ -589,7 +654,7 @@ router.get('/best-sellers', authMiddleware, async (req, res) => {
   }
 });
 
-// Get best seller items by category
+// Get best seller items by category (data source: users.pastOrders – same as best-sellers)
 router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
   try {
     if (!['superadmin', 'manager', 'staff'].includes(req.user.role)) {
@@ -598,59 +663,14 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
 
     const { period = 'all', limit = 5 } = req.query;
     
-    // Build date filter based on period
+    // Same date range and collection as /best-sellers
     let dateFilter = {};
     if (period !== 'all') {
-      const now = new Date();
-      let startDate;
-      let endDate;
-      
-      switch (period) {
-        case 'today':
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case 'week':
-          // Calculate start of current week (Monday)
-          const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday (0) to 6 days back
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMonday);
-          startDate.setHours(0, 0, 0, 0); // Set to midnight
-          // End of week is Sunday 23:59:59
-          const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case 'month':
-          // Start: 1st of current month at 00:00:00
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          startDate.setHours(0, 0, 0, 0);
-          // End: Last day of current month at 23:59:59
-          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case 'year':
-          // Start: January 1st at 00:00:00
-          startDate = new Date(now.getFullYear(), 0, 1);
-          startDate.setHours(0, 0, 0, 0);
-          // End: December 31st at 23:59:59
-          endDate = new Date(now.getFullYear(), 11, 31);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        default:
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      }
-      
-      // Build date filter with both start and end dates
-      if (endDate) {
-        dateFilter = { 'pastOrders.date': { $gte: startDate, $lte: endDate } };
-      } else {
-        dateFilter = { 'pastOrders.date': { $gte: startDate } };
+      const range = getDateRangeForPeriod(period);
+      if (range) {
+        dateFilter = { 'pastOrders.date': { $gte: range.startDate, $lte: range.endDate } };
       }
     }
-
 
     // Get all menu items to map drink names to categories
     const menuItems = await MenuItem.find({ status: 'active' });
@@ -663,7 +683,7 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
     const bestSellersByCategory = await User.aggregate([
       { $match: { role: 'Customer' } },
       { $unwind: '$pastOrders' },
-      { $match: Object.keys(dateFilter).length > 0 ? { 'pastOrders.date': dateFilter['pastOrders.date'] } : {} },
+      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
       { 
         $group: { 
           _id: '$pastOrders.drink',
@@ -863,27 +883,33 @@ router.get('/top-spenders-by-employment', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // Get all completed orders
-    const allCompletedOrders = await Order.find({ status: 'completed' });
+    // Get orders that are completed or have transactionTotal (barista/mobile schema)
+    const allCompletedOrders = await Order.find({
+      $or: [
+        { status: 'completed' },
+        { transactionTotal: { $exists: true, $gt: 0 } }
+      ]
+    }).lean();
 
     // Get all users with their employment status
     const allUsers = await User.find({
       role: 'Customer',
       employmentStatus: { $in: ['Student', 'Employed'] }
-    });
+    }).lean();
 
-    // Create a map of userId to employment status
     const userEmploymentMap = {};
     allUsers.forEach(user => {
       userEmploymentMap[user._id.toString()] = user.employmentStatus;
     });
 
-    // Group orders by user and calculate spending
+    // Group orders by user and calculate spending (support userId/customerId and totalAmount/transactionTotal)
     const userSpending = {};
     allCompletedOrders.forEach(order => {
-      const userId = order.userId.toString();
+      const userId = (order.userId || order.customerId)?.toString();
+      if (!userId) return;
       const employmentStatus = userEmploymentMap[userId];
-      const amount = order.totalAmount || 0;
+      const amount = Number(order.totalAmount ?? order.transactionTotal ?? 0);
+      if (amount <= 0) return;
 
       if (employmentStatus && ['Student', 'Employed'].includes(employmentStatus)) {
         if (!userSpending[userId]) {
@@ -925,31 +951,7 @@ router.get('/top-spenders-by-employment', authMiddleware, async (req, res) => {
     }
 
 
-    // If no data found, return test data for debugging
-    if (topSpendersByEmployment.length === 0) {
-      res.json([
-        {
-          employmentStatus: 'Student',
-          topSpender: {
-            userId: 'test-student',
-            employmentStatus: 'Student',
-            totalSpent: 500,
-            totalOrders: 3
-          }
-        },
-        {
-          employmentStatus: 'Employed',
-          topSpender: {
-            userId: 'test-employed',
-            employmentStatus: 'Employed',
-            totalSpent: 750,
-            totalOrders: 2
-          }
-        }
-      ]);
-    } else {
-      res.json(topSpendersByEmployment);
-    }
+    res.json(topSpendersByEmployment);
   } catch (error) {
     console.error('❌ [ANALYTICS] Top Spenders by Employment API Error:', error);
     res.status(500).json({ message: 'Internal server error' });

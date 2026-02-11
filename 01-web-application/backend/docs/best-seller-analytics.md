@@ -2,6 +2,27 @@
 
 This document describes the best seller analytics endpoints that provide insights into the most popular items at Nomu Cafe based on customer past orders.
 
+## Data source (same for all periods)
+
+**Best seller analytics uses a single data source for daily, weekly, monthly, and yearly:**
+
+| What | Where |
+|------|--------|
+| **Database collection** | `users` (User model) |
+| **Field** | `pastOrders` (array on each user document) |
+| **Date field** | `pastOrders[].date` |
+| **Item name** | `pastOrders[].drink` |
+| **Quantity** | `pastOrders[].quantity` |
+
+All four periods (daily/today, weekly, monthly, yearly) use this same collection and the same date field. Only the date range changes:
+
+- **Daily (today):** today 00:00:00 – today 23:59:59  
+- **Weekly:** Monday 00:00:00 – Sunday 23:59:59 of the current week  
+- **Monthly:** 1st of month 00:00:00 – last day of month 23:59:59  
+- **Yearly:** Jan 1 00:00:00 – Dec 31 23:59:59  
+
+The backend uses a shared helper `getDateRangeForPeriod(period)` so both `/best-sellers` and `/best-sellers-by-category` use the same date ranges.
+
 ## Overview
 
 The best seller analytics system analyzes customer past orders to determine:

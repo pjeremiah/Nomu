@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
 // POST /api/feedback → Save feedback from client
 router.post('/', async (req, res) => {
   try {
-    const { name, email, message } = req.body;
+    const { name, email, message, recaptchaToken } = req.body;
     
     // Validate required fields
     if (!name || !email || !message) {
@@ -34,6 +34,32 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ 
         message: 'Please provide a valid email address' 
       });
+    }
+
+    // reCAPTCHA verification when secret key is configured
+    const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+    if (recaptchaSecret) {
+      if (!recaptchaToken || typeof recaptchaToken !== 'string' || !recaptchaToken.trim()) {
+        return res.status(400).json({
+          message: 'Please complete the "I\'m not a robot" check and try again.'
+        });
+      }
+      const verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+      const verifyRes = await fetch(verifyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          secret: recaptchaSecret,
+          response: recaptchaToken.trim(),
+          remoteip: req.ip || req.connection?.remoteAddress || ''
+        }).toString()
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyData.success) {
+        return res.status(400).json({
+          message: 'reCAPTCHA verification failed. Please try again.'
+        });
+      }
     }
 
     // Create new feedback

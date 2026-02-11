@@ -26,6 +26,13 @@ const AnalyticsDisplay = () => {
       
       if (employmentRes.ok) {
         employmentData = await employmentRes.json();
+        // Ensure fixed order: Employed first, then Student (API returns both with real/zero data)
+        const employed = employmentData.find((d) => d.employmentStatus === 'Employed');
+        const student = employmentData.find((d) => d.employmentStatus === 'Student');
+        employmentData = [
+          employed || { employmentStatus: 'Employed', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 },
+          student || { employmentStatus: 'Student', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 }
+        ];
       }
 
       setEmploymentSpendingData(employmentData);
@@ -79,21 +86,25 @@ const AnalyticsDisplay = () => {
     );
   }
 
+  // Always show both Employed and Student (API returns real data; missing = 0)
+  const employedRow = employmentSpendingData.find((d) => d.employmentStatus === 'Employed') || { employmentStatus: 'Employed', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 };
+  const studentRow = employmentSpendingData.find((d) => d.employmentStatus === 'Student') || { employmentStatus: 'Student', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 };
+  const displayData = [employedRow, studentRow];
+
   return (
     <div className="analytics-display">
-      {/* Highest Spenders by Employment Status */}
-      {employmentSpendingData.length > 0 ? (
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '2rem'
-        }}>
+      {/* Spending Analysis: both Employed and Student always visible, real data from API */}
+      <div style={{
+        background: '#fff',
+        padding: '1.5rem',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        marginBottom: '2rem'
+      }}>
           <h4 style={{ margin: '0 0 1rem 0', color: '#003466' }}>Spending Analysis: Employed vs Students</h4>
           
-          {/* Summary Comparison */}
-          {employmentSpendingData.length >= 2 && (
+          {/* Summary Comparison - both Employed and Student always shown; comparison avoids division by zero */}
+          {(
             <div style={{
               background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
               padding: '1rem',
@@ -104,19 +115,27 @@ const AnalyticsDisplay = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <h5 style={{ margin: 0, color: '#003466' }}>Total Spending Comparison</h5>
                 <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
-                  {employmentSpendingData[0].totalSpent > employmentSpendingData[1].totalSpent ? (
-                    <span style={{ color: '#1976d2', fontWeight: '600' }}>
-                      {employmentSpendingData[0].employmentStatus} spend {(((employmentSpendingData[0].totalSpent - employmentSpendingData[1].totalSpent) / employmentSpendingData[1].totalSpent) * 100).toFixed(0)}% more
-                    </span>
-                  ) : (
-                    <span style={{ color: '#7b1fa2', fontWeight: '600' }}>
-                      {employmentSpendingData[1].employmentStatus} spend {(((employmentSpendingData[1].totalSpent - employmentSpendingData[0].totalSpent) / employmentSpendingData[0].totalSpent) * 100).toFixed(0)}% more
-                    </span>
-                  )}
+                  {(() => {
+                    const a = displayData[0];
+                    const b = displayData[1];
+                    if (a.totalSpent === 0 && b.totalSpent === 0) {
+                      return <span>No spending in this period yet.</span>;
+                    }
+                    if (a.totalSpent === 0) {
+                      return <span style={{ color: '#7b1fa2', fontWeight: '600' }}>Only {b.employmentStatus} have spending so far (₱{b.totalSpent.toLocaleString()}).</span>;
+                    }
+                    if (b.totalSpent === 0) {
+                      return <span style={{ color: '#1976d2', fontWeight: '600' }}>Only {a.employmentStatus} have spending so far (₱{a.totalSpent.toLocaleString()}).</span>;
+                    }
+                    if (a.totalSpent > b.totalSpent) {
+                      return <span style={{ color: '#1976d2', fontWeight: '600' }}>{a.employmentStatus} spend {(((a.totalSpent - b.totalSpent) / b.totalSpent) * 100).toFixed(0)}% more</span>;
+                    }
+                    return <span style={{ color: '#7b1fa2', fontWeight: '600' }}>{b.employmentStatus} spend {(((b.totalSpent - a.totalSpent) / a.totalSpent) * 100).toFixed(0)}% more</span>;
+                  })()}
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                {employmentSpendingData.map((category, index) => (
+                {displayData.map((category, index) => (
                   <div key={index} style={{
                     background: '#fff',
                     padding: '0.75rem',
@@ -135,16 +154,16 @@ const AnalyticsDisplay = () => {
                       ₱{category.totalSpent.toLocaleString()}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
-                      {category.userCount} users • {category.totalOrders} orders • Avg: ₱{category.averageSpent.toFixed(0)}
+                      {category.userCount} users • {category.totalOrders} orders • Avg: ₱{Number(category.averageSpent || 0).toFixed(0)}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {/* Total Spending by Employment Status */}
+          {/* Total Spending by Employment Status - both cards always visible */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-            {employmentSpendingData.map((category, index) => (
+            {displayData.map((category, index) => (
               <div key={index} style={{
                 background: '#fff',
                 padding: '2rem',
@@ -169,25 +188,6 @@ const AnalyticsDisplay = () => {
             ))}
           </div>
         </div>
-      ) : (
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '2rem',
-          textAlign: 'center'
-        }}>
-          <h4 style={{ margin: '0 0 1rem 0', color: '#003466' }}>Spending Analysis: Employed vs Students</h4>
-          <div style={{ color: '#6c757d', fontSize: '0.9rem' }}>
-            No spending data available for employed users or students yet.
-            <br />
-            <small style={{ fontSize: '0.8rem', color: '#999' }}>
-              This could mean no users have employment status "Employed" or "Student", or no completed orders exist.
-            </small>
-          </div>
-        </div>
-      )}
 
 
       <style jsx>{`

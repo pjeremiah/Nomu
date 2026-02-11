@@ -26,6 +26,7 @@ const ForgotPasswordForm = ({ onBack }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const timerRef = useRef(null);
 
   const handleChange = (e) => {
@@ -235,9 +236,8 @@ const ForgotPasswordForm = ({ onBack }) => {
           throw new Error(data.message || 'Password reset failed');
         }
         
-        // Password reset successful
-        alert('Password reset successfully! You can now sign in with your new password.');
-        onBack();
+        // Password reset successful – show modal instead of alert
+        setShowSuccessModal(true);
       } catch (error) {
 
         setError(error.message || 'Password reset failed');
@@ -261,9 +261,104 @@ const ForgotPasswordForm = ({ onBack }) => {
 
 
 
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
+    onBack();
+  };
+
   return (
     <div>
+      {showSuccessModal && (
+        <div
+          className="success-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="success-modal-title"
+        >
+          <div className="success-modal-backdrop" onClick={handleCloseSuccessModal} />
+          <div className="success-modal-card">
+            <div className="success-modal-icon">✓</div>
+            <h2 id="success-modal-title" className="success-modal-title">Password reset successfully!</h2>
+            <p className="success-modal-message">You can now sign in with your new password.</p>
+            <button
+              type="button"
+              className="success-modal-button"
+              onClick={handleCloseSuccessModal}
+            >
+              Back to Sign In
+            </button>
+          </div>
+        </div>
+      )}
       <style>{`
+        .success-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          box-sizing: border-box;
+        }
+        .success-modal-backdrop {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.4);
+        }
+        .success-modal-card {
+          position: relative;
+          background: #fff;
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+          padding: 28px 24px;
+          max-width: 360px;
+          width: 100%;
+          text-align: center;
+          font-family: 'Montserrat', sans-serif;
+        }
+        .success-modal-icon {
+          width: 48px;
+          height: 48px;
+          margin: 0 auto 16px;
+          background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+          color: #155724;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          font-weight: bold;
+        }
+        .success-modal-title {
+          margin: 0 0 8px;
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #212c59;
+        }
+        .success-modal-message {
+          margin: 0 0 20px;
+          font-size: 0.9rem;
+          color: #555;
+          line-height: 1.4;
+        }
+        .success-modal-button {
+          width: 100%;
+          padding: 12px 0;
+          background: #212c59;
+          color: white;
+          border: 2px solid #212c59;
+          border-radius: 8px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: 'Montserrat', sans-serif;
+          transition: background 0.2s ease, border-color 0.2s ease;
+        }
+        .success-modal-button:hover {
+          background: #1a2447;
+          border-color: #1a2447;
+        }
         .form input::placeholder {
           color: #a0a0a0;
           opacity: 1;

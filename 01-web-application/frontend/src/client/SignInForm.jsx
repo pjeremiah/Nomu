@@ -12,7 +12,7 @@ const maskEmail = (email) => {
   return `${maskedLocal}@${domain}`;
 };
 
-const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = false, restrictAdminOnMobile = false }) => {
+const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = false, restrictAdminOnMobile = false, showSignUpLink = true, hideFormTitle = false, forAdminLogin = false }) => {
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -139,38 +139,11 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         
         if (!preventRedirect) {
           window.location.href = '/admin/home';
-        } else {
-          // If preventRedirect is true but user is admin, trigger a redirect after auth state updates
-          setTimeout(() => {
-            if (data.user.role === 'superadmin' || data.user.role === 'manager' || data.user.role === 'staff') {
-              window.location.href = '/admin/home';
-            }
-          }, 100);
         }
+        // When preventRedirect is true (e.g. AdminLogin), parent handles redirect via onSubmit -> navigate
         } else {
-          // Customer login successful
-          
-          if (rememberMe) {
-            // Store in localStorage for persistent login
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            localStorage.setItem('rememberMe', 'true');
-            localStorage.removeItem('rememberFor1Day');
-        } else {
-          // Session-only: use sessionStorage so login does not persist after browser/tab close
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          sessionStorage.setItem('token', data.token);
-          sessionStorage.setItem('user', JSON.stringify(data.user));
-          localStorage.removeItem('rememberMe');
-          localStorage.removeItem('rememberFor1Day');
-        }
-        if (!preventRedirect) {
-          window.location.href = '/';
-        }
-        // Update global auth state
-        login(data.user);
-        onSubmit && onSubmit(data.user);
+          // Web app is admin-only; customer accounts use the mobile app
+          setError('This app is for admin sign-in only. Customer accounts are managed in the Nomu Cafe mobile app.');
         }
       } catch (error) {
 
@@ -231,14 +204,8 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         
         if (!preventRedirect) {
           window.location.href = '/admin/home';
-        } else {
-          // If preventRedirect is true but user is admin, trigger a redirect after auth state updates
-          setTimeout(() => {
-            if (data.user.role === 'superadmin' || data.user.role === 'manager' || data.user.role === 'staff') {
-              window.location.href = '/admin/home';
-            }
-          }, 100);
         }
+        // When preventRedirect is true (e.g. AdminLogin), parent handles redirect via onSubmit -> navigate
       } catch (error) {
 
         setError(error.message || 'OTP verification failed');
@@ -310,7 +277,31 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
 
   // Show forgot password form if requested
   if (showForgotPassword) {
-    return <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />;
+    return (
+      <>
+        <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />
+        <div style={{ marginTop: 24, textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowForgotPassword(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#6c757d',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              padding: 0,
+              textDecoration: 'none',
+              fontFamily: 'inherit'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#212c59'; e.currentTarget.style.textDecoration = 'underline'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#6c757d'; e.currentTarget.style.textDecoration = 'none'; }}
+          >
+            ← Back to Sign In
+          </button>
+        </div>
+      </>
+    );
   }
 
   return (
@@ -506,6 +497,12 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         .forgot-password-link:hover {
           color: #5B86E5 !important;
           text-decoration: none !important;
+        }
+        
+        .forgot-password-below {
+          margin-top: 12px !important;
+          margin-bottom: 0 !important;
+          text-align: center !important;
         }
         
         .form-switch-button {
@@ -719,7 +716,7 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       }}>
         {!showOTPForm ? (
           <>
-            <h2>Sign In</h2>
+            {!hideFormTitle && <h2>Sign In</h2>}
             {error && (
               <div className="form-error">
                 {error}
@@ -763,43 +760,59 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
                 </span>
               </div>
             </label>
-            <div className="options-row">
-              <div className="remember-group">
-                <input
-                  id="remember"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+            {!forAdminLogin && (
+              <div className="options-row">
+                <div className="remember-group">
+                  <input
+                    id="remember"
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={isLoading}
+                  />
+                  <span className="remember-text">Remember Me</span>
+                </div>
+                <button 
+                  type="button" 
+                  className="forgot-password-link"
+                  onClick={() => setShowForgotPassword(true)}
                   disabled={isLoading}
-                />
-                <span className="remember-text">Remember Me</span>
+                >
+                  Forgot Password?
+                </button>
               </div>
-              <button 
-                type="button" 
-                className="forgot-password-link"
-                onClick={() => setShowForgotPassword(true)}
-                disabled={isLoading}
-              >
-                Forgot Password?
-              </button>
-            </div>
+            )}
             <button 
               type="submit"
               disabled={isLoading}
             >
               {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
-            <div className="form-footer">
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={onSwitch}
-                disabled={isLoading}
-                className="form-switch-button"
-              >
-                Sign Up
-              </button>
-            </div>
+            {forAdminLogin && (
+              <div className="forgot-password-below">
+                <button
+                  type="button"
+                  className="forgot-password-link"
+                  onClick={() => setShowForgotPassword(true)}
+                  disabled={isLoading}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
+            {showSignUpLink && (
+              <div className="form-footer">
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={onSwitch}
+                  disabled={isLoading}
+                  className="form-switch-button"
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -876,14 +889,25 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
               {isLoading ? 'Verifying...' : 'Verify'}
             </button>
 
-            <div className="form-footer" style={{ marginTop: '4px', marginBottom: 0 }}>
+            <div className="back-to-signin-row" style={{ marginTop: 24, textAlign: 'center' }}>
               <button
                 type="button"
                 onClick={goBackToLogin}
                 disabled={isLoading}
-                className="back-to-login-button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#6c757d',
+                  fontSize: '0.9rem',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  padding: 0,
+                  textDecoration: 'none',
+                  fontFamily: 'inherit'
+                }}
+                onMouseEnter={(e) => { if (!isLoading) { e.currentTarget.style.color = '#212c59'; e.currentTarget.style.textDecoration = 'underline'; } }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#6c757d'; e.currentTarget.style.textDecoration = 'none'; }}
               >
-                Back to Login
+                ← Back to Sign In
               </button>
             </div>
           </>

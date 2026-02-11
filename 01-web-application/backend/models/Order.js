@@ -4,12 +4,17 @@ const OrderSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
+  },
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
   },
   employmentStatus: {
     type: String,
     enum: ['Employed', 'Student', 'Unemployed', 'Prefer not to say'],
-    required: true
+    required: false
   },
   items: [{
     name: String,
@@ -21,7 +26,11 @@ const OrderSchema = new mongoose.Schema({
   }],
   totalAmount: {
     type: Number,
-    required: true
+    required: false
+  },
+  transactionTotal: {
+    type: Number,
+    required: false
   },
   status: {
     type: String,
@@ -37,7 +46,8 @@ const OrderSchema = new mongoose.Schema({
     default: ''
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  strict: false
 });
 
 // Indexes for better performance

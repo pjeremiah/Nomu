@@ -3,10 +3,8 @@ import styled from 'styled-components';
 import { Link as LinkR, NavLink as RouterNavLink, useLocation, useNavigate } from 'react-router-dom';
 import LogoImg from '../utils/Images/Logo.png';
 import { MenuRounded, CloseRounded } from '@mui/icons-material';
-import { FaTimes, FaMobileAlt } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
 import { X } from 'lucide-react';
-import SignInForm from '../client/SignInForm'; 
-import SignUpForm from '../client/SignUpForm';
 import MobileAppModal from './MobileAppModal';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -48,16 +46,19 @@ const Nav = styled.div`
   right: 0;
   z-index: 100;
   transition: all 0.3s ease;
-  background: ${props => props.$isScrolled || props.$isAccountSettings
+  background: ${props => props.$isScrolled
     ? 'rgba(33, 44, 89, 0.95)'
     : 'transparent'
   };
-  box-shadow: ${props => props.$isScrolled || props.$isAccountSettings ? '0 2px 10px rgba(0, 0, 0, 0.1)' : 'none'};
+  box-shadow: ${props => props.$isScrolled ? '0 2px 10px rgba(0, 0, 0, 0.1)' : 'none'};
 
-  /* Mobile only: always use solid background so Nomu logo is visible over gallery/modal dark content */
+  /* Mobile: same as desktop - transparent at top, solid when scrolled (logo has drop-shadow for contrast over hero) */
   @media screen and (max-width: 768px) {
-    background: rgba(33, 44, 89, 0.95);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: ${props => props.$isScrolled
+      ? 'rgba(33, 44, 89, 0.95)'
+      : 'transparent'
+    };
+    box-shadow: ${props => props.$isScrolled ? '0 2px 10px rgba(0, 0, 0, 0.1)' : 'none'};
   }
 
   > * {
@@ -136,40 +137,6 @@ const Logo = styled.img`
   }
 `;
 
-const MobileAppIcon = styled.a`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: transparent;
-  border-radius: 50%;
-  color: white;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-left: -12px;
-  
-  &:hover {
-    color: #4A90E2;
-    transform: translateY(-2px);
-  }
-  
-  svg {
-    font-size: 18px;
-  }
-  
-  @media screen and (max-width: 768px) {
-    width: 36px;
-    height: 36px;
-    margin-left: -11px;
-    
-    svg {
-      font-size: 16px;
-    }
-  }
-`;
-
 const NavItems = styled.ul`
   display: flex;
   align-items: center;
@@ -183,7 +150,7 @@ const NavItems = styled.ul`
 `;
 
 const StyledNavLink = styled(RouterNavLink)`
-  color: ${props => props.$isScrolled || props.$isAccountSettings
+  color: ${props => props.$isScrolled
     ? 'white'
     : (props.theme.isDarkMode ? props.theme.text_primary : 'white')
   };
@@ -209,11 +176,11 @@ const ButtonContainer = styled.div`
 `;
 
 const MobileIcon = styled.button`
-  background: ${props => props.$isScrolled || props.$isAccountSettings
+  background: ${props => props.$isScrolled
     ? 'rgba(255, 255, 255, 0.1)' 
     : 'rgba(255, 255, 255, 0.01)'
   };
-  border: ${props => props.$isScrolled || props.$isAccountSettings
+  border: ${props => props.$isScrolled
     ? '1px solid white' 
     : '1px solid rgba(255, 255, 255, 0.05)'
   };
@@ -250,55 +217,6 @@ const IconButton = styled.button`
   cursor: pointer;
   padding: 0;
 `;
-
-const SignInButton = styled.button`
-  background: ${props => props.$isScrolled 
-    ? 'linear-gradient(135deg, #212c59 0%, #2a3a6b 100%)' 
-    : 'rgba(255, 255, 255, 0.02)'
-  };
-  color: white;
-  border: ${props => props.$isScrolled 
-    ? '2px solid #b08d57' 
-    : '2px solid rgba(176, 141, 87, 0.1)'
-  };
-  border-radius: 25px;
-  padding: 10px 24px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  box-shadow: ${props => props.$isScrolled 
-    ? '0 1px 4px rgba(33, 44, 89, 0.15)' 
-    : 'none'
-  };
-  position: relative;
-
-
-  &:hover {
-    background: ${props => props.$isScrolled 
-      ? 'linear-gradient(135deg, #b08d57 0%, #c49d67 100%)' 
-      : 'rgba(255, 255, 255, 0.2)'
-    };
-    border-color: white;
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: ${props => props.$isScrolled 
-      ? '0 2px 6px rgba(176, 141, 87, 0.2)' 
-      : '0 1px 3px rgba(0, 0, 0, 0.1)'
-    };
-  }
-
-  &:active {
-    transform: translateY(0);
-    box-shadow: ${props => props.$isScrolled 
-      ? '0 1px 3px rgba(33, 44, 89, 0.15)' 
-      : 'none'
-    };
-  }
-`;
-
 
 const SidebarBase = styled.div`
   position: fixed;
@@ -894,15 +812,15 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [showSignInModal, setShowSignInModal] = useState(false);
-  const [isModalClosing, setIsModalClosing] = useState(false);
   const [showMobileAppModal, setShowMobileAppModal] = useState(false);
-  const [authMode, setAuthMode] = useState('signin');
   const [isScrolled, setIsScrolled] = useState(false);
   const isMountedRef = useRef(false);
   
   // Use global auth context
   const { isAuthenticated, user } = useAuth();
+  // Only show avatar/dropdown for admin users; client side has no customer sign-in
+  const isAdminUser = user && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff');
+  const showAccountUi = isAuthenticated && isAdminUser;
   
   // Initialize component and ensure modal is closed
   useEffect(() => {
@@ -985,11 +903,6 @@ const Navbar = () => {
     };
   }, [isMobileSidebarOpen]);
   
-  // Check if user is on account settings page
-  const isAccountSettings = location.pathname === '/account-settings' || location.pathname === '/accountsettings';
-  
-  const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
-  
   // API URL configuration
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   
@@ -1034,75 +947,6 @@ const Navbar = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const closeModal = () => {
-    setIsModalClosing(true);
-    // Remove modal immediately without closing animation
-    setTimeout(() => {
-      setShowSignInModal(false);
-      setIsModalClosing(false);
-      setAuthMode('signin');
-    }, 300); // Match backdrop fadeOut animation duration
-  };
-
-  // Handle scroll prevention - using Menu modal approach to avoid flicker
-  const scrollPositionRef = useRef(0);
-  
-  useEffect(() => {
-    // Always prevent background scroll when modal is open OR closing (both desktop and mobile)
-    // This prevents flickering during the closing animation
-    if (showSignInModal || isModalClosing) {
-      // Save current scroll position BEFORE any changes
-      scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-      
-      // Prevent scrolling without using position: fixed/relative to avoid jump/flicker
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-      document.body.style.overflow = 'hidden';
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-      
-      // Lock scroll position by setting it on html element
-      document.documentElement.style.scrollBehavior = 'auto';
-      document.documentElement.scrollTop = scrollPositionRef.current;
-    } else {
-      // Modal is fully closed - wait for animation to complete before restoring scroll
-      // Animation is 400ms (slideOut), so wait slightly longer to ensure it's done
-      const timer = setTimeout(() => {
-        // Restore scrolling - remove styles first
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-        document.documentElement.style.scrollBehavior = '';
-        
-        // Restore scroll position AFTER styles are removed
-        const savedPosition = scrollPositionRef.current;
-        if (savedPosition !== undefined && savedPosition !== null) {
-          // Use requestAnimationFrame to ensure smooth restoration
-          requestAnimationFrame(() => {
-            document.documentElement.scrollTop = savedPosition;
-            document.body.scrollTop = savedPosition;
-            
-            // Then use window.scrollTo after a microtask for final positioning
-            Promise.resolve().then(() => {
-              window.scrollTo({
-                top: savedPosition,
-                behavior: 'auto'
-              });
-            });
-          });
-        }
-      }, 450); // Match the closeModal timeout
-      
-      return () => clearTimeout(timer);
-    }
-
-    return () => {
-      // Cleanup on unmount
-      if (!showSignInModal && !isModalClosing) {
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-        document.documentElement.style.scrollBehavior = '';
-      }
-    };
-  }, [showSignInModal, isModalClosing]);
 
   const closeDropdownWithAnimation = () => {
     if (isMobile && showDropdown) {
@@ -1218,13 +1062,10 @@ const Navbar = () => {
 
   return (
     <>
-    <Nav 
-      $isScrolled={isScrolled}
-      $isAccountSettings={isAccountSettings}
-    >
+    <Nav $isScrolled={isScrolled}>
       <NavContainer>
         <NavLeft>
-          <MobileIcon $isScrolled={isScrolled} $isAccountSettings={isAccountSettings} onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}>
+          <MobileIcon $isScrolled={isScrolled} onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}>
             <MenuRounded />
           </MobileIcon>
           <NavLogo to="/" onClick={handleLogoClick}>
@@ -1232,26 +1073,20 @@ const Navbar = () => {
           </NavLogo>
           {!isMobile && (
             <NavItems>
-              <StyledNavLink to="/" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings} onClick={handleHomeClick}>HOME</StyledNavLink>
-              <StyledNavLink to="/aboutus" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>ABOUT US</StyledNavLink>
-              <StyledNavLink to="/menu" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>MENU</StyledNavLink>
-              <StyledNavLink to="/location" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>LOCATION</StyledNavLink>
-              <StyledNavLink to="/contactus" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>CONTACT US</StyledNavLink>
-              <StyledNavLink to="/gallery" $isScrolled={isScrolled} $isAccountSettings={isAccountSettings}>GALLERY</StyledNavLink>
-              <MobileAppIcon 
-                href="https://drive.google.com/drive/folders/1XJyZEK_KEOs-Ew8n_mjpR_T-fW_ro2T1?usp=sharing" 
-                target="_blank"
-                title="Download Customer App"
-              >
-                <FaMobileAlt />
-              </MobileAppIcon>
+              <StyledNavLink to="/" $isScrolled={isScrolled} onClick={handleHomeClick}>HOME</StyledNavLink>
+              <StyledNavLink to="/aboutus" $isScrolled={isScrolled}>ABOUT US</StyledNavLink>
+              <StyledNavLink to="/menu" $isScrolled={isScrolled}>MENU</StyledNavLink>
+              <StyledNavLink to="/location" $isScrolled={isScrolled}>LOCATION</StyledNavLink>
+              <StyledNavLink to="/contactus" $isScrolled={isScrolled}>CONTACT US</StyledNavLink>
+              <StyledNavLink to="/gallery" $isScrolled={isScrolled}>GALLERY</StyledNavLink>
+              <StyledNavLink to="/nomu-app" $isScrolled={isScrolled}>NOMU APP</StyledNavLink>
             </NavItems>
           )}
         </NavLeft>
 
         <NavRight>
           <ButtonContainer>
-            {isAuthenticated ? (
+            {showAccountUi ? (
               <IconButton onClick={handleDropdownClick}>
                 {getAvatarUrl() && !imageLoadError ? (
                   <img 
@@ -1278,57 +1113,10 @@ const Navbar = () => {
                   </div>
                 )}
               </IconButton>
-            ) : (
-              !isMobile && (
-                <SignInButton 
-                  $isScrolled={isScrolled}
-                  onClick={() => {
-                    setShowSignInModal(true);
-                    setAuthMode('signin');
-                  }}
-                >
-                  Sign In
-                </SignInButton>
-              )
-            )}
+            ) : null}
           </ButtonContainer>
         </NavRight>
       </NavContainer>
-
-      {/* Sign In / Sign Up Modal - Only show on desktop */}
-      {(showSignInModal || isModalClosing) && !isMobile && (
-        <ModalBackdrop $isClosing={isModalClosing}>
-          <ModalContent $isClosing={isModalClosing} onClick={e => e.stopPropagation()}>
-            {authMode === 'signin' ? (
-              <SignInForm 
-                preventRedirect={true}
-                onSubmit={(userData) => {
-                  console.log('Navbar: Sign in successful, userData:', userData);
-                  closeModal();
-                  // Global auth context will handle the login automatically
-                }} 
-                onSwitch={() => setAuthMode('signup')} 
-                onOTPStateChange={setIsOTPFormShowing} 
-              />
-            ) : (
-              <SignUpForm 
-                onSubmit={(userData) => {
-                  console.log('Navbar: Sign up successful, userData:', userData);
-                  closeModal();
-                  // Global auth context will handle the login automatically
-                }} 
-                onSwitch={() => setAuthMode('signin')} 
-                onOTPStateChange={setIsOTPFormShowing} 
-              />
-            )}
-            {!isOTPFormShowing && (
-              <CloseModalButton onClick={closeModal}>
-                <FaTimes />
-              </CloseModalButton>
-            )}
-          </ModalContent>
-        </ModalBackdrop>
-      )}
 
       {/* Mobile App Modal */}
       {isMountedRef.current && showMobileAppModal && (
@@ -1356,14 +1144,6 @@ const Navbar = () => {
             <button style={dropdownItemStyle} onClick={() => {
               closeDropdownWithAnimation();
               setTimeout(() => {
-                window.location.href = '/account-settings';
-              }, 300);
-            }}>
-              Account Settings
-            </button>
-            <button style={dropdownItemStyle} onClick={() => {
-              closeDropdownWithAnimation();
-              setTimeout(() => {
                 handleLogoutClick();
               }, 300);
             }}>Sign Out</button>
@@ -1384,9 +1164,6 @@ const Navbar = () => {
           minWidth: '160px',
           zIndex: 999,
         }}>
-          <button style={dropdownItemStyle} onClick={() => window.location.href = '/account-settings'}>
-            Account Settings
-          </button>
           <button style={dropdownItemStyle} onClick={handleLogoutClick}>Sign Out</button>
         </div>
       )}
@@ -1411,80 +1188,9 @@ const Navbar = () => {
           <SidebarNavLink to="/location" onClick={() => setIsMobileSidebarOpen(false)}>LOCATION</SidebarNavLink>
           <SidebarNavLink to="/contactus" onClick={() => setIsMobileSidebarOpen(false)}>CONTACT US</SidebarNavLink>
           <SidebarNavLink to="/gallery" onClick={() => setIsMobileSidebarOpen(false)}>GALLERY</SidebarNavLink>
-          <a
-            href="https://drive.google.com/drive/folders/1XJyZEK_KEOs-Ew8n_mjpR_T-fW_ro2T1?usp=sharing" 
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Download Customer App"
-            onClick={() => setIsMobileSidebarOpen(false)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              width: '100%',
-              height: 'auto',
-              padding: '12px 16px',
-              borderRadius: '8px',
-              color: 'white',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              marginTop: '0.5rem'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <FaMobileAlt style={{ marginRight: '8px' }} />
-            Download Customer App
-          </a>
+          <SidebarNavLink to="/nomu-app" onClick={() => setIsMobileSidebarOpen(false)}>NOMU APP</SidebarNavLink>
         </div>
 
-        {!isAuthenticated && (
-          <div style={{ flexShrink: 0, paddingTop: '20px', paddingBottom: '40px' }}>
-            <button
-              onClick={() => {
-                setIsMobileSidebarOpen(false);
-                if (isMobile) {
-                  navigate('/signin');
-                } else {
-                setShowSignInModal(true);
-                setAuthMode('signin');
-                }
-              }}
-              style={{
-                width: '100%',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: 'white',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '25px',
-                padding: '10px 24px',
-                fontWeight: 600,
-                fontSize: '14px',
-                cursor: 'pointer',
-                transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                boxShadow: 'none'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(to bottom, rgba(200, 200, 200, 0.3), rgba(150, 150, 150, 0.4))';
-                e.currentTarget.style.border = '2px solid rgba(255, 255, 255, 0.5)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 255, 255, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.border = '2px solid rgba(255, 255, 255, 0.3)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              Sign In
-            </button>
-          </div>
-        )}
       </MobileSidebar>
     </Nav>
 

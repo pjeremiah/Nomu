@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Form, Button } from 'react-bootstrap';
-import { FaFacebookF, FaInstagram, FaTiktok, FaTimes } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa';
 import styled from 'styled-components';
 import { useTheme } from 'styled-components';
 import Logo from '../utils/Images/Logo.png';
 import ForContactUsPageImg from '../utils/Images/Contact Us/ForContactUsPage.jpg';
-import SignInForm from './SignInForm';
-import SignUpForm from './SignUpForm';
 import FeedbackSuccessModal from '../components/FeedbackSuccessModal';
-import { useAuth } from '../contexts/AuthContext';
+
+const RECAPTCHA_SITE_KEY = process.env.REACT_APP_RECAPTCHA_SITE_KEY || '';
 
 // Styled Components
 const ContactContainer = styled.div`
@@ -285,190 +284,14 @@ const Footer = styled.footer`
   }
 `;
 
-// Modal Styled Components (copied from Navbar)
-const ModalBackdrop = styled.div`
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(8px) !important;
-  z-index: 2000 !important;
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-  animation: ${props => props.$isClosing ? 'modalFadeOut 0.3s ease-out' : 'modalFadeIn 0.3s ease-out'} !important;
-  will-change: opacity;
-
-  @keyframes modalFadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes modalFadeOut {
-    from {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
-    }
-  }
-`;
-
-const ModalContent = styled.div`
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  padding: 2.5rem;
-  border-radius: 20px;
-  position: relative;
-  max-width: 420px;
-  width: 90%;
-  box-shadow: 
-    0 20px 60px rgba(33, 44, 89, 0.3),
-    0 8px 25px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: ${props => props.$isClosing ? 'none' : 'modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'};
-  transform-origin: center;
-
-  @keyframes modalSlideIn {
-    from {
-      opacity: 0;
-      transform: scale(0.8) translateY(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  @media (max-width: 768px) {
-    width: 96% !important;
-    max-width: none !important;
-    padding: 1rem !important;
-    border-radius: 16px !important;
-  }
-
-  @media (max-width: 480px) {
-    width: 98% !important;
-    max-width: none !important;
-    padding: 0.75rem !important;
-    border-radius: 12px !important;
-  }
-`;
-
-const CloseModalButton = styled.button`
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: rgba(33, 44, 89, 0.1);
-  border: 2px solid #212c59;
-  font-size: 1.1rem;
-  cursor: pointer;
-  color: #212c59;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1;
-  font-weight: 600;
-
-  &:hover {
-    background: #212c59;
-    border-color: #212c59;
-    color: white;
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
-  }
-`;
-
 const ContactUs = () => {
   const theme = useTheme();
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [showSignUp, setShowSignUp] = useState(false);
-  const [isModalClosing, setIsModalClosing] = useState(false);
-  const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
-  const [isFormPreFilled, setIsFormPreFilled] = useState(false);
   const [showFeedbackSuccessModal, setShowFeedbackSuccessModal] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  
-  // Use global auth context
-  const { isAuthenticated, user } = useAuth();
-  
-  // Handle window resize for mobile detection
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Handle scroll prevention - using Menu modal approach to avoid flicker
-  const scrollPositionRef = useRef(0);
-  
-  useEffect(() => {
-    // Always prevent background scroll when modals are open OR closing (both desktop and mobile)
-    // This prevents flickering during the closing animation
-    if (showSignIn || showSignUp || isModalClosing) {
-      // Save current scroll position BEFORE any changes
-      scrollPositionRef.current = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-      
-      // Prevent scrolling without using position: fixed/relative to avoid jump/flicker
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-      document.body.style.overflow = 'hidden';
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-      
-      // Lock scroll position by setting it on html element
-      document.documentElement.style.scrollBehavior = 'auto';
-      document.documentElement.scrollTop = scrollPositionRef.current;
-    } else {
-      // Modal is fully closed - wait for animation to complete before restoring scroll
-      // Animation is 300ms (fadeOut), so wait slightly longer to ensure it's done
-      const timer = setTimeout(() => {
-        // Restore scrolling - remove styles first
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-        document.documentElement.style.scrollBehavior = '';
-        
-        // Restore scroll position AFTER styles are removed
-        const savedPosition = scrollPositionRef.current;
-        if (savedPosition !== undefined && savedPosition !== null) {
-          // Use requestAnimationFrame to ensure smooth restoration
-          requestAnimationFrame(() => {
-            document.documentElement.scrollTop = savedPosition;
-            document.body.scrollTop = savedPosition;
-            
-            // Then use window.scrollTo after a microtask for final positioning
-            Promise.resolve().then(() => {
-              window.scrollTo({
-                top: savedPosition,
-                behavior: 'auto'
-              });
-            });
-          });
-        }
-      }, 300); // Match the closeModal timeout
-      
-      return () => clearTimeout(timer);
-    }
-
-    return () => {
-      // Cleanup on unmount
-      if (!showSignIn && !showSignUp && !isModalClosing) {
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-        document.documentElement.style.scrollBehavior = '';
-      }
-    };
-  }, [showSignIn, showSignUp, isModalClosing]);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
+  const recaptchaRef = useRef(null);
+  const recaptchaWrapperRef = useRef(null);
+  const recaptchaWidgetIdRef = useRef(null);
 
   const [formValues, setFormValues] = useState({
     name: '',
@@ -476,124 +299,93 @@ const ContactUs = () => {
     message: '',
   });
 
+  const [fieldErrors, setFieldErrors] = useState({
+    name: false,
+    email: false,
+    message: false,
+  });
 
-  // No need for local user data fetching - using global auth context
+  const [recaptchaError, setRecaptchaError] = useState(false);
 
-  // Function to check auth status and update state
-  // Pre-fill form when user is authenticated
+  // Load reCAPTCHA script and render widget
   useEffect(() => {
-    if (isAuthenticated && user) {
-      const userName = user.fullName || user.name || user.username || '';
-      const userEmail = user.email || '';
-      
-      if (userName && userEmail) {
-        setFormValues(prev => ({
-          ...prev,
-          name: userName,
-          email: userEmail
-        }));
-        setIsFormPreFilled(true);
-      }
-    } else {
-      setIsFormPreFilled(false);
+    if (!RECAPTCHA_SITE_KEY) return;
+    if (window.grecaptcha && window.grecaptcha.render) {
+      setRecaptchaReady(true);
+      return;
     }
-  }, [isAuthenticated, user]);
+    const script = document.createElement('script');
+    script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit';
+    script.async = true;
+    script.defer = true;
+    window.onRecaptchaLoad = () => setRecaptchaReady(true);
+    document.head.appendChild(script);
+    return () => {
+      window.onRecaptchaLoad = null;
+    };
+  }, []);
 
-  // No need for auth checking - using global auth context
+  useEffect(() => {
+    if (!RECAPTCHA_SITE_KEY || !recaptchaReady || !recaptchaRef.current || !window.grecaptcha) return;
+    if (recaptchaWidgetIdRef.current !== null) return; // already rendered
+    try {
+      const widgetId = window.grecaptcha.render(recaptchaRef.current, {
+        sitekey: RECAPTCHA_SITE_KEY,
+        theme: 'light',
+        size: 'normal',
+        callback: () => setRecaptchaError(false) // clear error when user completes it
+      });
+      recaptchaWidgetIdRef.current = widgetId;
+    } catch (err) {
+      console.error('reCAPTCHA render error:', err);
+    }
+  }, [recaptchaReady]);
 
-  // Debug form values changes
 
   const validateEmail = (email) => {
     const validDomains = ['@gmail.com', '@yahoo.com'];
     return validDomains.some(domain => email.toLowerCase().endsWith(domain));
   };
 
-  const handleSignInSuccess = (userData) => {
-    setIsModalClosing(true);
-    setTimeout(() => {
-      setShowSignIn(false);
-      setShowSignUp(false);
-      setIsModalClosing(false);
-    }, 300);
-    // No need for alerts - user is already logged in
-    console.log('ContactUs: Sign in successful, userData:', userData);
-  };
-
-  const handleSignUpSuccess = (userData) => {
-    setIsModalClosing(true);
-    setTimeout(() => {
-      setShowSignIn(false);
-      setShowSignUp(false);
-      setIsModalClosing(false);
-    }, 300);
-    // No need for alerts - user is already logged in
-    console.log('ContactUs: Sign up successful, userData:', userData);
-  };
-
-  const handleSwitchToSignUp = () => {
-    setIsModalClosing(true);
-    setTimeout(() => {
-      setShowSignIn(false);
-      setIsModalClosing(false);
-      setShowSignUp(true);
-    }, 300);
-  };
-
-  const handleSwitchToSignIn = () => {
-    setIsModalClosing(true);
-    setTimeout(() => {
-      setShowSignUp(false);
-      setIsModalClosing(false);
-      setShowSignIn(true);
-    }, 300);
-  };
-
   const handleFormChange = (e) => {
-    // Prevent changes to name and email when logged in
-    if (isAuthenticated && (e.target.name === 'name' || e.target.name === 'email')) {
-      return;
-    }
-    setFormValues({ ...formValues, [e.target.name]: e.target.value });
-  };
-
-  const handleTextboxClick = (e, fieldName) => {
-    // Show sign-in modal if user is not logged in
-    if (!isAuthenticated) {
-      e.preventDefault();
-      e.target.blur(); // Remove focus from the textbox
-      setShowSignIn(true);
-    }
-  };
-
-  const handleTextboxFocus = (e, fieldName) => {
-    // Show sign-in modal if user is not logged in
-    if (!isAuthenticated) {
-      e.preventDefault();
-      e.target.blur(); // Remove focus from the textbox
-      setShowSignIn(true);
-    }
+    const { name, value } = e.target;
+    setFormValues({ ...formValues, [name]: value });
+    if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: false }));
   };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
 
-    // Check if user is logged in
-    if (!isAuthenticated) {
-      setShowSignIn(true);
-      return;
-    }
-
-    // Check if form fields are empty
-    if (!formValues.name.trim() || !formValues.email.trim() || !formValues.message.trim()) {
-      alert('Please fill in all the required fields before sending your message.');
+    // Check if form fields are empty – show red borders on empty required fields
+    const nameEmpty = !formValues.name.trim();
+    const emailEmpty = !formValues.email.trim();
+    const messageEmpty = !formValues.message.trim();
+    if (nameEmpty || emailEmpty || messageEmpty) {
+      setFieldErrors({
+        name: nameEmpty,
+        email: emailEmpty,
+        message: messageEmpty,
+      });
       return;
     }
 
     // Validate email format
     if (!validateEmail(formValues.email)) {
-      alert('Please use a valid email address');
+      setFieldErrors(prev => ({ ...prev, email: true }));
       return;
     }
+
+    // reCAPTCHA: require verification when site key is configured
+    let recaptchaToken = '';
+    if (RECAPTCHA_SITE_KEY && window.grecaptcha && recaptchaWidgetIdRef.current !== null) {
+      recaptchaToken = window.grecaptcha.getResponse(recaptchaWidgetIdRef.current);
+      if (!recaptchaToken) {
+        setRecaptchaError(true);
+        recaptchaWrapperRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+    setRecaptchaError(false);
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -602,17 +394,21 @@ const ContactUs = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formValues),
+        body: JSON.stringify({
+          ...formValues,
+          recaptchaToken: recaptchaToken || undefined
+        }),
       });
 
       if (response.ok) {
         const data = await response.json();
+        if (RECAPTCHA_SITE_KEY && window.grecaptcha && recaptchaWidgetIdRef.current !== null) {
+          window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+        }
         setShowFeedbackSuccessModal(true);
-        // Clear only the message field after successful submission, keep name and email if user is logged in
-        setFormValues(prev => ({
-          ...prev,
-          message: ''
-        }));
+        setFormValues(prev => ({ ...prev, message: '' }));
+        setFieldErrors({ name: false, email: false, message: false });
+        setRecaptchaError(false);
       } else {
         const data = await response.json();
         alert(data.message || 'Failed to send message. Please try again.');
@@ -652,19 +448,6 @@ const ContactUs = () => {
                   <li>Just want to say hello? We love that too!</li>
                 </ul>
 
-                {!isAuthenticated && (
-                  <div className="alert alert-info" role="alert" style={{ marginTop: '0', marginBottom: '0' }}>
-                    <h5>Why Sign In?</h5>
-                    <p className="mb-2">Signing in helps us:</p>
-                    <ul className="mb-0" style={{ fontSize: '0.9em' }}>
-                      <li>Provide personalized responses to your inquiries</li>
-                      <li>Keep track of your previous interactions with us</li>
-                      <li>Ensure the authenticity of feedback</li>
-                      <li>Protect against spam and automated messages</li>
-                    </ul>
-                  </div>
-                )}
-
                 <h5>Follow Us</h5>
                 <SocialIcons>
                   <a href="https://www.facebook.com/nomuPH" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
@@ -691,14 +474,11 @@ const ContactUs = () => {
                       name="name"
                       value={formValues.name}
                       onChange={handleFormChange}
-                      onClick={(e) => handleTextboxClick(e, 'name')}
-                      onFocus={(e) => handleTextboxFocus(e, 'name')}
-                      readOnly={isAuthenticated}
-                      style={isAuthenticated ? { 
-                        backgroundColor: '#e9ecef', 
-                        cursor: 'not-allowed',
-                        borderColor: '#ced4da'
-                      } : {}}
+                      style={{
+                        borderColor: fieldErrors.name ? '#dc3545' : undefined,
+                        borderWidth: fieldErrors.name ? 2 : undefined,
+                        boxShadow: fieldErrors.name ? '0 0 0 0.2rem rgba(220, 53, 69, 0.25)' : undefined,
+                      }}
                     />
                   </Form.Group>
 
@@ -710,14 +490,11 @@ const ContactUs = () => {
                       name="email"
                       value={formValues.email}
                       onChange={handleFormChange}
-                      onClick={(e) => handleTextboxClick(e, 'email')}
-                      onFocus={(e) => handleTextboxFocus(e, 'email')}
-                      readOnly={isAuthenticated}
-                      style={isAuthenticated ? { 
-                        backgroundColor: '#e9ecef', 
-                        cursor: 'not-allowed',
-                        borderColor: '#ced4da'
-                      } : {}}
+                      style={{
+                        borderColor: fieldErrors.email ? '#dc3545' : undefined,
+                        borderWidth: fieldErrors.email ? 2 : undefined,
+                        boxShadow: fieldErrors.email ? '0 0 0 0.2rem rgba(220, 53, 69, 0.25)' : undefined,
+                      }}
                     />
                   </Form.Group>
 
@@ -730,10 +507,44 @@ const ContactUs = () => {
                       name="message"
                       value={formValues.message}
                       onChange={handleFormChange}
-                      onClick={(e) => handleTextboxClick(e, 'message')}
-                      onFocus={(e) => handleTextboxFocus(e, 'message')}
+                      style={{
+                        borderColor: fieldErrors.message ? '#dc3545' : undefined,
+                        borderWidth: fieldErrors.message ? 2 : undefined,
+                        boxShadow: fieldErrors.message ? '0 0 0 0.2rem rgba(220, 53, 69, 0.25)' : undefined,
+                      }}
                     />
                   </Form.Group>
+
+                  {RECAPTCHA_SITE_KEY && (
+                    <Form.Group className="mb-3">
+                      <div
+                        ref={recaptchaWrapperRef}
+                        style={{
+                          padding: recaptchaError ? '12px' : 0,
+                          border: recaptchaError ? '2px solid #dc3545' : '2px solid transparent',
+                          borderRadius: 8,
+                          backgroundColor: recaptchaError ? 'rgba(220, 53, 69, 0.05)' : 'transparent',
+                          transition: 'border-color 0.2s ease, background-color 0.2s ease',
+                        }}
+                        data-testid="recaptcha-wrapper"
+                      >
+                        <div ref={recaptchaRef} data-testid="recaptcha-container" />
+                      </div>
+                      {recaptchaError && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: '14px',
+                            color: '#dc3545',
+                            fontWeight: 500,
+                          }}
+                          role="alert"
+                        >
+                          Please complete the "I'm not a robot" verification above before sending.
+                        </div>
+                      )}
+                    </Form.Group>
+                  )}
 
                   <Button 
                     className="contact-button-blue" 
@@ -768,41 +579,6 @@ const ContactUs = () => {
           </div>
         </nav>
       </Footer>
-
-      {/* Sign In/Sign Up Modal */}
-      {(showSignIn || showSignUp || isModalClosing) && (
-        <ModalBackdrop $isClosing={isModalClosing}>
-          <ModalContent $isClosing={isModalClosing} onClick={e => e.stopPropagation()}>
-            {showSignIn ? (
-              <SignInForm
-                preventRedirect={true}
-                onSubmit={handleSignInSuccess}
-                onSwitch={handleSwitchToSignUp}
-                onOTPStateChange={setIsOTPFormShowing}
-              />
-            ) : (
-              <SignUpForm
-                preventRedirect={true}
-                onSubmit={handleSignUpSuccess}
-                onSwitch={handleSwitchToSignIn}
-                onOTPStateChange={setIsOTPFormShowing}
-              />
-            )}
-            {!isOTPFormShowing && (
-              <CloseModalButton onClick={() => {
-                setIsModalClosing(true);
-                setTimeout(() => {
-                  setShowSignIn(false);
-                  setShowSignUp(false);
-                  setIsModalClosing(false);
-                }, 300);
-              }}>
-                <FaTimes />
-              </CloseModalButton>
-            )}
-          </ModalContent>
-        </ModalBackdrop>
-      )}
 
       {/* Feedback Success Modal */}
       <FeedbackSuccessModal 

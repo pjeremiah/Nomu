@@ -189,18 +189,22 @@ const CustomerAnalytics = () => {
    });
 
      const ageData = ensureAllCategories(analyticsData.ageRanges, [
+     { _id: '13-17', count: 0 },
      { _id: '18-25', count: 0 },
      { _id: '26-32', count: 0 },
      { _id: '33-40', count: 0 },
      { _id: '41+', count: 0 }
    ]).sort((a, b) => {
-     // Ensure age ranges are in ascending order
-     const order = { '18-25': 1, '26-32': 2, '33-40': 3, '41+': 4 };
+     // Ensure age ranges are in ascending order (minimum 13 years old)
+     const order = { '13-17': 1, '18-25': 2, '26-32': 3, '33-40': 4, '41+': 5 };
      return order[a._id] - order[b._id];
    });
 
   return (
     <div className="analytics-container">
+      <div className="analytics-header" style={{ maxWidth: '1000px', margin: '0 auto 15px' }}>
+        <h3 className="analytics-title" style={{ margin: 0 }}>Customer Analytics</h3>
+      </div>
       {/* Content Wrapper for Centering */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {/* Charts Grid */}
@@ -242,10 +246,10 @@ const CustomerAnalytics = () => {
                  dataKey="_id" 
                  type="category"
                  tickFormatter={(value) => {
-                   if (value === '1-17') return '1-17 years';
-                   if (value === '18-25') return '25 years';
-                   if (value === '26-32') return '32 years';
-                   if (value === '33-40') return '40 years';
+                   if (value === '13-17') return '13-17 years';
+                   if (value === '18-25') return '18-25 years';
+                   if (value === '26-32') return '26-32 years';
+                   if (value === '33-40') return '33-40 years';
                    if (value === '41+') return '41+ years';
                    return value;
                  }}

@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom';
 import { lightTheme } from '../utils/Themes';
 import { FaFacebookF, FaInstagram, FaTiktok, FaPlay, FaImages, FaTimes, FaHeart, FaComment, FaShare, FaBookmark, FaChevronLeft, FaChevronRight, FaImage } from 'react-icons/fa';
 import Logo from '../utils/Images/Logo.png';
 import ForGalleryPageImage from '../utils/Images/Gallery/ForGalleryPage.jpg';
-import SignInForm from './SignInForm';
-import SignUpForm from './SignUpForm';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -397,106 +394,6 @@ const ModalContent = styled.div`
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
     overscroll-behavior-y: contain !important;
-  }
-`;
-
-// Sign In/Sign Up Modal styled-components (matching Navbar/ContactUs)
-const AuthModalBackdrop = styled.div`
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(8px) !important;
-  z-index: 2000 !important;
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-  animation: ${props => props.$isClosing ? 'modalFadeOut 0.3s ease-out' : 'modalFadeIn 0.3s ease-out'} !important;
-
-  @keyframes modalFadeIn {
-    from {
-      opacity: 0;
-      backdrop-filter: blur(0px);
-    }
-    to {
-      opacity: 1;
-      backdrop-filter: blur(8px);
-    }
-  }
-
-  @keyframes modalFadeOut {
-    from {
-      opacity: 1;
-      backdrop-filter: blur(8px);
-    }
-    to {
-      opacity: 0;
-      backdrop-filter: blur(0px);
-    }
-  }
-`;
-
-const AuthModalContent = styled.div`
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  padding: 2.5rem;
-  border-radius: 20px;
-  position: relative;
-  max-width: 420px;
-  width: 90%;
-  box-shadow: 
-    0 20px 60px rgba(33, 44, 89, 0.3),
-    0 8px 25px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: ${props => props.$isClosing ? 'none' : 'modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'};
-  transform-origin: center;
-
-  @keyframes modalSlideIn {
-    from {
-      opacity: 0;
-      transform: scale(0.8) translateY(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  @media (max-width: 768px) {
-    width: 96% !important;
-    max-width: none !important;
-    padding: 1rem !important;
-    border-radius: 16px !important;
-  }
-`;
-
-const AuthCloseModalButton = styled.button`
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: rgba(33, 44, 89, 0.1);
-  border: 2px solid #212c59;
-  font-size: 1.1rem;
-  cursor: pointer;
-  color: #212c59;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1;
-  font-weight: 600;
-
-  &:hover {
-    background: #212c59;
-    border-color: #212c59;
-    color: white;
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
   }
 `;
 
@@ -1609,10 +1506,6 @@ const Gallery = () => {
   const [likes, setLikes] = useState({});
   const [userLiked, setUserLiked] = useState({});
   const [newComment, setNewComment] = useState('');
-  const [showSignInModal, setShowSignInModal] = useState(false);
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
-  const [isModalClosing, setIsModalClosing] = useState(false);
-  const [isOTPFormShowing, setIsOTPFormShowing] = useState(false);
   const [showMobileImageFullscreen, setShowMobileImageFullscreen] = useState(false);
 
   /* Mobile only: pinch-to-zoom */
@@ -1638,10 +1531,7 @@ const Gallery = () => {
   const modalContentRef = useRef(null);
 
   // Use global auth context
-  const { isAuthenticated, user, checkAuthentication, login } = useAuth();
-  
-  // Navigation hook for mobile sign-in page
-  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
 
   // API_BASE is already defined at the top of the file
 
@@ -1918,9 +1808,8 @@ const Gallery = () => {
   const preventScrollRef = useRef(null);
   
   useEffect(() => {
-    // Always prevent background scroll when modals are open OR closing (both desktop and mobile)
-    // This prevents flickering during the closing animation
-    if (showModal || showSignInModal || isModalClosing) {
+    // Prevent background scroll when gallery post modal is open
+    if (showModal) {
       // Store scroll position before locking
       galleryModalScrollYRef.current = window.scrollY;
       
@@ -1931,12 +1820,9 @@ const Gallery = () => {
       
       // Add event listeners to prevent scroll on background only
       const preventScroll = (e) => {
-        // Allow scrolling inside modal content (gallery post modal + sign-in/sign-up modals)
         const target = e.target;
-        const isInsideModal = target.closest('.signin-modal-content') || 
-                              target.closest('[class*="ModalContent"]') ||
-                              target.closest('[class*="AuthModalContent"]') ||
-                              target.closest('[data-gallery-modal]'); // gallery post modal – allow touch scroll on mobile
+        const isInsideModal = target.closest('[class*="ModalContent"]') ||
+                              target.closest('[data-gallery-modal]');
         
         if (!isInsideModal) {
           e.preventDefault();
@@ -1957,34 +1843,7 @@ const Gallery = () => {
       document.addEventListener('touchmove', preventScroll, { passive: false });
       document.addEventListener('keydown', keydownHandler, { passive: false });
       
-      // Store keydown handler for cleanup
       preventScrollRef.current.keydownHandler = keydownHandler;
-      
-      // If closing, restore after animation completes
-      if (isModalClosing && !showModal && !showSignInModal) {
-        const timer = setTimeout(() => {
-          // Remove event listeners
-          if (preventScrollRef.current) {
-            document.removeEventListener('wheel', preventScrollRef.current);
-            document.removeEventListener('touchmove', preventScrollRef.current);
-            if (preventScrollRef.current.keydownHandler) {
-              document.removeEventListener('keydown', preventScrollRef.current.keydownHandler);
-            }
-            preventScrollRef.current = null;
-          }
-          
-          // Restore styles after animation completes
-          document.body.style.overflow = '';
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.left = '';
-          document.body.style.right = '';
-          document.body.style.width = '';
-          document.body.style.height = '';
-          document.documentElement.style.overflow = '';
-        }, 400); // Match animation duration
-        return () => clearTimeout(timer);
-      }
     } else {
       // Remove immediately if modal is fully closed
       if (preventScrollRef.current) {
@@ -2026,7 +1885,7 @@ const Gallery = () => {
       document.body.style.height = '';
       document.documentElement.style.overflow = '';
     };
-  }, [showModal, showSignInModal, isModalClosing]);
+  }, [showModal]);
 
   const fetchGalleryPosts = async () => {
     try {
@@ -2079,21 +1938,6 @@ const Gallery = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper function to wait for token to be stored (checks both localStorage and sessionStorage)
-  const waitForToken = async (maxAttempts = 10) => {
-    for (let i = 0; i < maxAttempts; i++) {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (token) {
-        console.log('✅ Token found after', i + 1, 'attempts');
-        return true;
-      }
-      console.log('⏳ Waiting for token, attempt', i + 1);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    console.log('❌ Token not found after', maxAttempts, 'attempts');
-    return false;
   };
 
   const fetchEngagementStats = async (postId) => {
@@ -2175,15 +2019,7 @@ const Gallery = () => {
   };
 
   const handleLike = async (postId) => {
-    if (!isAuthenticated) {
-      if (isMobile) {
-        navigate('/signin');
-      } else {
-        setShowSignInModal(true);
-      }
-      return;
-    }
-    
+    if (!isAuthenticated) return;
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -2215,16 +2051,7 @@ const Gallery = () => {
   };
 
   const handleComment = async (postId) => {
-    if (!isAuthenticated) {
-      if (isMobile) {
-        navigate('/signin');
-      } else {
-        setShowSignInModal(true);
-      }
-      return;
-    }
-    
-
+    if (!isAuthenticated) return;
     if (!newComment.trim()) return;
 
     try {
@@ -2264,14 +2091,7 @@ const Gallery = () => {
   };
 
   const handleDeleteComment = async (commentId, postId) => {
-    if (!isAuthenticated) {
-      if (isMobile) {
-        navigate('/signin');
-      } else {
-        setShowSignInModal(true);
-      }
-      return;
-    }
+    if (!isAuthenticated) return;
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -2736,142 +2556,9 @@ const Gallery = () => {
                       </Hashtags>
                     )}
                   </DescriptionSection>
-
-                  {/* Comments Display - Only show on desktop, completely hidden on mobile */}
-                  {comments[selectedPost._id] && comments[selectedPost._id].length > 0 && (
-                    <>
-                      <CommentsSection 
-                        ref={commentsSectionCallbackRef}
-                        id={`comments-section-${selectedPost._id}`}
-                        $isExpanded={expandedComments[selectedPost._id]}
-                        tabIndex={0}
-                        style={{
-                          cursor: 'default',
-                          overflowY: 'auto',
-                          overflowX: 'hidden',
-                          WebkitOverflowScrolling: 'touch',
-                          paddingBottom: expandedComments[selectedPost._id] ? '200px' : '50px',
-                          paddingTop: '0',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        {(expandedComments[selectedPost._id] 
-                          ? comments[selectedPost._id] 
-                          : comments[selectedPost._id].slice(0, 3)
-                        ).map((comment) => (
-                          <CommentItem key={String(comment.id)}>
-                            <CommentUser>
-                              <CommentAvatar>
-                                {comment.user?.profilePicture ? (
-                                  <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user?.name} />
-                                ) : (
-                                  <div style={{ 
-                                    width: '100%', 
-                                    height: '100%', 
-                                    background: '#b08d57', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold'
-                                  }}>
-                                    {(comment.user?.name || '?').charAt(0)}
-                                  </div>
-                                )}
-                              </CommentAvatar>
-                              <CommentContent>
-                                <CommentText>
-                                  <strong>{comment.user?.name ?? 'User'}</strong> {comment.content}
-                                </CommentText>
-                                <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
-                              </CommentContent>
-                              {isAuthenticated && user && String(user.id) === String(comment.user?.id) && (
-                                <button
-                                  onClick={() => handleDeleteComment(String(comment.id), selectedPost._id)}
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#8e8e8e',
-                                    cursor: 'pointer',
-                                    fontSize: '16px',
-                                    padding: '0',
-                                    marginLeft: 'auto',
-                                    width: '20px',
-                                    height: '20px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    opacity: 0.7,
-                                    transition: 'opacity 0.2s ease, color 0.2s ease'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.opacity = '1';
-                                    e.target.style.color = '#262626';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.opacity = '0.7';
-                                    e.target.style.color = '#8e8e8e';
-                                  }}
-                                  title="Delete comment"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </CommentUser>
-                          </CommentItem>
-                        ))}
-                      </CommentsSection>
-                      {/* View all comments link - outside scrollable area to ensure visibility */}
-                      {comments[selectedPost._id].length > 3 && !expandedComments[selectedPost._id] && (
-                        <ViewMoreComments
-                          onClick={() => {
-                            setExpandedComments(prev => ({
-                              ...prev,
-                              [selectedPost._id]: true
-                            }));
-                          }}
-                          style={{
-                            display: 'block',
-                            visibility: 'visible',
-                            opacity: 1,
-                            marginTop: '4px',
-                            marginBottom: '4px'
-                          }}
-                        >
-                          View all {comments[selectedPost._id].length} comments
-                        </ViewMoreComments>
-                      )}
-                    </>
-                  )}
                 </DetailsBodyTop>
 
                 <DetailsBodyBottom>
-                  <PostActions>
-                    <PostActionButton 
-                      className="heart-button"
-                      onClick={() => handleLike(selectedPost._id)}
-                    >
-                      <FaHeart style={{ color: engagementStats[selectedPost._id]?.userLiked ? '#ff3040' : '#333' }} />
-                    </PostActionButton>
-                    <PostActionButton 
-                      onClick={() => {
-                        // On mobile, show comment sheet; on desktop, focus input
-                        if (window.innerWidth <= 768) {
-                          setShowMobileComments(true);
-                        } else {
-                          document.getElementById('commentInput')?.focus();
-                        }
-                      }}
-                    >
-                      <FaComment />
-                    </PostActionButton>
-                  </PostActions>
-
-                  <Engagement>
-                    {engagementStats[selectedPost._id]?.likeCount || 0} likes
-                  </Engagement>
-
                   <Timestamp>
                     {new Date(selectedPost.createdAt).toLocaleDateString('en-US', { 
                       month: 'short', 
@@ -2879,20 +2566,6 @@ const Gallery = () => {
                       year: 'numeric'
                     }).toUpperCase()}
                   </Timestamp>
-
-                  <CommentInput>
-                    <CommentField 
-                      id="commentInput"
-                      placeholder="Add a comment..." 
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleComment(selectedPost._id);
-                        }
-                      }}
-                    />
-                  </CommentInput>
                 </DetailsBodyBottom>
               </DetailsBody>
             </DetailsSection>
@@ -3024,128 +2697,6 @@ const Gallery = () => {
         </ModalOverlay>
       )}
 
-      {/* Mobile Comment Sheet (Instagram-style) */}
-      {showModal && selectedPost && (
-        <>
-          <MobileCommentBackdrop 
-            $isOpen={showMobileComments}
-            onClick={() => setShowMobileComments(false)}
-          />
-          <MobileCommentSheet $isOpen={showMobileComments}>
-            <MobileCommentSheetHeader>
-              <h3>Comments</h3>
-              <MobileCommentCloseButton onClick={() => setShowMobileComments(false)}>
-                <FaTimes />
-              </MobileCommentCloseButton>
-            </MobileCommentSheetHeader>
-            <MobileCommentSheetContent
-              ref={mobileCommentsRef}
-              tabIndex={0}
-              style={{
-                cursor: 'default'
-              }}
-            >
-              {comments[selectedPost._id] && comments[selectedPost._id].length > 0 ? (
-                comments[selectedPost._id].map((comment) => (
-                  <CommentItem key={String(comment.id)} style={{ marginBottom: '16px' }}>
-                    <CommentUser>
-                      <CommentAvatar>
-                        {comment.user?.profilePicture ? (
-                          <img src={`${API_BASE}${comment.user.profilePicture}`} alt={comment.user?.name} />
-                        ) : (
-                          <div style={{ 
-                            width: '100%', 
-                            height: '100%', 
-                            background: '#b08d57', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}>
-                            {(comment.user?.name || '?').charAt(0)}
-                          </div>
-                        )}
-                      </CommentAvatar>
-                      <CommentContent>
-                        <CommentText>
-                          <strong>{comment.user?.name ?? 'User'}</strong> {comment.content}
-                        </CommentText>
-                        <CommentTime>{formatTimeAgo(comment.createdAt)}</CommentTime>
-                      </CommentContent>
-                      {isAuthenticated && user && String(user.id) === String(comment.user?.id) && (
-                        <button
-                          onClick={() => {
-                            handleDeleteComment(String(comment.id), selectedPost._id);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#8e8e8e',
-                            cursor: 'pointer',
-                            fontSize: '16px',
-                            padding: '0',
-                            marginLeft: 'auto',
-                            width: '20px',
-                            height: '20px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: 0.7,
-                            transition: 'opacity 0.2s ease, color 0.2s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.opacity = '1';
-                            e.target.style.color = '#262626';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.opacity = '0.7';
-                            e.target.style.color = '#8e8e8e';
-                          }}
-                          title="Delete comment"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </CommentUser>
-                  </CommentItem>
-                ))
-              ) : (
-                <div style={{ 
-                  textAlign: 'center', 
-                  padding: '40px 20px', 
-                  color: '#8e8e8e',
-                  fontSize: '14px',
-                  fontWeight: '400'
-                }}>
-                  No comments yet. Be the first to comment!
-                </div>
-              )}
-            </MobileCommentSheetContent>
-            <MobileCommentSheetInput>
-              <input
-                type="text"
-                placeholder="Add a comment..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && newComment.trim()) {
-                    handleComment(selectedPost._id);
-                  }
-                }}
-              />
-              <button
-                onClick={() => handleComment(selectedPost._id)}
-                disabled={!newComment.trim()}
-              >
-                Post
-              </button>
-            </MobileCommentSheetInput>
-          </MobileCommentSheet>
-        </>
-      )}
-
       {/* Footer */}
       <Footer>
         <img src={Logo} alt="Nomu Cafe Logo" className="footer-logo" />
@@ -3167,125 +2718,6 @@ const Gallery = () => {
         </nav>
       </Footer>
 
-      {/* Sign In / Sign Up Modal - Desktop Only */}
-      {showSignInModal && !isMobile && (
-        <AuthModalBackdrop $isClosing={isModalClosing}>
-          <AuthModalContent $isClosing={isModalClosing} onClick={(e) => e.stopPropagation()}>
-            {authMode === 'signin' ? (
-              <SignInForm 
-                preventRedirect={true}
-                onSubmit={async (userData) => {
-                  console.log('🎉 SignInForm onSubmit called with userData:', userData);
-                  setIsModalClosing(true);
-                  setTimeout(() => {
-                    setShowSignInModal(false);
-                    setIsModalClosing(false);
-                    setAuthMode('signin');
-                  }, 300);
-                  
-                  // Wait for token to be stored in localStorage
-                  const tokenFound = await waitForToken();
-                  console.log('🔄 Token found after login:', tokenFound);
-                  
-                  if (tokenFound) {
-                    console.log('🔄 Updating global auth state...');
-                    login(userData);
-                    
-                    // Trigger auth change event for other components
-                    window.dispatchEvent(new CustomEvent('authChanged'));
-                    
-                    // Wait for state to update, then refresh engagement data
-                    setTimeout(() => {
-                      console.log('🔄 Refreshing engagement data...');
-                      if (selectedPost) {
-                        fetchEngagementStats(selectedPost._id);
-                      }
-                    }, 200);
-                  } else {
-                    console.log('❌ Token not found, authentication failed');
-                  }
-                }}
-                onSwitch={() => {
-                  if (isMobile) {
-                    setIsModalClosing(true);
-                    setTimeout(() => {
-                      setShowSignInModal(false);
-                      setIsModalClosing(false);
-                      navigate('/signup');
-                    }, 300);
-                  } else {
-                    // Just switch mode without closing modal (no transition)
-                    setAuthMode('signup');
-                  }
-                }}
-                onOTPStateChange={setIsOTPFormShowing}
-              />
-            ) : (
-              <SignUpForm 
-                onSubmit={async (userData) => {
-                  console.log('🎉 SignUpForm onSubmit called with userData:', userData);
-                  setIsModalClosing(true);
-                  setTimeout(() => {
-                    setShowSignInModal(false);
-                    setIsModalClosing(false);
-                    setAuthMode('signin');
-                  }, 300);
-                  
-                  // Wait for token to be stored in localStorage
-                  const tokenFound = await waitForToken();
-                  console.log('🔄 Token found after signup:', tokenFound);
-                  
-                  if (tokenFound) {
-                    console.log('🔄 Updating global auth state...');
-                    login(userData);
-                    
-                    // Trigger auth change event for other components
-                    window.dispatchEvent(new CustomEvent('authChanged'));
-                    
-                    // Wait for state to update, then refresh engagement data
-                    setTimeout(() => {
-                      console.log('🔄 Refreshing engagement data...');
-                      if (selectedPost) {
-                        fetchEngagementStats(selectedPost._id);
-                      }
-                    }, 200);
-                  } else {
-                    console.log('❌ Token not found, authentication failed');
-                  }
-                }}
-                onSwitch={() => {
-                  if (isMobile) {
-                    setIsModalClosing(true);
-                    setTimeout(() => {
-                      setShowSignInModal(false);
-                      setIsModalClosing(false);
-                      navigate('/signin');
-                    }, 300);
-                  } else {
-                    // Just switch mode without closing modal (no transition)
-                    setAuthMode('signin');
-                  }
-                }}
-                onOTPStateChange={setIsOTPFormShowing}
-              />
-            )}
-            {!isOTPFormShowing && (
-              <AuthCloseModalButton 
-                onClick={() => {
-                  setIsModalClosing(true);
-                  setTimeout(() => {
-                    setShowSignInModal(false);
-                    setIsModalClosing(false);
-                    setAuthMode('signin');
-                  }, 300);
-                }}
-              >
-                <FaTimes />
-              </AuthCloseModalButton>
-            )}
-          </AuthModalContent>
-        </AuthModalBackdrop>
-      )}
     </GalleryContainer>
   );
 };

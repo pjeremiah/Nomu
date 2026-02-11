@@ -320,36 +320,58 @@ const AdminLayout = ({ children }) => {
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        // Check both localStorage and sessionStorage for token
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (token) {
-          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-          const response = await fetch(`${API_URL}/api/auth/me`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (response.ok) {
-            const userData = await response.json();
-            setCurrentUser(userData);
-            setUserRole(userData.role || 'staff');
-          } else {
-            // If authentication fails, clear old data and redirect to login
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            sessionStorage.removeItem('token');
-            sessionStorage.removeItem('user');
-            navigate('/');
+        const userJson = localStorage.getItem('user') || sessionStorage.getItem('user');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
+        });
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUser(userData);
+          setUserRole(userData.role || 'staff');
+        } else {
+          // API failed: use stored user as fallback (e.g. right after OTP login /me can be slow or fail briefly)
+          if (userJson) {
+            try {
+              const storedUser = JSON.parse(userJson);
+              if (storedUser.role === 'superadmin' || storedUser.role === 'manager' || storedUser.role === 'staff') {
+                setCurrentUser(storedUser);
+                setUserRole(storedUser.role || 'staff');
+                return;
+              }
+            } catch (_) {}
+          }
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('user');
+          navigate('/login');
         }
       } catch (error) {
-        // If there's an error, clear old data and redirect to login
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const userJson = localStorage.getItem('user') || sessionStorage.getItem('user');
+        if (token && userJson) {
+          try {
+            const storedUser = JSON.parse(userJson);
+            if (storedUser.role === 'superadmin' || storedUser.role === 'manager' || storedUser.role === 'staff') {
+              setCurrentUser(storedUser);
+              setUserRole(storedUser.role || 'staff');
+              return;
+            }
+          } catch (_) {}
+        }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
-        navigate('/');
+        navigate('/login');
       }
     };
 
@@ -381,7 +403,7 @@ const AdminLayout = ({ children }) => {
               localStorage.removeItem('user');
               sessionStorage.removeItem('token');
               sessionStorage.removeItem('user');
-              navigate('/');
+              navigate('/login');
             }
             // For other errors (like 400), just silently ignore
             return;
@@ -427,7 +449,7 @@ const AdminLayout = ({ children }) => {
       // Trigger auth change event for other components
       window.dispatchEvent(new CustomEvent('authChanged'));
       
-      navigate('/');
+      navigate('/login');
     }
   };
 

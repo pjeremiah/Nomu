@@ -340,9 +340,9 @@ router.post('/forgot-password',
     const { email } = req.body;
     
     try {
-      // Check if user exists
-      const user = await User.findOne({ email: email.toLowerCase() });
-      if (!user) {
+      // Check if admin exists (web sign-in is admin-only)
+      const admin = await Admin.findOne({ email: email.toLowerCase() });
+      if (!admin) {
         // Record failed attempt for non-existent email
         req.shouldRecordFailedAttempt = true;
         await recordFailedAttempt(req, res, () => {});
@@ -420,28 +420,28 @@ router.post('/reset-password',
         return res.status(400).json({ message: otpResult.message });
       }
 
-      // Find user
-      const user = await User.findOne({ email: email.toLowerCase() });
-      if (!user) {
+      // Find admin (web sign-in is admin-only)
+      const admin = await Admin.findOne({ email: email.toLowerCase() });
+      if (!admin) {
         return res.status(400).json({ 
-          message: 'User not found' 
+          message: 'Account not found' 
         });
       }
 
       // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      // Update user password
-      await User.findByIdAndUpdate(user._id, { 
+      // Update admin password
+      await Admin.findByIdAndUpdate(admin._id, { 
         password: hashedPassword 
       });
 
       // Send congratulatory email
       const emailService = require('../services/emailService');
       const congratsResult = await emailService.sendCongratsEmail(email, 'password_reset_success', {
-        fullName: user.fullName,
-        email: user.email,
-        username: user.username
+        fullName: admin.fullName,
+        email: admin.email,
+        username: admin.fullName
       });
 
       if (!congratsResult.success) {

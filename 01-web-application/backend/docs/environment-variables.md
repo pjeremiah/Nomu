@@ -106,6 +106,14 @@ ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
 CORS_CREDENTIALS=true
 ```
 
+### reCAPTCHA (Contact Us feedback form)
+```env
+# reCAPTCHA v2 secret key (server-side verification)
+RECAPTCHA_SECRET_KEY=your_recaptcha_secret_key
+```
+
+**Description**: Used to verify reCAPTCHA responses when users submit feedback from the Contact Us page. Get your keys at [Google reCAPTCHA Admin](https://www.google.com/recaptcha/admin). Register a reCAPTCHA v2 "I'm not a robot" checkbox for your domain. Add the **site key** to the frontend `.env` as `REACT_APP_RECAPTCHA_SITE_KEY` and the **secret key** here. If omitted, feedback is accepted without reCAPTCHA.
+
 ## File Upload Configuration
 
 ### File Size Limits
