@@ -68,10 +68,14 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Create new promo
+// Create new promo (owner and manager only; staff is view-only)
 router.post('/', authMiddleware, promoUpload.single('image'), async (req, res) => {
   try {
-    
+    const { role } = req.user;
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can create promos. Staff has view-only access.' });
+    }
+
     const {
       title,
       description,
@@ -143,9 +147,14 @@ router.post('/', authMiddleware, promoUpload.single('image'), async (req, res) =
   }
 });
 
-// Update promo
+// Update promo (owner and manager only; staff is view-only)
 router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res) => {
   try {
+    const { role } = req.user;
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can update promos. Staff has view-only access.' });
+    }
+
     const {
       title,
       description,
@@ -221,9 +230,14 @@ router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res)
   }
 });
 
-// Delete promo
+// Delete promo (owner and manager only; staff is view-only)
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+    const { role } = req.user;
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can delete promos. Staff has view-only access.' });
+    }
+
     const promo = await Promo.findById(req.params.id);
     if (!promo) {
       return res.status(404).json({ message: 'Promo not found' });
@@ -253,9 +267,14 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Toggle promo status (active/inactive)
+// Toggle promo status (owner and manager only; staff is view-only)
 router.patch('/:id/toggle-status', authMiddleware, async (req, res) => {
   try {
+    const { role } = req.user;
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can change promo status. Staff has view-only access.' });
+    }
+
     const promo = await Promo.findById(req.params.id);
     if (!promo) {
       return res.status(404).json({ message: 'Promo not found' });

@@ -4456,6 +4456,28 @@ body {
 
 /* ===== End Admin Management Styles ===== */
 
+/* Unified Cancel button (admin side) - matches Confirm Logout default and hover */
+.admin-modal .admin-btn-secondary {
+  background: white !important;
+  color: #b08d57 !important;
+  border: 2px solid #b08d57 !important;
+  border-radius: 8px !important;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+.admin-modal .admin-btn-secondary:hover {
+  background: #b08d57 !important;
+  border-color: #9a7a4a !important;
+  color: white !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+}
+
 /* Logout Modal Animations */
 @keyframes fadeIn {
   from { 
@@ -5556,7 +5578,8 @@ body {
   min-height: 42px;
 }
 
-.admin-form-status-display .status-badge {
+.admin-form-status-display .status-badge,
+.admin-form-status-display .role-badge {
   font-size: 0.875rem;
   font-weight: 600;
   padding: 0.25rem 0.75rem;
@@ -5576,6 +5599,24 @@ body {
   border: 1px solid #ffcdd2;
 }
 
+.admin-form-status-display .role-badge.owner {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  color: #7b1fa2;
+  border: 1px solid #e1bee7;
+}
+
+.admin-form-status-display .role-badge.manager {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.admin-form-status-display .role-badge.staff {
+  background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+  color: #424242;
+  border: 1px solid #e0e0e0;
+}
+
 /* Add form status display styling */
 .admin-form .admin-form-status-display {
   display: flex;
@@ -5588,7 +5629,8 @@ body {
   min-height: 42px;
 }
 
-.admin-form .admin-form-status-display .status-badge {
+.admin-form .admin-form-status-display .status-badge,
+.admin-form .admin-form-status-display .role-badge {
   font-size: 0.875rem;
   font-weight: 600;
   padding: 0.25rem 0.75rem;
@@ -5607,6 +5649,25 @@ body {
   background: linear-gradient(135deg, #ffebee, #ffcdd2) !important;
   color: #d32f2f !important;
   border: 1px solid #ffcdd2 !important;
+}
+
+/* Edit form role badges - same curve and font size as status */
+.admin-form .admin-form-status-display .role-badge.owner {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7) !important;
+  color: #7b1fa2 !important;
+  border: 1px solid #e1bee7 !important;
+}
+
+.admin-form .admin-form-status-display .role-badge.manager {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb) !important;
+  color: #1976d2 !important;
+  border: 1px solid #bbdefb !important;
+}
+
+.admin-form .admin-form-status-display .role-badge.staff {
+  background: linear-gradient(135deg, #f5f5f5, #e0e0e0) !important;
+  color: #424242 !important;
+  border: 1px solid #e0e0e0 !important;
 }
 
 /* ===== Customer Feedback Management Styles ===== */

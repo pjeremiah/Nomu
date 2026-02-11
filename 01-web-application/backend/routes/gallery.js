@@ -6,9 +6,15 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { galleryUpload } = require('../config/gridfs');
 const router = express.Router();
 
-// Get all gallery posts (admin)
+// Get all gallery posts (admin) - Owner and Manager only; Staff has no access
 router.get('/admin', authMiddleware, async (req, res) => {
   try {
+    if (!['superadmin', 'manager'].includes(req.user?.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only Owner or Manager can access Gallery Management. Staff has no access.'
+      });
+    }
     const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
     const skip = (page - 1) * limit;
 
@@ -139,6 +145,13 @@ router.post('/', authMiddleware, (req, res, next) => {
       return res.status(status).json(data);
     }
   };
+
+  if (!['superadmin', 'manager'].includes(req.user?.role)) {
+    return sendResponse(403, {
+      success: false,
+      message: 'Access denied. Only Owner or Manager can create gallery posts. Staff has no access.'
+    });
+  }
 
   try {
     // Check mongoose connection
@@ -365,6 +378,12 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     next();
   });
 }, async (req, res) => {
+  if (!['superadmin', 'manager'].includes(req.user?.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Only Owner or Manager can update gallery posts. Staff has no access.'
+    });
+  }
   try {
     const { title, description, tags, featured, order, isActive } = req.body;
     
@@ -778,8 +797,14 @@ router.put('/:id', authMiddleware, (req, res, next) => {
   }
 });
 
-// Delete gallery post
+// Delete gallery post (Owner and Manager only; Staff has no access)
 router.delete('/:id', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'manager'].includes(req.user?.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Only Owner or Manager can delete gallery posts. Staff has no access.'
+    });
+  }
   try {
     const post = await GalleryPost.findById(req.params.id);
     if (!post) {
@@ -820,8 +845,14 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Update post order (for reordering)
+// Update post order (Owner and Manager only; Staff has no access)
 router.patch('/reorder', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'manager'].includes(req.user?.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Only Owner or Manager can reorder gallery posts. Staff has no access.'
+    });
+  }
   try {
     const { posts } = req.body; // Array of { id, order }
     

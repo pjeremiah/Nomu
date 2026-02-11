@@ -9,7 +9,8 @@ import {
   EyeOff,
   Users,
   Shield,
-  UserCheck
+  UserCheck,
+  Check
 } from 'lucide-react';
 import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
@@ -79,6 +80,7 @@ const ManageAdmins = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showResetSuccessModal, setShowResetSuccessModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false); 
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   
@@ -115,7 +117,7 @@ const ManageAdmins = () => {
 
   // Prevent body scrolling when any modal is open - simple approach like other admin pages
   useEffect(() => {
-    if (showAddModal || showEditModal || showResetModal || showDeleteModal) {
+    if (showAddModal || showEditModal || showResetModal || showResetSuccessModal || showDeleteModal) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -128,7 +130,7 @@ const ManageAdmins = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showAddModal, showEditModal, showResetModal, showDeleteModal]);
+  }, [showAddModal, showEditModal, showResetModal, showResetSuccessModal, showDeleteModal]);
 
   // Fetch current user info
   useEffect(() => {
@@ -290,6 +292,8 @@ const ManageAdmins = () => {
       setError('Please select a valid role');
       return;
     }
+    // Manager can only add Staff (enforced in UI and backend)
+    const roleToSend = currentUser?.role === 'manager' ? 'staff' : addForm.role;
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -303,7 +307,7 @@ const ManageAdmins = () => {
           fullName: addForm.fullName,
           email: addForm.email,
           password: addForm.password,
-          role: addForm.role
+          role: roleToSend
           // Status is auto-managed, not sent to backend
         })
       });
@@ -359,16 +363,21 @@ const ManageAdmins = () => {
       return;
     }
     
-    if (!editForm.role || !['superadmin', 'manager', 'staff'].includes(editForm.role)) {
-      setError('Please select a valid role');
-      return;
+    if (!isEditingSelf) {
+      if (!editForm.role || !['superadmin', 'manager', 'staff'].includes(editForm.role)) {
+        setError('Please select a valid role');
+        return;
+      }
+      if (!editForm.status || !['active', 'inactive'].includes(editForm.status)) {
+        setError('Please select a valid status');
+        return;
+      }
     }
-    
-    if (!editForm.status || !['active', 'inactive'].includes(editForm.status)) {
-      setError('Please select a valid status');
-      return;
-    }
-    
+
+    const payload = isEditingSelf
+      ? { fullName: editForm.fullName, email: editForm.email }
+      : editForm;
+
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/admins/${selectedAdmin._id}`, {
@@ -377,7 +386,7 @@ const ManageAdmins = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(editForm)
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
@@ -439,10 +448,9 @@ const ManageAdmins = () => {
 
       if (response.ok) {
         setShowResetModal(false);
-        setSelectedAdmin(null);
         setResetForm({ newPassword: '', confirmPassword: '' });
         setError('');
-        alert('Password reset successfully');
+        setShowResetSuccessModal(true);
         // Dispatch event to update recent activity
         window.dispatchEvent(new CustomEvent('adminAction', { 
           detail: { action: 'admin_password_reset', admin: selectedAdmin.fullName } 
@@ -534,15 +542,28 @@ const ManageAdmins = () => {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Check permissions
-  const canAddAdmin = currentUser?.role === 'superadmin';
+  // Check permissions: Owner full; Manager can add Staff only, view Staff (read-only), edit/reset own, reset Staff
+  const canAddAdmin = currentUser?.role === 'superadmin' || currentUser?.role === 'manager';
   const canEditAdmin = (admin) => {
     if (currentUser?.role === 'superadmin') return true;
-    if (currentUser?.role === 'manager') return admin.role === 'staff';
+    if (currentUser?.role === 'manager') return admin._id === currentUser?.id || admin.role === 'staff';
     return false;
   };
   const canDeleteAdmin = currentUser?.role === 'superadmin';
-  const canResetPassword = currentUser?.role === 'superadmin';
+  const canResetPassword = (admin) => {
+    if (currentUser?.role === 'superadmin') return true;
+    if (currentUser?.role === 'manager') return admin._id === currentUser?.id || admin.role === 'staff';
+    return false;
+  };
+  const isEditingSelf = currentUser?.role === 'manager' && selectedAdmin && selectedAdmin._id === currentUser?.id;
+  const isViewOnlyStaff = currentUser?.role === 'manager' && selectedAdmin && selectedAdmin.role === 'staff';
+  const addFormRoleOptions = currentUser?.role === 'manager'
+    ? [{ value: 'staff', label: 'Staff' }]
+    : [
+        { value: 'staff', label: 'Staff' },
+        { value: 'manager', label: 'Manager' },
+        { value: 'superadmin', label: 'Owner' }
+      ];
 
   // Helper function to display role names
   const getRoleDisplayName = (role) => {
@@ -558,14 +579,14 @@ const ManageAdmins = () => {
     }
   };
 
-  // Additional security check - only allow superadmin to access this component
-  if (currentUser?.role !== 'superadmin') {
+  // Only Owner and Manager can access Manage Admins; Staff cannot
+  if (currentUser && !['superadmin', 'manager'].includes(currentUser?.role)) {
     return (
       <div className="access-denied-container">
         <div className="access-denied-content">
           <h2>Access Denied</h2>
-          <p>Only Super Admin can access the Manage Admins section.</p>
-          <p>This section requires Super Admin privileges.</p>
+          <p>Only Owner or Manager can access the Manage Admins section.</p>
+          <p>Staff does not have access to this section.</p>
         </div>
       </div>
     );
@@ -678,10 +699,14 @@ const ManageAdmins = () => {
           borderRadius: '8px',
           textAlign: 'center',
           fontSize: '13px',
-          lineHeight: '1.4',
+          lineHeight: '1.45',
           fontFamily: "'Montserrat', sans-serif",
           border: '1px solid #f5c6cb',
-          boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
+          boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
+          width: '100%',
+          boxSizing: 'border-box',
+          wordWrap: 'break-word',
+          whiteSpace: 'normal'
         }}>{error}</div>
       )}
 
@@ -718,7 +743,7 @@ const ManageAdmins = () => {
                   </button>
                 )}
                 
-                {canResetPassword && (
+                {canResetPassword(admin) && (
                   <button
                     onClick={() => openResetModal(admin)}
                     className="action-icon reset"
@@ -914,26 +939,6 @@ const ManageAdmins = () => {
                 flex: 1 !important;
                 white-space: nowrap !important;
               }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.85rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal .admin-btn-primary {
                 background: white !important;
                 color: #212c59 !important;
@@ -1020,7 +1025,7 @@ const ManageAdmins = () => {
               width: '100%',
               maxHeight: 'calc(100vh - 40px)',
               overflow: 'auto',
-              padding: '12px 6px'
+              padding: '12px 16px'
             }}
           >
             <div style={{ 
@@ -1044,20 +1049,27 @@ const ManageAdmins = () => {
             </div>
             
             <form onSubmit={handleAddAdmin} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '0px', background: '#f8f9fa', marginBottom: '0px', paddingBottom: '0px' }}>
-              {/* Error Display inside Add Modal */}
+              {/* Error Display inside Add Modal - box fits text, no overflow */}
               {error && (
                 <div className="form-error" style={{ 
                   marginBottom: 6,
                   color: '#dc3545',
                   background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-                  padding: '8px 12px',
+                  padding: '12px 16px',
                   borderRadius: '6px',
                   textAlign: 'center',
-                  fontSize: '0.75rem',
-                  lineHeight: '1.4',
+                  fontSize: '0.8rem',
+                  lineHeight: '1.5',
                   fontFamily: "'Montserrat', sans-serif",
                   border: '1px solid #f5c6cb',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
+                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
+                  width: '100%',
+                  maxWidth: '100%',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  whiteSpace: 'normal'
                 }}>{error}</div>
               )}
               
@@ -1115,12 +1127,8 @@ const ManageAdmins = () => {
                 <div className="admin-form-group">
                   <label className="admin-form-label">Role</label>
                   <EnhancedDropdown
-                    options={[
-                      { value: 'staff', label: 'Staff' },
-                      { value: 'manager', label: 'Manager' },
-                      { value: 'superadmin', label: 'Owner' }
-                    ]}
-                    value={addForm.role}
+                    options={addFormRoleOptions}
+                    value={currentUser?.role === 'manager' ? 'staff' : addForm.role}
                     onChange={(value) => setAddForm({...addForm, role: value})}
                     placeholder="Select role"
                     width="100%"
@@ -1286,26 +1294,6 @@ const ManageAdmins = () => {
                 flex: 1 !important;
                 white-space: nowrap !important;
               }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.85rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal .admin-btn-primary {
                 background: white !important;
                 color: #212c59 !important;
@@ -1380,24 +1368,28 @@ const ManageAdmins = () => {
                 fontWeight: '700',
                 fontFamily: "'Montserrat', sans-serif",
                 textAlign: 'center'
-              }}>Edit Admin</h3>
+              }}>{isViewOnlyStaff ? 'View Admin' : 'Edit Admin'}</h3>
             </div>
             
             <form onSubmit={handleEditAdmin} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '0px', background: '#f8f9fa', marginBottom: '0px', paddingBottom: '0px' }}>
-              {/* Error Display inside Edit Modal */}
-              {error && (
+              {/* Error Display inside Edit Modal - box fits text */}
+              {error && !isViewOnlyStaff && (
                 <div className="form-error" style={{ 
                   marginBottom: 6,
                   color: '#dc3545',
                   background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-                  padding: '8px 12px',
+                  padding: '10px 14px',
                   borderRadius: '6px',
                   textAlign: 'center',
-                  fontSize: '0.75rem',
-                  lineHeight: '1.4',
+                  fontSize: '0.8rem',
+                  lineHeight: '1.45',
                   fontFamily: "'Montserrat', sans-serif",
                   border: '1px solid #f5c6cb',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
+                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  wordWrap: 'break-word',
+                  whiteSpace: 'normal'
                 }}>{error}</div>
               )}
               
@@ -1406,9 +1398,11 @@ const ManageAdmins = () => {
                 <input
                   type="text"
                   value={editForm.fullName}
-                  onChange={(e) => setEditForm({...editForm, fullName: sanitizeHtml(e.target.value)})}
+                  onChange={(e) => !isViewOnlyStaff && setEditForm({...editForm, fullName: sanitizeHtml(e.target.value)})}
                   className="admin-form-input"
                   maxLength={50}
+                  readOnly={isViewOnlyStaff}
+                  style={isViewOnlyStaff ? { cursor: 'default', backgroundColor: '#e9ecef' } : undefined}
                 />
               </div>
               
@@ -1417,26 +1411,37 @@ const ManageAdmins = () => {
                 <input
                   type="email"
                   value={editForm.email}
-                  onChange={(e) => setEditForm({...editForm, email: e.target.value.toLowerCase().trim()})}
+                  onChange={(e) => !isViewOnlyStaff && setEditForm({...editForm, email: e.target.value.toLowerCase().trim()})}
                   className="admin-form-input"
                   maxLength={100}
+                  readOnly={isViewOnlyStaff}
+                  style={isViewOnlyStaff ? { cursor: 'default', backgroundColor: '#e9ecef' } : undefined}
                 />
               </div>
               
+              {/* Role & Status: editable only for Owner editing others; view-only for Manager (own or Staff) */}
               <div className="admin-form-row">
                 <div className="admin-form-group">
                   <label className="admin-form-label">Role</label>
-                  <EnhancedDropdown
-                    options={[
-                      { value: 'staff', label: 'Staff' },
-                      { value: 'manager', label: 'Manager' },
-                      { value: 'superadmin', label: 'Owner' }
-                    ]}
-                    value={editForm.role}
-                    onChange={(value) => setEditForm({...editForm, role: value})}
-                    placeholder="Select role"
-                    width="100%"
-                  />
+                  {(isViewOnlyStaff || isEditingSelf) ? (
+                    <div className="admin-form-status-display" style={{ height: '40px', alignItems: 'center' }}>
+                      <span className={`role-badge ${editForm.role === 'superadmin' ? 'owner' : editForm.role}`}>
+                        {editForm.role === 'superadmin' ? 'Owner' : editForm.role === 'manager' ? 'Manager' : 'Staff'}
+                      </span>
+                    </div>
+                  ) : (
+                    <EnhancedDropdown
+                      options={[
+                        { value: 'staff', label: 'Staff' },
+                        { value: 'manager', label: 'Manager' },
+                        { value: 'superadmin', label: 'Owner' }
+                      ]}
+                      value={editForm.role}
+                      onChange={(value) => setEditForm({...editForm, role: value})}
+                      placeholder="Select role"
+                      width="100%"
+                    />
+                  )}
                 </div>
                 
                 <div className="admin-form-group">
@@ -1448,7 +1453,6 @@ const ManageAdmins = () => {
                   </div>
                 </div>
               </div>
-              
               <div className="admin-form-actions" style={{ 
                 display: 'flex', 
                 gap: '12px', 
@@ -1462,21 +1466,22 @@ const ManageAdmins = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    // Dispatch event to close all dropdowns
                     document.dispatchEvent(new CustomEvent('modalClose'));
                     setShowEditModal(false);
                     setError('');
                   }}
                   className="admin-btn admin-btn-secondary"
                 >
-                  Cancel
+                  {isViewOnlyStaff ? 'Back' : 'Cancel'}
                 </button>
-                <button
-                  type="submit"
-                  className="admin-btn admin-btn-primary"
-                >
-                  Update Admin
-                </button>
+                {!isViewOnlyStaff && (
+                  <button
+                    type="submit"
+                    className="admin-btn admin-btn-primary"
+                  >
+                    Update Admin
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -1574,26 +1579,6 @@ const ManageAdmins = () => {
                 justify-content: center !important;
                 flex: 1 !important;
                 white-space: nowrap !important;
-              }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.85rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
               }
               .admin-modal .admin-btn-primary {
                 background: white !important;
@@ -1715,20 +1700,24 @@ const ManageAdmins = () => {
             </div>
             
             <form onSubmit={handleResetPassword} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '0px', background: '#f8f9fa', marginBottom: '0px', paddingBottom: '0px' }}>
-              {/* Error Display inside Reset Password Modal */}
+              {/* Error Display inside Reset Password Modal - box fits text */}
               {error && (
                 <div className="form-error" style={{ 
                   marginBottom: 6,
                   color: '#dc3545',
                   background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
-                  padding: '8px 12px',
+                  padding: '10px 14px',
                   borderRadius: '6px',
                   textAlign: 'center',
-                  fontSize: '0.75rem',
-                  lineHeight: '1.4',
+                  fontSize: '0.8rem',
+                  lineHeight: '1.45',
                   fontFamily: "'Montserrat', sans-serif",
                   border: '1px solid #f5c6cb',
-                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)'
+                  boxShadow: '0 2px 8px rgba(220, 53, 69, 0.1)',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  wordWrap: 'break-word',
+                  whiteSpace: 'normal'
                 }}>{error}</div>
               )}
               
@@ -1804,6 +1793,115 @@ const ManageAdmins = () => {
         </div>
       )}
 
+      {/* Password reset success modal - same style as feedback success */}
+      {showResetSuccessModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(8px)',
+            padding: '15px',
+            boxSizing: 'border-box'
+          }}
+          onClick={() => {
+            setShowResetSuccessModal(false);
+            setSelectedAdmin(null);
+          }}
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '16px',
+              maxWidth: '400px',
+              width: '90%',
+              padding: '32px',
+              textAlign: 'center',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)'
+            }}
+          >
+            <div style={{
+              width: '80px',
+              height: '80px',
+              background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)'
+            }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{
+              color: '#212c59',
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: '24px',
+              fontWeight: '700',
+              margin: '0 0 12px 0',
+              lineHeight: 1.3
+            }}>
+              Password Reset Successfully!
+            </h2>
+            <p style={{
+              color: '#5a6c7d',
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: '16px',
+              margin: '0 0 32px 0',
+              lineHeight: 1.5
+            }}>
+              The password has been successfully changed.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowResetSuccessModal(false);
+                setSelectedAdmin(null);
+              }}
+              style={{
+                background: 'white',
+                color: '#212c59',
+                border: '2px solid #212c59',
+                borderRadius: '12px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                fontFamily: "'Montserrat', sans-serif",
+                cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#212c59';
+                e.target.style.color = 'white';
+                e.target.style.borderColor = '#1a2347';
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'white';
+                e.target.style.color = '#212c59';
+                e.target.style.borderColor = '#212c59';
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Delete Admin Modal */}
       {showDeleteModal && selectedAdmin && (
         <div
@@ -1836,26 +1934,6 @@ const ManageAdmins = () => {
                   opacity: 1;
                   transform: scale(1) translateY(0);
                 }
-              }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.95rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
               }
               .admin-modal .admin-btn-danger {
                 background: white !important;

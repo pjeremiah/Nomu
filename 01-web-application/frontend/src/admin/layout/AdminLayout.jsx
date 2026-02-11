@@ -454,9 +454,10 @@ const AdminLayout = ({ children }) => {
   };
 
   // Check if user can access restricted sections
-  const canAccessManageAdmins = userRole === 'superadmin';
+  const canAccessManageAdmins = userRole === 'superadmin' || userRole === 'manager';
   const canAccessMenuManagement = userRole === 'superadmin' || userRole === 'manager';
   const canAccessInventoryManagement = userRole === 'superadmin' || userRole === 'manager';
+  const canAccessGalleryManagement = userRole === 'superadmin' || userRole === 'manager';
 
   // Helper function to get logo section
   const getLogoSection = () => {
@@ -494,7 +495,7 @@ const AdminLayout = ({ children }) => {
       icon: <Users size={18} />,
       accessible: canAccessManageAdmins,
       restricted: !canAccessManageAdmins,
-      tooltip: "Requires Super Admin access"
+      tooltip: "Owner: full access. Manager: add Staff only, edit/reset own account only"
     },
     {
       to: "/admin/menu-management",
@@ -534,7 +535,9 @@ const AdminLayout = ({ children }) => {
       to: "/admin/gallery-management",
       label: "Gallery Management",
       icon: <Grid3X3 size={18} />,
-      accessible: true
+      accessible: canAccessGalleryManagement,
+      restricted: !canAccessGalleryManagement,
+      tooltip: "Requires Manager or Owner access"
     }
   ];
 
@@ -640,26 +643,6 @@ const AdminLayout = ({ children }) => {
                 color: white !important;
                 transform: translateY(-2px) !important;
                 box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
-              }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.95rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #b08d57 !important;
-                border-color: #9a7a4a !important;
-                color: white !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
               }
             `}
           </style>

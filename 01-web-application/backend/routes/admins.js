@@ -57,11 +57,11 @@ router.get('/', adminListRateLimiter, authMiddleware, requireAdmin, async (req, 
   }
 });
 
-// POST /api/admins - Create new admin (superadmin only)
+// POST /api/admins - Create new admin (superadmin: any role; manager: staff only)
 router.post('/', 
   adminCreateRateLimiter,
   authMiddleware, 
-  requireSuperAdmin, 
+  requireAdmin,
   sanitizeInput,
   [
     body('fullName')
@@ -95,6 +95,7 @@ router.post('/',
   async (req, res) => {
     try {
       const { fullName, email, password, role, status } = req.body;
+      const currentUser = req.user;
 
       // Additional server-side validation
       if (!fullName || !email || !password || !role) {
@@ -104,6 +105,11 @@ router.post('/',
       // Validate role
       if (!['superadmin', 'manager', 'staff'].includes(role)) {
         return res.status(400).json({ message: 'Invalid role' });
+      }
+
+      // Manager can only create Staff (not Manager or Owner)
+      if (currentUser.role === 'manager' && role !== 'staff') {
+        return res.status(403).json({ message: 'Managers can only add Staff accounts. Only Owner can add Manager or Owner.' });
       }
 
     // Check if email already exists
@@ -154,7 +160,7 @@ router.post('/',
   }
 });
 
-// PUT /api/admins/:id - Update admin details (superadmin can update all, manager can update staff)
+// PUT /api/admins/:id - Update admin (superadmin: all; manager: self only, fullName & email only)
 router.put('/:id', adminUpdateRateLimiter, authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -167,26 +173,40 @@ router.put('/:id', adminUpdateRateLimiter, authMiddleware, requireAdmin, async (
       return res.status(404).json({ message: 'Admin not found' });
     }
 
-    // Role-based restrictions
+    // Manager: can only update their own account, and only fullName & email (not role or status)
     if (currentUser.role === 'manager') {
-      // Managers can only update staff members
-      if (adminToUpdate.role !== 'staff') {
-        return res.status(403).json({ message: 'Managers can only update staff members' });
+      if (currentUser.userId !== id) {
+        return res.status(403).json({ message: 'Managers can only edit their own profile (name and email).' });
       }
-      // Managers cannot change roles to manager or superadmin
-      if (role && ['manager', 'superadmin'].includes(role)) {
-        return res.status(403).json({ message: 'Managers cannot promote staff to manager or superadmin' });
-      }
+      const updateData = {};
+      if (fullName !== undefined) updateData.fullName = fullName;
+      if (email !== undefined) updateData.email = email.toLowerCase();
+      // Ignore role and status for manager self-edit
+      const updatedAdmin = await Admin.findByIdAndUpdate(
+        id,
+        updateData,
+        { new: true, runValidators: true }
+      ).select('-password');
+      await ActivityService.logAdminActivity(
+        req.user.userId,
+        `Updated own profile: "${updatedAdmin.fullName}"`,
+        updatedAdmin,
+        `Self-edit (name/email only)`
+      );
+      return res.status(200).json({
+        message: 'Profile updated successfully',
+        admin: updatedAdmin
+      });
     }
 
-    // Superadmins can update anyone except themselves (to prevent self-demotion)
+    // Superadmin: can update anyone except self-demotion
     if (currentUser.role === 'superadmin' && currentUser.userId === id) {
       if (role && role !== 'superadmin') {
         return res.status(403).json({ message: 'Super Admin cannot demote themselves' });
       }
     }
 
-    // Build update object
+    // Build update object (superadmin only)
     const updateData = {};
     if (fullName !== undefined) updateData.fullName = fullName;
     if (email !== undefined) updateData.email = email.toLowerCase();
@@ -225,11 +245,11 @@ router.put('/:id', adminUpdateRateLimiter, authMiddleware, requireAdmin, async (
   }
 });
 
-// POST /api/admins/:id/reset-password - Reset admin password (superadmin only)
+// POST /api/admins/:id/reset-password - Owner: anyone; Manager: own account only
 router.post('/:id/reset-password', 
   passwordResetRateLimiter,
   authMiddleware, 
-  requireSuperAdmin,
+  requireAdmin,
   sanitizeInput,
   [
     body('newPassword')
@@ -243,6 +263,7 @@ router.post('/:id/reset-password',
   try {
     const { id } = req.params;
     const { newPassword } = req.body;
+    const currentUser = req.user;
 
     if (!newPassword) {
       return res.status(400).json({ message: 'New password is required' });
@@ -251,6 +272,13 @@ router.post('/:id/reset-password',
     const admin = await Admin.findById(id);
     if (!admin) {
       return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    // Manager can reset their own password or a Staff account's password (Owner not always available)
+    if (currentUser.role === 'manager' && currentUser.userId !== id) {
+      if (admin.role !== 'staff') {
+        return res.status(403).json({ message: 'Managers can only reset their own password or a Staff account password.' });
+      }
     }
 
     // Hash new password

@@ -81,13 +81,13 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Create new reward
+// Create new reward (owner and manager only; staff is view-only)
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { role, userId } = req.user;
     
-    if (!['superadmin', 'manager', 'staff'].includes(role)) {
-      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can create rewards. Staff has view-only access.' });
     }
 
     
@@ -152,13 +152,13 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Update reward
+// Update reward (owner and manager only; staff is view-only)
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { role, userId } = req.user;
     
-    if (!['superadmin', 'manager', 'staff'].includes(role)) {
-      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can update rewards. Staff has view-only access.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -219,13 +219,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Delete reward (hard delete)
+// Delete reward (owner and manager only; staff is view-only)
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { role, userId } = req.user;
     
-    if (!['superadmin', 'manager', 'staff'].includes(role)) {
-      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can delete rewards. Staff has view-only access.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -265,13 +265,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Toggle reward status
+// Toggle reward status (owner and manager only; staff is view-only)
 router.patch('/:id/toggle-status', authMiddleware, async (req, res) => {
   try {
     const { role, userId } = req.user;
     
-    if (!['superadmin', 'manager', 'staff'].includes(role)) {
-      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    if (!['superadmin', 'manager'].includes(role)) {
+      return res.status(403).json({ message: 'Access denied. Only Owner or Manager can change reward status. Staff has view-only access.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

@@ -30,6 +30,7 @@ const CustomerFeedback = () => {
   const [viewingFeedback, setViewingFeedback] = useState(null);
   const [adminName, setAdminName] = useState('Admin');
   const [currentPage, setCurrentPage] = useState(1);
+  const [userRole, setUserRole] = useState(null);
 
   // Prevent body scrolling when modal is open
   useEffect(() => {
@@ -81,6 +82,24 @@ const CustomerFeedback = () => {
   useEffect(() => {
     fetchFeedback();
   }, []);
+
+  // Get user role for view-only (staff cannot reply)
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserRole(payload.role || null);
+      } catch (err) {
+        setUserRole(null);
+      }
+    } else {
+      setUserRole(null);
+    }
+  }, []);
+
+  // Staff: view-only access (can view feedback but cannot reply)
+  const canReply = userRole !== 'staff';
 
   // Pagination: max 10 per page
   const totalPages = Math.max(1, Math.ceil(feedback.length / PAGE_SIZE));
@@ -788,7 +807,7 @@ const CustomerFeedback = () => {
                   >
                     <FaEye />
                   </button>
-                  {item.status === 'pending' && (
+                  {item.status === 'pending' && canReply && (
                     <button
                       style={{
                         width: '28px',
@@ -906,26 +925,6 @@ const CustomerFeedback = () => {
                 color: white !important;
                 transform: translateY(-2px) !important;
                 box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
-              }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.85rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
               }
               .admin-modal .admin-btn-primary {
                 font-size: 0.85rem !important;
@@ -1246,7 +1245,7 @@ const CustomerFeedback = () => {
               >
                 Close
               </button>
-              {viewingFeedback.status === 'pending' && (
+              {viewingFeedback.status === 'pending' && canReply && (
                 <button
                   type="button"
                   className="admin-btn admin-btn-primary"

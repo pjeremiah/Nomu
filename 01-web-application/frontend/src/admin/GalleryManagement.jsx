@@ -239,6 +239,7 @@ const GalleryManagement = () => {
   const [selectedPost, setSelectedPost] = useState(null);
   const [postLikes, setPostLikes] = useState({});
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -265,6 +266,18 @@ const GalleryManagement = () => {
     };
   }, [showAdd, showEdit, showDelete, showView]);
 
+  // Fetch current user for role-based access (Staff = no access to Gallery)
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      fetch(`${API_BASE}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => data && data.id && setCurrentUser(data))
+        .catch(() => {});
+    }
+  }, []);
 
   // Handle video fullscreen and picture-in-picture to maintain aspect ratio
   useEffect(() => {
@@ -931,6 +944,18 @@ const GalleryManagement = () => {
     </div>
   );
 
+  // Restrict Gallery to Owner and Manager only (per quick-reference: Staff = no access)
+  if (currentUser?.role === 'staff') {
+    return (
+      <div className="access-denied-container">
+        <div className="access-denied-content">
+          <h2>Access Denied</h2>
+          <p>Staff members cannot access the Gallery Management section.</p>
+          <p>This section requires Manager or Owner privileges.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -1370,31 +1395,6 @@ const GalleryManagement = () => {
                 transform: translateY(-2px) !important;
                 box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
               }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 8px 12px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 0 0 auto !important;
-                min-width: 0 !important;
-                max-width: none !important;
-                font-size: 0.85rem !important;
-                width: calc(50% - 40px) !important;
-                box-sizing: border-box !important;
-                margin: 0 !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal input,
               .admin-modal select,
               .admin-modal textarea,
@@ -1415,15 +1415,32 @@ const GalleryManagement = () => {
                 line-height: 1.2 !important;
                 vertical-align: middle !important;
               }
+              .admin-modal .admin-form {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+                padding-bottom: 0 !important;
+              }
               .admin-modal .admin-form-actions {
                 display: flex !important;
                 gap: 12px !important;
-                justify-content: center !important;
+                justify-content: stretch !important;
+                align-items: stretch !important;
                 margin-top: 4px !important;
                 max-width: 100% !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
-                padding: 0 !important;
+                padding: 0 12px !important;
+              }
+              .admin-modal .admin-form-actions .admin-btn,
+              .admin-modal .admin-form-actions .admin-btn-primary,
+              .admin-modal .admin-form-actions .admin-btn-secondary {
+                flex: 1 !important;
+                min-width: 0 !important;
+                width: auto !important;
+                min-height: 44px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
               }
             `}
           </style>
@@ -2053,26 +2070,6 @@ const GalleryManagement = () => {
                   transform: scale(1) translateY(0);
                 }
               }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.85rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal .admin-btn-danger {
                 background: white !important;
                 color: #dc3545 !important;
@@ -2196,31 +2193,6 @@ const GalleryManagement = () => {
                 transform: translateY(-2px) !important;
                 box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
               }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 8px 12px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 0 0 auto !important;
-                min-width: 0 !important;
-                max-width: none !important;
-                font-size: 0.85rem !important;
-                width: calc(50% - 40px) !important;
-                box-sizing: border-box !important;
-                margin: 0 !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal input,
               .admin-modal select,
               .admin-modal textarea,
@@ -2241,15 +2213,32 @@ const GalleryManagement = () => {
                 line-height: 1.2 !important;
                 vertical-align: middle !important;
               }
+              .admin-modal .admin-form {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+                padding-bottom: 0 !important;
+              }
               .admin-modal .admin-form-actions {
                 display: flex !important;
                 gap: 12px !important;
-                justify-content: center !important;
+                justify-content: stretch !important;
+                align-items: stretch !important;
                 margin-top: 4px !important;
                 max-width: 100% !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
-                padding: 0 !important;
+                padding: 0 12px !important;
+              }
+              .admin-modal .admin-form-actions .admin-btn,
+              .admin-modal .admin-form-actions .admin-btn-primary,
+              .admin-modal .admin-form-actions .admin-btn-secondary {
+                flex: 1 !important;
+                min-width: 0 !important;
+                width: auto !important;
+                min-height: 44px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
               }
             `}
           </style>

@@ -126,26 +126,6 @@ const AddEditPromoModal = ({ show, onHide, onSave, editing, initialData, modalEr
             transform: translateY(-2px) !important;
             box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
           }
-          .admin-modal .admin-btn-secondary {
-            background: white !important;
-            color: #b08d57 !important;
-            border: 2px solid #b08d57 !important;
-            border-radius: 8px !important;
-            padding: 10px 20px !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            cursor: pointer !important;
-            box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-            flex: 1 !important;
-            font-size: 0.85rem !important;
-          }
-          .admin-modal .admin-btn-secondary:hover {
-            background: #f8f6f0 !important;
-            border-color: #b08d57 !important;
-            color: #b08d57 !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-          }
         `}
       </style>
       <div className="admin-modal" style={{
@@ -666,6 +646,8 @@ const PromoManagement = () => {
     }
   }, [isAuthenticated, userRole]);
 
+  // Staff: view-only access (no add/edit/delete/toggle)
+  const isViewOnly = userRole === 'staff';
 
   const handleSavePromo = async (promoData) => {
     try {
@@ -1253,119 +1235,125 @@ const PromoManagement = () => {
                     </div>
                   </div>
 
-                  {/* ACTIONS Column */}
+                  {/* ACTIONS Column - hidden for staff (view only) */}
                   <div style={{
                     display: 'flex',
                     gap: '0.5rem',
                     justifyContent: 'flex-start'
                   }}>
-                    <button
-                      title="Edit promotion"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditing(true);
-                        setCurrentPromo(promo);
-                        setShowModal(true);
+                    {!isViewOnly ? (
+                      <>
+                        <button
+                          title="Edit promotion"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(true);
+                            setCurrentPromo(promo);
+                            setShowModal(true);
               setModalError('');
                     setModalError('');
-                        setModalError('');
-                      }}
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        color: 'white',
-                        background: '#212947',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s ease',
-                        fontSize: '0.875rem',
-                        boxShadow: '0 2px 4px rgba(33, 41, 71, 0.3)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = '#1a2332';
-                        e.target.style.transform = 'scale(1.1)';
-                        e.target.style.boxShadow = '0 4px 8px rgba(33, 41, 71, 0.4)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = '#212947';
-                        e.target.style.transform = 'scale(1)';
-                        e.target.style.boxShadow = '0 2px 4px rgba(33, 41, 71, 0.3)';
-                      }}
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      title={promo.status === 'Active' ? "Deactivate promotion" : "Activate promotion"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleStatus(promo._id);
-                      }}
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        color: 'white',
-                        background: promo.status === 'Active' ? '#28a745' : '#6c757d',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s ease',
-                        fontSize: '0.875rem',
-                        boxShadow: promo.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = promo.status === 'Active' ? '#218838' : '#5a6268';
-                        e.target.style.transform = 'scale(1.05)';
-                        e.target.style.boxShadow = promo.status === 'Active' ? '0 4px 8px rgba(40, 167, 69, 0.4)' : '0 4px 8px rgba(108, 117, 125, 0.4)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = promo.status === 'Active' ? '#28a745' : '#6c757d';
-                        e.target.style.transform = 'scale(1)';
-                        e.target.style.boxShadow = promo.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)';
-                      }}
-                    >
-                      {promo.status === 'Active' ? <FaEye /> : <FaEyeSlash />}
-                    </button>
-                    <button
-                      title="Delete promotion"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowDeleteConfirm(promo._id);
-                      }}
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        color: 'white',
-                        background: '#e74c3c',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s ease',
-                        fontSize: '0.875rem',
-                        boxShadow: '0 2px 4px rgba(231, 76, 60, 0.3)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = '#c0392b';
-                        e.target.style.transform = 'scale(1.05)';
-                        e.target.style.boxShadow = '0 4px 8px rgba(231, 76, 60, 0.4)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = '#e74c3c';
-                        e.target.style.transform = 'scale(1)';
-                        e.target.style.boxShadow = '0 2px 4px rgba(231, 76, 60, 0.3)';
-                      }}
-                    >
-                      <FaTrash />
-                    </button>
+                            setModalError('');
+                          }}
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            color: 'white',
+                            background: '#212947',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            fontSize: '0.875rem',
+                            boxShadow: '0 2px 4px rgba(33, 41, 71, 0.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#1a2332';
+                            e.target.style.transform = 'scale(1.1)';
+                            e.target.style.boxShadow = '0 4px 8px rgba(33, 41, 71, 0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = '#212947';
+                            e.target.style.transform = 'scale(1)';
+                            e.target.style.boxShadow = '0 2px 4px rgba(33, 41, 71, 0.3)';
+                          }}
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          title={promo.status === 'Active' ? "Deactivate promotion" : "Activate promotion"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleStatus(promo._id);
+                          }}
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            color: 'white',
+                            background: promo.status === 'Active' ? '#28a745' : '#6c757d',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            fontSize: '0.875rem',
+                            boxShadow: promo.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = promo.status === 'Active' ? '#218838' : '#5a6268';
+                            e.target.style.transform = 'scale(1.05)';
+                            e.target.style.boxShadow = promo.status === 'Active' ? '0 4px 8px rgba(40, 167, 69, 0.4)' : '0 4px 8px rgba(108, 117, 125, 0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = promo.status === 'Active' ? '#28a745' : '#6c757d';
+                            e.target.style.transform = 'scale(1)';
+                            e.target.style.boxShadow = promo.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)';
+                          }}
+                        >
+                          {promo.status === 'Active' ? <FaEye /> : <FaEyeSlash />}
+                        </button>
+                        <button
+                          title="Delete promotion"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDeleteConfirm(promo._id);
+                          }}
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            color: 'white',
+                            background: '#e74c3c',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            fontSize: '0.875rem',
+                            boxShadow: '0 2px 4px rgba(231, 76, 60, 0.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#c0392b';
+                            e.target.style.transform = 'scale(1.05)';
+                            e.target.style.boxShadow = '0 4px 8px rgba(231, 76, 60, 0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = '#e74c3c';
+                            e.target.style.transform = 'scale(1)';
+                            e.target.style.boxShadow = '0 2px 4px rgba(231, 76, 60, 0.3)';
+                          }}
+                        >
+                          <FaTrash />
+                        </button>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>View only</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1413,7 +1401,7 @@ const PromoManagement = () => {
                   ? "Try adjusting your search or filter criteria to find promotional offers." 
                   : "Create your first promotional offer to start engaging customers and driving sales."}
               </p>
-              {(!searchTerm && filter === "All") && (
+              {(!searchTerm && filter === "All") && !isViewOnly && (
                 <button
                   onClick={() => {
                     setEditing(false);
@@ -1479,26 +1467,6 @@ const PromoManagement = () => {
         >
           <style>
             {`
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 10px 20px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.95rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal .admin-btn-danger {
                 background: white !important;
                 color: #dc3545 !important;
@@ -1574,8 +1542,8 @@ const PromoManagement = () => {
         </div>
       )}
 
-      {/* Floating Add Button */}
-      {!showModal && !showDeleteConfirm && (
+      {/* Floating Add Button - hidden for staff (view only) */}
+      {!showModal && !showDeleteConfirm && !isViewOnly && (
         <div className="menu-actions">
           <button 
             className="add-item-btn" 

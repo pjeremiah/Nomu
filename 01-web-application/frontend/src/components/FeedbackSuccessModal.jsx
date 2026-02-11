@@ -96,7 +96,7 @@ const CloseButton = styled.button`
   &:hover {
     background: #212c59;
     color: white;
-    border-color: #1a2347;
+    border: 2px solid #1a2347;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
   }

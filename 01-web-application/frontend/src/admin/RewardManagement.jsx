@@ -111,26 +111,6 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
             transform: translateY(-2px) !important;
             box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
           }
-          .admin-modal .admin-btn-secondary {
-            background: white !important;
-            color: #b08d57 !important;
-            border: 2px solid #b08d57 !important;
-            border-radius: 8px !important;
-            padding: 10px 20px !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            cursor: pointer !important;
-            box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-            flex: 1 !important;
-            font-size: 0.85rem !important;
-          }
-          .admin-modal .admin-btn-secondary:hover {
-            background: #f8f6f0 !important;
-            border-color: #b08d57 !important;
-            color: #b08d57 !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-          }
           
           /* Ensure all form elements have pearl background and consistent height */
           .admin-modal input,
@@ -552,6 +532,9 @@ const RewardManagement = () => {
       fetchRewards();
     }
   }, [isAuthenticated, userRole]);
+
+  // Staff: view-only access (no add/edit/delete/toggle)
+  const isViewOnly = userRole === 'staff';
 
   const handleSaveReward = async (rewardData) => {
     try {
@@ -1124,25 +1107,27 @@ const RewardManagement = () => {
                 </div>
               </div>
 
-              {/* ACTIONS Column */}
+              {/* ACTIONS Column - hidden for staff (view only) */}
               <div style={{
                 display: 'flex',
                 gap: '0.125rem',
                 justifyContent: 'flex-start',
                 width: '100%'
               }}>
-                <button
-                  title="Edit reward"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditing(true);
-                    setCurrentReward(reward);
-                    setShowModal(true);
+                {!isViewOnly && (
+                  <>
+                    <button
+                      title="Edit reward"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing(true);
+                        setCurrentReward(reward);
+                        setShowModal(true);
               setModalError('');
                   setModalError('');
                     setModalError('');
                   }}
-                  style={{
+                      style={{
                     width: '28px',
                     height: '28px',
                     borderRadius: '4px',
@@ -1157,87 +1142,90 @@ const RewardManagement = () => {
                     fontSize: '0.75rem',
                     boxShadow: '0 2px 4px rgba(33, 44, 89, 0.3)'
                   }}
-                  onMouseEnter={(e) => {
+                      onMouseEnter={(e) => {
                     e.target.style.backgroundColor = '#1e3a8a';
                     e.target.style.transform = 'scale(1.05)';
                     e.target.style.boxShadow = '0 4px 8px rgba(33, 44, 89, 0.4)';
                   }}
-                  onMouseLeave={(e) => {
+                      onMouseLeave={(e) => {
                     e.target.style.backgroundColor = '#212c59';
                     e.target.style.transform = 'scale(1)';
                     e.target.style.boxShadow = '0 2px 4px rgba(33, 44, 89, 0.3)';
                   }}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  title={reward.status === 'Active' ? "Deactivate reward" : "Activate reward"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleToggleStatus(reward._id);
-                  }}
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '4px',
-                    border: 'none',
-                    color: 'white',
-                    background: reward.status === 'Active' ? '#28a745' : '#6c757d',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s ease',
-                    fontSize: '0.75rem',
-                    boxShadow: reward.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = reward.status === 'Active' ? '#218838' : '#5a6268';
-                    e.target.style.transform = 'scale(1.05)';
-                    e.target.style.boxShadow = reward.status === 'Active' ? '0 4px 8px rgba(40, 167, 69, 0.4)' : '0 4px 8px rgba(108, 117, 125, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = reward.status === 'Active' ? '#28a745' : '#6c757d';
-                    e.target.style.transform = 'scale(1)';
-                    e.target.style.boxShadow = reward.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)';
-                  }}
-                >
-                  {reward.status === 'Active' ? <FaEye /> : <FaEyeSlash />}
-                </button>
-                <button
-                  title="Delete reward"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowDeleteConfirm(reward._id);
-                  }}
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '4px',
-                    border: 'none',
-                    color: 'white',
-                    background: '#e74c3c',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s ease',
-                    fontSize: '0.75rem',
-                    boxShadow: '0 2px 4px rgba(231, 76, 60, 0.3)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#c0392b';
-                    e.target.style.transform = 'scale(1.05)';
-                    e.target.style.boxShadow = '0 4px 8px rgba(231, 76, 60, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = '#e74c3c';
-                    e.target.style.transform = 'scale(1)';
-                    e.target.style.boxShadow = '0 2px 4px rgba(231, 76, 60, 0.3)';
-                  }}
-                >
-                  <FaTrash />
-                </button>
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
+                      title={reward.status === 'Active' ? "Deactivate reward" : "Activate reward"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleStatus(reward._id);
+                      }}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        color: 'white',
+                        background: reward.status === 'Active' ? '#28a745' : '#6c757d',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease',
+                        fontSize: '0.75rem',
+                        boxShadow: reward.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = reward.status === 'Active' ? '#218838' : '#5a6268';
+                        e.target.style.transform = 'scale(1.05)';
+                        e.target.style.boxShadow = reward.status === 'Active' ? '0 4px 8px rgba(40, 167, 69, 0.4)' : '0 4px 8px rgba(108, 117, 125, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = reward.status === 'Active' ? '#28a745' : '#6c757d';
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = reward.status === 'Active' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : '0 2px 4px rgba(108, 117, 125, 0.3)';
+                      }}
+                    >
+                      {reward.status === 'Active' ? <FaEye /> : <FaEyeSlash />}
+                    </button>
+                    <button
+                      title="Delete reward"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDeleteConfirm(reward._id);
+                      }}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        color: 'white',
+                        background: '#e74c3c',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease',
+                        fontSize: '0.75rem',
+                        boxShadow: '0 2px 4px rgba(231, 76, 60, 0.3)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = '#c0392b';
+                        e.target.style.transform = 'scale(1.05)';
+                        e.target.style.boxShadow = '0 4px 8px rgba(231, 76, 60, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = '#e74c3c';
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = '0 2px 4px rgba(231, 76, 60, 0.3)';
+                      }}
+                    >
+                      <FaTrash />
+                    </button>
+                  </>
+                )}
+                {isViewOnly && <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>View only</span>}
               </div>
             </div>
           ))
@@ -1284,7 +1272,7 @@ const RewardManagement = () => {
                 ? "Try adjusting your search or filter criteria to find rewards." 
                 : "Create your first reward to start engaging customers and building loyalty."}
             </p>
-            {(!searchTerm && filter === "All") && (
+            {(!searchTerm && filter === "All") && !isViewOnly && (
               <button
                 onClick={() => {
                   setEditing(false);
@@ -1349,26 +1337,6 @@ const RewardManagement = () => {
         >
           <style>
             {`
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.9rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal .admin-btn-danger {
                 background: white !important;
                 color: #dc3545 !important;
@@ -1443,8 +1411,8 @@ const RewardManagement = () => {
         </div>
       )}
 
-      {/* Floating Add Button */}
-      {!showModal && !showDeleteConfirm && (
+      {/* Floating Add Button - hidden for staff (view only) */}
+      {!showModal && !showDeleteConfirm && !isViewOnly && (
         <div className="menu-actions">
         <button
             className="add-item-btn" 

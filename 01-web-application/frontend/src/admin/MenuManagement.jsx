@@ -637,17 +637,6 @@ const MenuManagement = () => {
                 transform: translateY(-1px) !important;
                 box-shadow: 0 4px 8px rgba(33, 44, 89, 0.3) !important;
               }
-              .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border-color: #b08d57 !important;
-              }
-              .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 8px rgba(176, 141, 87, 0.3) !important;
-              }
             `}
           </style>
           <div 
@@ -1031,17 +1020,6 @@ const MenuManagement = () => {
                 transform: translateY(-1px) !important;
                 box-shadow: 0 4px 8px rgba(33, 44, 89, 0.3) !important;
               }
-              .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border-color: #b08d57 !important;
-              }
-              .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 8px rgba(176, 141, 87, 0.3) !important;
-              }
             `}
           </style>
           <div 
@@ -1289,26 +1267,6 @@ const MenuManagement = () => {
                   opacity: 1;
                   transform: scale(1) translateY(0);
                 }
-              }
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.95rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
               }
               .admin-modal .admin-btn-danger {
                 background: white !important;

@@ -127,16 +127,16 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/feedback/reply/:id → Admin reply to feedback
+// POST /api/feedback/reply/:id → Admin reply to feedback (owner and manager only; staff is view-only)
 router.post('/reply/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { reply } = req.body;
 
-    // Check if user is admin
-    if (!['staff', 'manager', 'superadmin'].includes(req.user.role)) {
+    // Only owner and manager can reply; staff has view-only access
+    if (!['manager', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ 
-        message: 'Access denied: Admin privileges required' 
+        message: 'Access denied: Only Owner or Manager can reply to feedback. Staff has view-only access.' 
       });
     }
 

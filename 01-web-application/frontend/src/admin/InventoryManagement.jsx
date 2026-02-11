@@ -126,30 +126,10 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
             transform: translateY(-2px) !important;
             box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3) !important;
           }
-          .admin-modal .admin-btn-secondary {
-            background: white !important;
-            color: #b08d57 !important;
-            border: 2px solid #b08d57 !important;
-            border-radius: 8px !important;
-            padding: 8px 12px !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            cursor: pointer !important;
-            box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-            flex: 0 0 auto !important;
-            min-width: 0 !important;
-            max-width: none !important;
-            font-size: 0.85rem !important;
-            width: calc(50% - 40px) !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-          }
-          .admin-modal .admin-btn-secondary:hover {
-            background: #f8f6f0 !important;
-            border-color: #b08d57 !important;
-            color: #b08d57 !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
+          .admin-modal .admin-form {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            padding-bottom: 0 !important;
           }
           .admin-modal input,
           .admin-modal select,
@@ -172,12 +152,24 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
           .admin-modal .admin-form-actions {
             display: flex !important;
             gap: 12px !important;
-            justify-content: center !important;
+            justify-content: stretch !important;
+            align-items: stretch !important;
             margin-top: 4px !important;
             max-width: 100% !important;
             width: 100% !important;
             box-sizing: border-box !important;
-            padding: 0 !important;
+            padding: 0 12px !important;
+          }
+          .admin-modal .admin-form-actions .admin-btn,
+          .admin-modal .admin-form-actions .admin-btn-primary,
+          .admin-modal .admin-form-actions .admin-btn-secondary {
+            flex: 1 !important;
+            min-width: 0 !important;
+            width: auto !important;
+            min-height: 44px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
           }
         `}
       </style>
@@ -1127,26 +1119,6 @@ const InventoryManagement = () => {
         >
           <style>
             {`
-              .admin-modal .admin-btn-secondary {
-                background: white !important;
-                color: #b08d57 !important;
-                border: 2px solid #b08d57 !important;
-                border-radius: 8px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
-                transition: all 0.3s ease !important;
-                cursor: pointer !important;
-                box-shadow: 0 2px 8px rgba(176, 141, 87, 0.1) !important;
-                flex: 1 !important;
-                font-size: 0.9rem !important;
-              }
-              .admin-modal .admin-btn-secondary:hover {
-                background: #f8f6f0 !important;
-                border-color: #b08d57 !important;
-                color: #b08d57 !important;
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 12px rgba(176, 141, 87, 0.3) !important;
-              }
               .admin-modal .admin-btn-danger {
                 background: white !important;
                 color: #dc3545 !important;
@@ -1166,6 +1138,26 @@ const InventoryManagement = () => {
                 color: white !important;
                 transform: translateY(-2px) !important;
                 box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+              .admin-modal .admin-form-actions {
+                display: flex !important;
+                gap: 12px !important;
+                justify-content: stretch !important;
+                align-items: stretch !important;
+                padding: 0 12px !important;
+                margin-bottom: 24px !important;
+                box-sizing: border-box !important;
+              }
+              .admin-modal .admin-form-actions .admin-btn,
+              .admin-modal .admin-form-actions .admin-btn-secondary,
+              .admin-modal .admin-form-actions .admin-btn-danger {
+                flex: 1 !important;
+                min-width: 0 !important;
+                width: auto !important;
+                min-height: 44px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
               }
             `}
           </style>
@@ -1197,7 +1189,7 @@ const InventoryManagement = () => {
               }}>Confirm Delete</h3>
             </div>
             
-            <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px' }}>
+            <div className="delete-confirmation-text" style={{ textAlign: 'center', marginBottom: '25px', padding: '0 12px' }}>
               Are you sure you want to delete this inventory item?
             </div>
             
