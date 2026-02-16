@@ -90,10 +90,8 @@ if (process.env.NODE_ENV === 'production') {
       }
     }
   }));
-} else {
-  // Development logging
-  app.use(morgan('dev'));
 }
+// Development: no request logging (disable morgan to avoid terminal noise)
 
 // Rate limiting
 app.use(generalRateLimiter);
@@ -491,12 +489,12 @@ app.listen(PORT, () => {
     const superAdminFullName = process.env.SUPER_ADMIN_FULLNAME || 'Super Admin';
 
     if (!superAdminEmail || !superAdminPassword) {
-      console.warn('ℹ️ SUPER_ADMIN_EMAIL or SUPER_ADMIN_PASSWORD not set. Skipping super admin seeding.');
+      // SUPER_ADMIN_EMAIL or SUPER_ADMIN_PASSWORD not set - skipping super admin seeding
       return;
     }
 
     if (!superAdminEmail.toLowerCase().endsWith('@gmail.com')) {
-      console.warn('ℹ️ SUPER_ADMIN_EMAIL must end with @gmail.com. Skipping super admin seeding.');
+      // SUPER_ADMIN_EMAIL must end with @gmail.com - skipping super admin seeding
       return;
     }
 

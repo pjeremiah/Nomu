@@ -6,7 +6,7 @@ import {
   FaBox, FaChartLine, FaWarehouse, FaClipboardList,
   FaArrowUp, FaArrowDown, FaEquals, FaHistory, FaChartBar
 } from 'react-icons/fa';
-import { Package, TrendingUp, AlertTriangle, DollarSign, Coins } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, DollarSign, Coins, Check, Loader2 } from 'lucide-react';
 import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
@@ -23,7 +23,7 @@ const emptyForm = {
 
 
 // Add/Edit Inventory Item Modal Component
-const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, modalError }) => {
+const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, modalError, saving }) => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
 
@@ -451,8 +451,17 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
               type="button"
               onClick={handleSave}
               className="admin-btn admin-btn-primary"
+              disabled={saving}
+              style={{ opacity: saving ? 0.9 : 1, cursor: saving ? 'wait' : 'pointer' }}
             >
-              {editing ? 'Save Changes' : 'Add Item'}
+              {saving ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                  {editing ? 'Saving...' : 'Adding...'}
+                </span>
+              ) : (
+                editing ? 'Save Changes' : 'Add Item'
+              )}
             </button>
           </div>
       </div>
@@ -485,11 +494,18 @@ const InventoryManagement = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  // const [showAnalytics, setShowAnalytics] = useState(false);
+
+  // Loading and success modals
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isUpdatingItem, setIsUpdatingItem] = useState(false);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+  const [showAddSuccessModal, setShowAddSuccessModal] = useState(false);
+  const [showEditSuccessModal, setShowEditSuccessModal] = useState(false);
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   // Prevent body scrolling when any modal is open
   useEffect(() => {
-    if (showAdd || showEdit || showDelete) {
+    if (showAdd || showEdit || showDelete || showAddSuccessModal || showEditSuccessModal || showDeleteSuccessModal) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -502,7 +518,7 @@ const InventoryManagement = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showAdd, showEdit, showDelete]);
+  }, [showAdd, showEdit, showDelete, showAddSuccessModal, showEditSuccessModal, showDeleteSuccessModal]);
 
   // Form states
   const [editingItem, setEditingItem] = useState(null);
@@ -600,39 +616,36 @@ const InventoryManagement = () => {
   };
 
   const handleAdd = async (formData) => {
+    setIsAddingItem(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      // Create FormData for file upload
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
       formDataToSend.append('category', formData.category);
       formDataToSend.append('currentStock', formData.currentStock || '');
       formDataToSend.append('minimumThreshold', formData.minimumThreshold || '');
-      
-      // Add image file if exists
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
       }
-      
+
       const response = await fetch(`${API_BASE}/api/inventory`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-          // Don't set Content-Type, let browser set it for FormData
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formDataToSend
       });
 
       if (response.ok) {
+        const itemName = formData.name;
         setShowAdd(false);
+        setModalError('');
         await fetchItems();
         await fetchDashboardData();
+        setTimeout(() => setShowAddSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
-          detail: { action: 'inventory_item_added', item: formData.name } 
+          detail: { action: 'inventory_item_added', item: itemName } 
         }));
         window.dispatchEvent(new CustomEvent('inventoryUpdated', { 
-          detail: { action: 'item_added', item: formData.name } 
+          detail: { action: 'item_added', item: itemName } 
         }));
       } else {
         const errorData = await response.json();
@@ -645,10 +658,13 @@ const InventoryManagement = () => {
       }
     } catch (err) {
       setModalError(err.message || 'Failed to add item');
+    } finally {
+      setIsAddingItem(false);
     }
   };
 
   const handleEdit = async (formData) => {
+    setIsUpdatingItem(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/inventory/${editingItem._id}`, {
@@ -661,12 +677,15 @@ const InventoryManagement = () => {
       });
 
       if (response.ok) {
+        const itemName = formData.name;
         setShowEdit(false);
         setEditingItem(null);
+        setModalError('');
         await fetchItems();
         await fetchDashboardData();
+        setTimeout(() => setShowEditSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
-          detail: { action: 'inventory_item_updated', item: formData.name } 
+          detail: { action: 'inventory_item_updated', item: itemName } 
         }));
       } else {
         const errorData = await response.json();
@@ -674,11 +693,14 @@ const InventoryManagement = () => {
       }
     } catch (err) {
       setModalError(err.message || 'Failed to update item');
+    } finally {
+      setIsUpdatingItem(false);
     }
   };
 
 
   const handleDelete = async () => {
+    setIsDeletingItem(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/inventory/${deleteId}`, {
@@ -689,9 +711,10 @@ const InventoryManagement = () => {
       if (response.ok) {
         setShowDelete(false);
         setDeleteId('');
-        setModalError(''); // Clear any previous errors
+        setModalError('');
         await fetchItems();
         await fetchDashboardData();
+        setTimeout(() => setShowDeleteSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
           detail: { action: 'inventory_item_deleted' } 
         }));
@@ -703,6 +726,8 @@ const InventoryManagement = () => {
     } catch (err) {
       console.error('Delete error:', err);
       setModalError(err.message || 'Failed to delete item');
+    } finally {
+      setIsDeletingItem(false);
     }
   };
 
@@ -735,6 +760,16 @@ const InventoryManagement = () => {
       minHeight: '100vh',
       background: '#f8f9fa'
     }}>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes inventorySuccessSlideIn {
+          from { opacity: 0; transform: scale(0.92) translateY(-16px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
       {/* Page Header */}
       <div style={{
         display: 'flex',
@@ -1071,7 +1106,6 @@ const InventoryManagement = () => {
       <AddEditInventoryModal
         show={showAdd}
         onHide={() => {
-          // Dispatch event to close all dropdowns
           document.dispatchEvent(new CustomEvent('modalClose'));
           setShowAdd(false);
           setModalError('');
@@ -1080,12 +1114,12 @@ const InventoryManagement = () => {
         editing={false}
         initialData={null}
         modalError={modalError}
+        saving={isAddingItem}
       />
 
       <AddEditInventoryModal
         show={showEdit}
         onHide={() => {
-          // Dispatch event to close all dropdowns
           document.dispatchEvent(new CustomEvent('modalClose'));
           setShowEdit(false);
           setModalError('');
@@ -1094,6 +1128,7 @@ const InventoryManagement = () => {
         editing={true}
         initialData={editingItem}
         modalError={modalError}
+        saving={isUpdatingItem}
       />
 
 
@@ -1132,12 +1167,19 @@ const InventoryManagement = () => {
                 flex: 1 !important;
                 font-size: 0.9rem !important;
               }
-              .admin-modal .admin-btn-danger:hover {
+              .admin-modal .admin-btn-danger:hover:not(:disabled) {
                 background: #dc3545 !important;
                 border-color: #dc3545 !important;
                 color: white !important;
                 transform: translateY(-2px) !important;
                 box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger:disabled {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                cursor: wait !important;
+                opacity: 1 !important;
               }
               .admin-modal .admin-form-actions {
                 display: flex !important;
@@ -1198,6 +1240,7 @@ const InventoryManagement = () => {
                 type="button"
                 onClick={() => setShowDelete(false)}
                 className="admin-btn admin-btn-secondary"
+                disabled={isDeletingItem}
               >
                 Cancel
               </button>
@@ -1205,16 +1248,62 @@ const InventoryManagement = () => {
                 type="button"
                 onClick={handleDelete}
                 className="admin-btn admin-btn-danger"
+                disabled={isDeletingItem}
               >
-                Delete Item
+                {isDeletingItem ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete Item'
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Success modals */}
+      {showAddSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'inventorySuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Item Added Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The inventory item has been added.</p>
+            <button type="button" onClick={() => setShowAddSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showEditSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'inventorySuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Changes Saved Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The inventory item has been updated.</p>
+            <button type="button" onClick={() => setShowEditSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showDeleteSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'inventorySuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Item Deleted Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The inventory item has been removed.</p>
+            <button type="button" onClick={() => setShowDeleteSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Add Button */}
-      {!showAdd && !showEdit && !showDelete && (
+      {!showAdd && !showEdit && !showDelete && !showAddSuccessModal && !showEditSuccessModal && !showDeleteSuccessModal && (
         <div className="menu-actions" style={{
           filter: showLogoutConfirm ? 'blur(2px)' : 'none',
           opacity: showLogoutConfirm ? 0.6 : 1,

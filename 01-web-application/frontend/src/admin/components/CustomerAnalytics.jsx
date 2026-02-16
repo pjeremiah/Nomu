@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import {
   Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { jsPDF } from 'jspdf';
+import { applyPlugin } from 'jspdf-autotable';
+applyPlugin(jsPDF);
 
-const CustomerAnalytics = () => {
+const CustomerAnalytics = forwardRef((props, ref) => {
   const [analyticsData, setAnalyticsData] = useState({
     gender: [],
     employment: [],
@@ -138,6 +141,78 @@ const CustomerAnalytics = () => {
     return result;
   };
 
+  const handleExportPDF = useCallback(() => {
+    const employmentData = ensureAllCategories(analyticsData.employment, [
+      { _id: 'Student', count: 0 },
+      { _id: 'Employed', count: 0 }
+    ]).sort((a, b) => {
+      const order = { 'Employed': 1, 'Student': 2 };
+      return order[a._id] - order[b._id];
+    });
+    const ageData = ensureAllCategories(analyticsData.ageRanges, [
+      { _id: '13-17', count: 0 },
+      { _id: '18-25', count: 0 },
+      { _id: '26-32', count: 0 },
+      { _id: '33-40', count: 0 },
+      { _id: '41+', count: 0 }
+    ]).sort((a, b) => {
+      const order = { '13-17': 1, '18-25': 2, '26-32': 3, '33-40': 4, '41+': 5 };
+      return order[a._id] - order[b._id];
+    });
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 18;
+
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('Customer Analytics Report', pageW / 2, y, { align: 'center' });
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
+    y += 14;
+
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('Employment Status', 14, y);
+    y += 6;
+    doc.autoTable({
+      startY: y,
+      head: [['Status', 'Count']],
+      body: employmentData.map((row) => [String(row._id || ''), String(row.count || 0)]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 14;
+
+    doc.setFont(undefined, 'bold');
+    doc.text('Age Distribution', 14, y);
+    y += 6;
+    const ageLabels = { '13-17': '13-17 years', '18-25': '18-25 years', '26-32': '26-32 years', '33-40': '33-40 years', '41+': '41+ years' };
+    doc.autoTable({
+      startY: y,
+      head: [['Age Range', 'Count']],
+      body: ageData.map((row) => [ageLabels[row._id] || row._id, String(row.count || 0)]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 12;
+
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text('Nomu Cafe – Customer Analytics', 14, doc.internal.pageSize.getHeight() - 10);
+
+    doc.save(`customer-analytics-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }, [analyticsData]);
+
+  useImperativeHandle(ref, () => ({ exportPDF: handleExportPDF }), [handleExportPDF]);
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -202,9 +277,6 @@ const CustomerAnalytics = () => {
 
   return (
     <div className="analytics-container">
-      <div className="analytics-header" style={{ maxWidth: '1000px', margin: '0 auto 15px' }}>
-        <h3 className="analytics-title" style={{ margin: 0 }}>Customer Analytics</h3>
-      </div>
       {/* Content Wrapper for Centering */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {/* Charts Grid */}
@@ -417,6 +489,7 @@ const CustomerAnalytics = () => {
       `}</style>
     </div>
   );
-};
+});
 
+CustomerAnalytics.displayName = 'CustomerAnalytics';
 export default CustomerAnalytics;

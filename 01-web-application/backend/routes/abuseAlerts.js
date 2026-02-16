@@ -219,8 +219,6 @@ router.post('/', async (req, res) => {
 
     await alert.save();
 
-    console.log(`✅ [ABUSE ALERT] New alert created: ${alert._id} for employee ${employeeId}`);
-
     res.status(201).json({
       message: 'Abuse alert created successfully',
       alert: {

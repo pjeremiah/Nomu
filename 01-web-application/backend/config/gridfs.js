@@ -34,7 +34,6 @@ const createGridFSStorage = (bucketName) => {
           mimetype: file.mimetype,
           size: uploadStream.length || 0
         };
-        console.log('GridFS upload finished:', fileInfo);
         cb(null, fileInfo);
       });
     },

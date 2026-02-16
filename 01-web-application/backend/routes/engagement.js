@@ -89,7 +89,6 @@ router.get('/likes/:postId', async (req, res) => {
         userId = decoded?.userId || decoded?.id;
       } catch (err) {
         // Token invalid or expired, continue without user ID
-        console.log('Token verification failed (optional):', err.message);
       }
     }
 
@@ -240,7 +239,6 @@ router.get('/stats/:postId', async (req, res) => {
         userId = decoded?.userId || decoded?.id;
       } catch (err) {
         // Token invalid or expired, continue without user ID
-        console.log('Token verification failed (optional):', err.message);
       }
     }
 

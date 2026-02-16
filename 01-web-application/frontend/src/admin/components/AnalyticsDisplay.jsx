@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { FaBriefcase, FaGraduationCap } from 'react-icons/fa';
+import { jsPDF } from 'jspdf';
+import { applyPlugin } from 'jspdf-autotable';
+applyPlugin(jsPDF);
 
-const AnalyticsDisplay = () => {
+const AnalyticsDisplay = forwardRef((props, ref) => {
   const [employmentSpendingData, setEmploymentSpendingData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,6 +58,56 @@ const AnalyticsDisplay = () => {
     
     return () => clearInterval(analyticsInterval);
   }, [fetchAnalyticsData]);
+
+  const handleExportPDF = useCallback(() => {
+    const employedRow = employmentSpendingData.find((d) => d.employmentStatus === 'Employed') || { employmentStatus: 'Employed', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 };
+    const studentRow = employmentSpendingData.find((d) => d.employmentStatus === 'Student') || { employmentStatus: 'Student', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 };
+    const displayData = [employedRow, studentRow];
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 18;
+
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('Business Analytics Report', pageW / 2, y, { align: 'center' });
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
+    y += 14;
+
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('Spending Analysis: Employed vs Students', 14, y);
+    y += 8;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Employment Status', 'Total Spent (₱)', 'Users', 'Orders', 'Avg (₱)']],
+      body: displayData.map((row) => [
+        row.employmentStatus,
+        row.totalSpent.toLocaleString(),
+        String(row.userCount || 0),
+        String(row.totalOrders || 0),
+        Number(row.averageSpent || 0).toFixed(0)
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: 14 }
+    });
+    y = doc.lastAutoTable.finalY + 12;
+
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text('Nomu Cafe – Business Analytics', 14, doc.internal.pageSize.getHeight() - 10);
+
+    doc.save(`business-analytics-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }, [employmentSpendingData]);
+
+  useImperativeHandle(ref, () => ({ exportPDF: handleExportPDF }), [handleExportPDF]);
 
   if (loading) {
     return (
@@ -203,6 +256,7 @@ const AnalyticsDisplay = () => {
       `}</style>
     </div>
   );
-};
+});
 
+AnalyticsDisplay.displayName = 'AnalyticsDisplay';
 export default AnalyticsDisplay;

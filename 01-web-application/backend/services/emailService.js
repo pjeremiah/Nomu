@@ -53,6 +53,12 @@ class emailService {
         return 'Nomu Cafe - Welcome to Nomu Cafe! 🎉';
       case 'password_reset_success':
         return 'Nomu Cafe - Password Reset Successful ✅';
+      case 'admin_account_created':
+        return 'Nomu Cafe - Your Admin Account Has Been Created ✅';
+      case 'admin_account_updated':
+        return 'Nomu Cafe - Your Admin Account Has Been Updated ✅';
+      case 'admin_account_deleted':
+        return 'Nomu Cafe - Your Admin Account Has Been Removed';
       default:
         return 'Nomu Cafe - Verification Code';
     }
@@ -68,107 +74,38 @@ class emailService {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Nomu Cafe - ${typeText}</title>
-        <style>
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #f4f4f4;
-            }
-            .container {
-                background-color: #ffffff;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            }
-            .header {
-                text-align: center;
-                margin-bottom: 30px;
-            }
-            .logo {
-                font-size: 28px;
-                font-weight: bold;
-                color: #232c53;
-                margin-bottom: 10px;
-            }
-            .otp-code {
-                background-color: #232c53;
-                color: white;
-                font-size: 32px;
-                font-weight: bold;
-                text-align: center;
-                padding: 20px;
-                border-radius: 8px;
-                letter-spacing: 5px;
-                margin: 20px 0;
-                font-family: 'Courier New', monospace;
-            }
-            .warning {
-                background-color: #fff3cd;
-                border: 1px solid #ffeaa7;
-                color: #856404;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 20px 0;
-            }
-            .footer {
-                text-align: center;
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #eee;
-                color: #666;
-                font-size: 14px;
-            }
-            .security-tips {
-                background-color: #f8f9fa;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 20px 0;
-            }
-        </style>
     </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">☕ Nomu Cafe</div>
-                <h2>${typeText}</h2>
-            </div>
-            
-            <p>Hello,</p>
-            
-            <p>You have requested ${typeText.toLowerCase()} for your Nomu Cafe admin account. Please use the following verification code:</p>
-            
-            <div class="otp-code">${otpCode}</div>
-            
-            <div class="warning">
-                <strong>⚠️ Important:</strong>
-                <ul>
-                    <li>This code will expire in <strong>10 minutes</strong></li>
-                    <li>Do not share this code with anyone</li>
-                    <li>If you didn't request this code, please ignore this email</li>
-                </ul>
-            </div>
-            
-            <div class="security-tips">
-                <h4>🔒 Security Tips:</h4>
-                <ul>
-                    <li>Always verify the sender's email address</li>
-                    <li>Never share your verification codes</li>
-                    <li>Use strong, unique passwords</li>
-                    <li>Enable two-factor authentication when available</li>
-                </ul>
-            </div>
-            
-            <p>If you have any questions or concerns, please contact our support team.</p>
-            
-            <div class="footer">
-                <p>© 2024 Nomu Cafe. All rights reserved.</p>
-                <p>This is an automated message. Please do not reply to this email.</p>
-            </div>
-        </div>
+    <body style="margin:0; padding:20px; background-color:#f4f4f4;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+            <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:left;">
+                <div style="margin-bottom:24px; text-align:center;">
+                    <div style="font-size:28px; font-weight:bold; color:#232c53;">☕ Nomu Cafe</div>
+                    <h2 style="margin:10px 0 0 0; font-size:20px; font-weight:bold; color:#232c53;">${typeText}</h2>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">Hello,</p>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">You have requested ${typeText.toLowerCase()} for your Nomu Cafe admin account. Please use the following verification code:</p>
+                <div style="background-color:#232c53; color:white; font-size:32px; font-weight:bold; text-align:center; padding:20px; border-radius:8px; letter-spacing:5px; margin:20px 0; font-family:'Courier New',monospace;">${otpCode}</div>
+                <div style="background-color:#fff3cd; border:1px solid #ffeaa7; color:#856404; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold;">⚠️ Important:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">This code will expire in <strong>10 minutes</strong></li>
+                        <li style="margin-bottom:6px;">Do not share this code with anyone</li>
+                        <li style="margin-bottom:0;">If you didn't request this code, please ignore this email</li>
+                    </ul>
+                </div>
+                <div style="background-color:#f8f9fa; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#232c53;">🔒 Security Tips:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">Always verify the sender's email address</li>
+                        <li style="margin-bottom:6px;">Never share your verification codes</li>
+                        <li style="margin-bottom:6px;">Use strong, unique passwords</li>
+                        <li style="margin-bottom:0;">Enable two-factor authentication when available</li>
+                    </ul>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">If you have any questions or concerns, please contact our support team.</p>
+                <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+            </td></tr>
+        </table>
     </body>
     </html>
     `;
@@ -179,12 +116,17 @@ class emailService {
     try {
       // Check if email credentials are configured
       if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        // Email not configured - congrats email would be sent
-        return { success: true, messageId: 'console-log' };
+        // EMAIL_USER or EMAIL_PASS not set - skipping congrats email
+        return { success: false, messageId: 'not-configured' };
       }
 
       const subject = this.getSubject(type);
       const html = this.getCongratsEmailTemplate(type, userData);
+
+      if (!html || !html.trim()) {
+        console.error('[EmailService] No template for type:', type, '- cannot send to', email);
+        return { success: false, messageId: 'no-template' };
+      }
 
       const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -194,11 +136,12 @@ class emailService {
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-
+      if (type === 'admin_account_created') {
+      }
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      // Email failed - using fallback
-      return { success: true, messageId: 'console-log-fallback' };
+      console.error('[EmailService] Failed to send congrats email to', email, 'type:', type, 'error:', error.message);
+      return { success: false, messageId: 'send-failed' };
     }
   }
 
@@ -214,6 +157,12 @@ class emailService {
         return 'Welcome to Nomu Cafe!';
       case 'password_reset_success':
         return 'Password Reset Successful';
+      case 'admin_account_created':
+        return 'Admin Account Created';
+      case 'admin_account_updated':
+        return 'Admin Account Updated';
+      case 'admin_account_deleted':
+        return 'Admin Account Removed';
       default:
         return 'Account Verification';
     }
@@ -228,125 +177,39 @@ class emailService {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Welcome to Nomu Cafe!</title>
-          <style>
-              body {
-                  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                  line-height: 1.6;
-                  color: #333;
-                  max-width: 600px;
-                  margin: 0 auto;
-                  padding: 20px;
-                  background-color: #f4f4f4;
-              }
-              .container {
-                  background-color: #ffffff;
-                  padding: 30px;
-                  border-radius: 10px;
-                  box-shadow: 0 0 20px rgba(0,0,0,0.1);
-              }
-              .header {
-                  text-align: center;
-                  margin-bottom: 30px;
-              }
-              .logo {
-                  font-size: 32px;
-                  font-weight: bold;
-                  color: #232c53;
-                  margin-bottom: 10px;
-              }
-              .welcome-banner {
-                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                  color: white;
-                  padding: 20px;
-                  border-radius: 8px;
-                  text-align: center;
-                  margin: 20px 0;
-              }
-              .welcome-banner h2 {
-                  margin: 0;
-                  font-size: 24px;
-              }
-              .features {
-                  background-color: #f8f9fa;
-                  padding: 20px;
-                  border-radius: 8px;
-                  margin: 20px 0;
-              }
-              .features h3 {
-                  color: #232c53;
-                  margin-top: 0;
-              }
-              .features ul {
-                  margin: 0;
-                  padding-left: 20px;
-              }
-              .features li {
-                  margin-bottom: 8px;
-              }
-              .cta-button {
-                  display: inline-block;
-                  background-color: #232c53;
-                  color: white;
-                  padding: 12px 24px;
-                  text-decoration: none;
-                  border-radius: 6px;
-                  font-weight: bold;
-                  margin: 20px 0;
-              }
-              .footer {
-                  text-align: center;
-                  margin-top: 30px;
-                  padding-top: 20px;
-                  border-top: 1px solid #eee;
-                  color: #666;
-                  font-size: 14px;
-              }
-          </style>
       </head>
-      <body>
-          <div class="container">
-              <div class="header">
-                  <div class="logo">☕ Nomu Cafe</div>
-              </div>
-              
-              <div class="welcome-banner">
-                  <h2>🎉 Welcome to Nomu Cafe!</h2>
-                  <p>Your account has been successfully created!</p>
-              </div>
-              
-              <p>Hello ${userData.fullName || 'there'},</p>
-              
-              <p>Congratulations! Your Nomu Cafe account has been successfully created and verified. We're excited to have you join our coffee community!</p>
-              
-              <div class="features">
-                  <h3>🌟 What you can do now:</h3>
-                  <ul>
-                      <li>Browse our delicious coffee menu</li>
-                      <li>Place orders for pickup or delivery</li>
-                      <li>Track your order status in real-time</li>
-                      <li>Earn loyalty points with every purchase</li>
-                      <li>Receive exclusive offers and promotions</li>
+      <body style="margin:0; padding:20px; background-color:#f4f4f4; text-align:center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+              <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="margin-bottom:24px; text-align:center;">
+                      <div style="font-size:28px; font-weight:bold; color:#232c53; text-align:center;">☕ Nomu Cafe</div>
+                  </div>
+                  <div style="background:linear-gradient(135deg, #2B3A67 0%, #1a2347 100%); color:white; padding:20px; border-radius:8px; margin:20px 0; text-align:center;">
+                      <h2 style="margin:0; font-size:22px; font-weight:bold; text-align:center; color:white;">Welcome to Nomu Cafe!</h2>
+                      <p style="margin:6px 0 0 0; font-size:14px; text-align:center; color:white;">Your account has been successfully created!</p>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">Hello ${userData.fullName || 'there'},</p>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">Congratulations! Your Nomu Cafe account has been successfully created and verified. We're excited to have you join our coffee community!</p>
+                  <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef; text-align:center;">
+                      <h3 style="color:#232c53; margin:0 0 12px 0; font-size:15px; text-align:center;">What you can do now:</h3>
+                      <ul style="margin:0 auto; padding-left:0; list-style:none; display:inline-block; text-align:left;">
+                          <li style="margin-bottom:6px; font-size:14px;">Browse our delicious coffee menu</li>
+                          <li style="margin-bottom:6px; font-size:14px;">Place orders for pickup or delivery</li>
+                          <li style="margin-bottom:6px; font-size:14px;">Track your order status in real-time</li>
+                          <li style="margin-bottom:6px; font-size:14px;">Earn loyalty points with every purchase</li>
+                          <li style="margin-bottom:0; font-size:14px;">Receive exclusive offers and promotions</li>
+                      </ul>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 8px 0; text-align:center;">Your account details:</p>
+                  <ul style="margin:0 auto 16px auto; padding-left:0; list-style:none; display:inline-block; text-align:left;">
+                      <li style="margin-bottom:6px; font-size:14px;"><strong>Email:</strong> ${userData.email || 'Your registered email'}</li>
+                      <li style="margin-bottom:6px; font-size:14px;"><strong>Username:</strong> ${userData.username || 'Your chosen username'}</li>
+                      <li style="margin-bottom:0; font-size:14px;"><strong>Account Type:</strong> Customer</li>
                   </ul>
-              </div>
-              
-              <p>Your account details:</p>
-              <ul>
-                  <li><strong>Email:</strong> ${userData.email || 'Your registered email'}</li>
-                  <li><strong>Username:</strong> ${userData.username || 'Your chosen username'}</li>
-                  <li><strong>Account Type:</strong> Customer</li>
-              </ul>
-              
-              <div style="text-align: center;">
-                  <a href="http://localhost:3000" class="cta-button">Start Exploring Nomu Cafe</a>
-              </div>
-              
-              <p>If you have any questions or need assistance, feel free to contact our support team. We're here to help!</p>
-              
-              <div class="footer">
-                  <p>© 2024 Nomu Cafe. All rights reserved.</p>
-                  <p>Thank you for choosing Nomu Cafe for your coffee experience!</p>
-              </div>
-          </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you have any questions or need assistance, feel free to contact our support team. We're here to help!</p>
+                  <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+              </td></tr>
+          </table>
       </body>
       </html>
       `;
@@ -357,124 +220,166 @@ class emailService {
       <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Password Reset Successful</title>
+          <title>Password Reset Successful - Nomu Cafe</title>
           <style>
-              body {
-                  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                  line-height: 1.6;
-                  color: #333;
-                  max-width: 600px;
-                  margin: 0 auto;
-                  padding: 20px;
-                  background-color: #f4f4f4;
-              }
-              .container {
-                  background-color: #ffffff;
-                  padding: 30px;
-                  border-radius: 10px;
-                  box-shadow: 0 0 20px rgba(0,0,0,0.1);
-              }
-              .header {
-                  text-align: center;
-                  margin-bottom: 30px;
-              }
-              .logo {
-                  font-size: 32px;
-                  font-weight: bold;
-                  color: #232c53;
-                  margin-bottom: 10px;
-              }
-              .success-banner {
-                  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-                  color: white;
-                  padding: 20px;
-                  border-radius: 8px;
-                  text-align: center;
-                  margin: 20px 0;
-              }
-              .success-banner h2 {
-                  margin: 0;
-                  font-size: 24px;
-              }
-              .security-tips {
-                  background-color: #f8f9fa;
-                  padding: 20px;
-                  border-radius: 8px;
-                  margin: 20px 0;
-              }
-              .security-tips h3 {
-                  color: #232c53;
-                  margin-top: 0;
-              }
-              .security-tips ul {
-                  margin: 0;
-                  padding-left: 20px;
-              }
-              .security-tips li {
-                  margin-bottom: 8px;
-              }
-              .cta-button {
-                  display: inline-block;
-                  background-color: #232c53;
-                  color: white;
-                  padding: 12px 24px;
-                  text-decoration: none;
-                  border-radius: 6px;
-                  font-weight: bold;
-                  margin: 20px 0;
-              }
-              .footer {
-                  text-align: center;
-                  margin-top: 30px;
-                  padding-top: 20px;
-                  border-top: 1px solid #eee;
-                  color: #666;
-                  font-size: 14px;
-              }
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4; text-align: center; }
+              .container { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); max-width: 560px; margin: 0 auto; text-align: center; }
+              .header { margin-bottom: 24px; text-align: center; }
+              .logo { font-size: 28px; font-weight: bold; color: #232c53; text-align: center; }
+              .success-banner { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+              .success-banner .check { width: 40px; height: 40px; background: rgba(255,255,255,0.3); border-radius: 6px; margin: 0 auto 10px auto; line-height: 40px; font-size: 22px; text-align: center; }
+              .success-banner h2 { margin: 0; font-size: 22px; font-weight: bold; text-align: center; }
+              .success-banner p { margin: 6px 0 0 0; font-size: 14px; opacity: 0.95; text-align: center; }
+              .body-text { font-size: 14px; color: #333; margin: 0 0 16px 0; text-align: center; }
+              .details { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e9ecef; text-align: center; }
+              .details h3 { color: #232c53; margin: 0 0 12px 0; font-size: 15px; text-align: center; }
+              .details ul { margin: 0 auto; padding-left: 0; list-style: none; display: inline-block; text-align: left; }
+              .details li { margin-bottom: 8px; font-size: 14px; }
+              .footer { margin-top: 28px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center; }
           </style>
       </head>
-      <body>
-          <div class="container">
-              <div class="header">
-                  <div class="logo">☕ Nomu Cafe</div>
-              </div>
-              
-              <div class="success-banner">
-                  <h2>✅ Password Reset Successful!</h2>
-                  <p>Your password has been successfully updated</p>
-              </div>
-              
-              <p>Hello ${userData.fullName || 'there'},</p>
-              
-              <p>Great news! Your Nomu Cafe account password has been successfully reset. You can now sign in to your account using your new password.</p>
-              
-              <div class="security-tips">
-                  <h3>🔒 Security Tips:</h3>
-                  <ul>
-                      <li>Keep your password secure and don't share it with anyone</li>
-                      <li>Use a strong, unique password for your account</li>
-                      <li>Sign out from shared or public computers</li>
-                      <li>Contact us immediately if you notice any suspicious activity</li>
-                  </ul>
-              </div>
-              
-              <p><strong>Account Details:</strong></p>
-              <ul>
-                  <li><strong>Email:</strong> ${userData.email || 'Your registered email'}</li>
-                  <li><strong>Password Reset Time:</strong> ${new Date().toLocaleString()}</li>
-              </ul>
-              
-              <div style="text-align: center;">
-                  <a href="http://localhost:3000" class="cta-button">Sign In to Your Account</a>
-              </div>
-              
-              <p>If you didn't request this password reset, please contact our support team immediately to secure your account.</p>
-              
-              <div class="footer">
-                  <p>© 2024 Nomu Cafe. All rights reserved.</p>
-                  <p>This is an automated message. Please do not reply to this email.</p>
-              </div>
-          </div>
+      <body style="margin:0; padding:20px; background-color:#f4f4f4; text-align:center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+              <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="margin-bottom:24px; text-align:center;">
+                      <div style="font-size:28px; font-weight:bold; color:#232c53; text-align:center;">☕ Nomu Cafe</div>
+                  </div>
+                  <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%); color:white; padding:20px; border-radius:8px; margin:20px 0; text-align:center;">
+                      <div style="width:40px; height:40px; background:rgba(255,255,255,0.3); border-radius:6px; margin:0 auto 10px auto; line-height:40px; font-size:22px; text-align:center;">✓</div>
+                      <h2 style="margin:0; font-size:22px; font-weight:bold; text-align:center; color:white;">Password Reset Successful</h2>
+                      <p style="margin:6px 0 0 0; font-size:14px; text-align:center; color:white;">Your password has been successfully updated. You can now sign in with your new password.</p>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">Hello ${userData.fullName || 'there'},</p>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">This email confirms that the password for your Nomu Cafe admin account has been successfully reset. You can sign in using the email and new password that were set for your account.</p>
+                  <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef; text-align:center;">
+                      <h3 style="color:#232c53; margin:0 0 12px 0; font-size:15px; text-align:center;">Account details</h3>
+                      <ul style="margin:0 auto; padding-left:0; list-style:none; display:inline-block; text-align:left;">
+                          <li style="margin-bottom:8px; font-size:14px;"><strong>Email:</strong> ${userData.email || '—'}</li>
+                          <li style="margin-bottom:8px; font-size:14px;"><strong>Password reset at:</strong> ${new Date().toLocaleString()}</li>
+                      </ul>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you did not request this password reset, please contact your administrator immediately to secure your account.</p>
+                  <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+              </td></tr>
+          </table>
+      </body>
+      </html>
+      `;
+    } else if (type === 'admin_account_created') {
+      const roleLabel = (userData.role === 'superadmin') ? 'Owner' : (userData.role === 'manager') ? 'Manager' : 'Staff';
+      return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Admin Account Created - Nomu Cafe</title>
+      </head>
+      <body style="margin:0; padding:20px; background-color:#f4f4f4; text-align:center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+              <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="margin-bottom:24px; text-align:center;">
+                      <div style="font-size:28px; font-weight:bold; color:#232c53; text-align:center;">☕ Nomu Cafe</div>
+                  </div>
+                  <div style="background:linear-gradient(135deg, #2B3A67 0%, #1a2347 100%); color:white; padding:20px; border-radius:8px; margin:20px 0; text-align:center;">
+                      <div style="width:40px; height:40px; background:#28a745; border-radius:6px; margin:0 auto 10px auto; line-height:40px; font-size:22px; text-align:center;">✓</div>
+                      <h2 style="margin:0; font-size:22px; font-weight:bold; text-align:center; color:white;">Your Admin Account Has Been Created</h2>
+                      <p style="margin:6px 0 0 0; font-size:14px; text-align:center; color:white;">You can now access the Nomu Cafe Admin Dashboard.</p>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">Hello ${userData.fullName || 'there'},</p>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">An admin account has been successfully created for you. You have been added to the Nomu Cafe admin team and can sign in to the admin dashboard using the email and password that were set for your account.</p>
+                  <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef; text-align:center;">
+                      <h3 style="color:#232c53; margin:0 0 12px 0; font-size:15px; text-align:center;">Account details</h3>
+                      <ul style="margin:0 auto; padding-left:0; list-style:none; display:inline-block; text-align:left;">
+                          <li style="margin-bottom:8px; font-size:14px;"><strong>Full name:</strong> ${userData.fullName || '—'}</li>
+                          <li style="margin-bottom:8px; font-size:14px;"><strong>Email:</strong> <a href="mailto:${userData.email || ''}" style="color:#1a2347;">${userData.email || '—'}</a></li>
+                          <li style="margin-bottom:0; font-size:14px;"><strong>Role:</strong> ${roleLabel}</li>
+                      </ul>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you did not expect this email or have any questions, please contact your administrator.</p>
+                  <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+              </td></tr>
+          </table>
+      </body>
+      </html>
+      `;
+    } else if (type === 'admin_account_updated') {
+      const roleLabel = (userData.role === 'superadmin') ? 'Owner' : (userData.role === 'manager') ? 'Manager' : 'Staff';
+      const changesList = (userData.changes && userData.changes.length)
+        ? userData.changes.map(c => `<li style="margin-bottom:6px; font-size:14px;">${c}</li>`).join('')
+        : '<li style="margin-bottom:6px; font-size:14px;">Your account details have been updated.</li>';
+      return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Admin Account Updated - Nomu Cafe</title>
+      </head>
+      <body style="margin:0; padding:20px; background-color:#f4f4f4; text-align:center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+              <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="margin-bottom:24px; text-align:center;">
+                      <div style="font-size:28px; font-weight:bold; color:#232c53; text-align:center;">☕ Nomu Cafe</div>
+                  </div>
+                  <div style="background:linear-gradient(135deg, #2B3A67 0%, #1a2347 100%); color:white; padding:20px; border-radius:8px; margin:20px 0; text-align:center;">
+                      <div style="width:40px; height:40px; background:#28a745; border-radius:6px; margin:0 auto 10px auto; line-height:40px; font-size:22px; text-align:center;">✓</div>
+                      <h2 style="margin:0; font-size:22px; font-weight:bold; text-align:center; color:white;">Your Admin Account Has Been Updated</h2>
+                      <p style="margin:6px 0 0 0; font-size:14px; text-align:center; color:white;">Changes to your admin account are listed below.</p>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">Hello ${userData.fullName || 'there'},</p>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">This email confirms that your Nomu Cafe admin account has been updated. If you made these changes yourself, you can disregard this notification. If not, an administrator has updated your account.</p>
+                  <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef; text-align:left;">
+                      <h3 style="color:#232c53; margin:0 0 12px 0; font-size:15px; text-align:left;">What changed</h3>
+                      <ul style="margin:0; padding-left:0; list-style:none; text-align:left;">
+                          ${changesList}
+                      </ul>
+                      <h3 style="color:#232c53; margin:16px 0 8px 0; font-size:15px; text-align:left;">Current account details</h3>
+                      <ul style="margin:0; padding-left:0; list-style:none; text-align:left;">
+                          <li style="margin-bottom:8px; font-size:14px;"><strong>Full name:</strong> ${userData.fullName || '—'}</li>
+                          <li style="margin-bottom:8px; font-size:14px;"><strong>Email:</strong> <a href="mailto:${userData.email || ''}" style="color:#1a2347;">${userData.email || '—'}</a></li>
+                          <li style="margin-bottom:0; font-size:14px;"><strong>Role:</strong> ${roleLabel}</li>
+                      </ul>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you did not request these changes or have any questions, please contact your administrator.</p>
+                  <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+              </td></tr>
+          </table>
+      </body>
+      </html>
+      `;
+    } else if (type === 'admin_account_deleted') {
+      return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Admin Account Removed - Nomu Cafe</title>
+      </head>
+      <body style="margin:0; padding:20px; background-color:#f4f4f4; text-align:center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+              <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:center;">
+                  <div style="margin-bottom:24px; text-align:center;">
+                      <div style="font-size:28px; font-weight:bold; color:#232c53; text-align:center;">☕ Nomu Cafe</div>
+                  </div>
+                  <div style="background:linear-gradient(135deg, #5a6c7d 0%, #3d4f5f 100%); color:white; padding:20px; border-radius:8px; margin:20px 0; text-align:center;">
+                      <h2 style="margin:0; font-size:22px; font-weight:bold; text-align:center; color:white;">Your Admin Account Has Been Removed</h2>
+                      <p style="margin:6px 0 0 0; font-size:14px; text-align:center; color:white;">You no longer have access to the Nomu Cafe admin dashboard.</p>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">Hello ${userData.fullName || 'there'},</p>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:left;">This email is to inform you that your Nomu Cafe admin account has been removed. Your access to the admin dashboard has been revoked, and you will no longer be able to sign in with this account.</p>
+                  <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef; text-align:center;">
+                      <h3 style="color:#232c53; margin:0 0 12px 0; font-size:15px; text-align:center;">Account that was removed</h3>
+                      <ul style="margin:0; padding-left:0; list-style:none; text-align:center;">
+                          <li style="margin-bottom:8px; font-size:14px;"><strong>Full name:</strong> ${userData.fullName || '—'}</li>
+                          <li style="margin-bottom:0; font-size:14px;"><strong>Email:</strong> <a href="mailto:${userData.email || ''}" style="color:#1a2347;">${userData.email || '—'}</a></li>
+                      </ul>
+                  </div>
+                  <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you believe this was done in error or have questions, please contact your administrator.</p>
+                  <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+              </td></tr>
+          </table>
       </body>
       </html>
       `;

@@ -169,7 +169,6 @@ router.get('/dashboard', authMiddleware, requireAdmin, async (req, res) => {
       $expr: { $lt: ['$currentStock', '$minimumThreshold'] }
     }).select('name currentStock minimumThreshold');
 
-    console.log('Low Stock Items:', actualLowStockItems);
 
     res.status(200).json({
       totalItems,

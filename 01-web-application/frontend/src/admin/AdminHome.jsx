@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FaChartBar, FaChartLine, FaUsers, FaCoffee, FaStar, FaClock, FaSpinner, FaTag, FaExclamationTriangle, FaFileDownload } from 'react-icons/fa';
 import { BarChart3 } from 'lucide-react';
 import { MdTrendingUp } from 'react-icons/md';
@@ -148,6 +148,8 @@ const AdminHome = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [bestSellersPeriod, setBestSellersPeriod] = useState('monthly');
+  const businessAnalyticsRef = useRef(null);
+  const customerAnalyticsRef = useRef(null);
 
   // Abuse alert states
   const [abuseAlerts, setAbuseAlerts] = useState([]);
@@ -535,8 +537,32 @@ const AdminHome = () => {
         title="Business Analytics" 
         icon={FaChartBar}
         style={{ marginBottom: '1rem' }}
+        extraContent={
+          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+            <button
+              type="button"
+              onClick={() => businessAnalyticsRef.current?.exportPDF()}
+              title="Export Business Analytics report as PDF"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: '#003466',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              <FaFileDownload /> Export PDF
+            </button>
+          </div>
+        }
       >
-        <AnalyticsDisplay />
+        <AnalyticsDisplay ref={businessAnalyticsRef} />
       </InfoCard>
 
       {/* Customer Analytics Section */}
@@ -544,8 +570,32 @@ const AdminHome = () => {
         title="Customer Analytics" 
         icon={FaChartBar}
         style={{ marginBottom: '1rem' }}
+        extraContent={
+          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+            <button
+              type="button"
+              onClick={() => customerAnalyticsRef.current?.exportPDF()}
+              title="Export Customer Analytics report as PDF"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: '#003466',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              <FaFileDownload /> Export PDF
+            </button>
+          </div>
+        }
       >
-        <CustomerAnalytics />
+        <CustomerAnalytics ref={customerAnalyticsRef} />
       </InfoCard>
 
       {/* Best Seller Analytics Section */}

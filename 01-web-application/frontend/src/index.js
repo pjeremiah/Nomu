@@ -12,7 +12,6 @@ if (typeof window !== 'undefined') {
     if (typeof msg === 'string' && msg.includes('Timeout')) {
       event.preventDefault();
       event.stopPropagation();
-      console.warn('[Handled] Timeout-related rejection (overlay suppressed):', event.reason);
     }
   });
   window.addEventListener('error', (event) => {
@@ -20,7 +19,6 @@ if (typeof window !== 'undefined') {
     if (typeof msg === 'string' && msg.includes('Timeout')) {
       event.preventDefault();
       event.stopPropagation();
-      console.warn('[Handled] Timeout-related error (overlay suppressed):', event.error);
       return true;
     }
   }, true);

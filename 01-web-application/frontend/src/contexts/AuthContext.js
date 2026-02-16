@@ -22,9 +22,6 @@ export const AuthProvider = ({ children }) => {
     const token = localToken || sessionToken;
     const isSessionStorage = !localToken && !!sessionToken;
     
-    console.log('🔐 Global auth check - localStorage token exists:', !!localToken);
-    console.log('🔐 Global auth check - sessionStorage token exists:', !!sessionToken);
-    
     if (!token) {
       setIsAuthenticated(false);
       setUser(null);
@@ -35,7 +32,6 @@ export const AuthProvider = ({ children }) => {
     // Check if token has valid JWT format (3 parts separated by dots)
     const tokenParts = token.split('.');
     if (tokenParts.length !== 3) {
-      console.log('❌ Invalid token format, removing token');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.removeItem('token');
@@ -52,8 +48,6 @@ export const AuthProvider = ({ children }) => {
       const currentTime = Math.floor(Date.now() / 1000);
       
       if (payload.exp && payload.exp < currentTime) {
-        // Token is expired
-        console.log('❌ Token expired, removing token');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         sessionStorage.removeItem('token');
@@ -69,14 +63,11 @@ export const AuthProvider = ({ children }) => {
         ? JSON.parse(sessionStorage.getItem('user') || '{}')
         : JSON.parse(localStorage.getItem('user') || '{}');
       
-      console.log('✅ Token is valid, setting authenticated to true');
       setIsAuthenticated(true);
       setUser(userData);
       setLoading(false);
       return true;
     } catch (error) {
-      // Invalid token format
-      console.log('❌ Invalid token format, removing token:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.removeItem('token');
@@ -89,13 +80,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = (userData) => {
-    console.log('🔐 Global login called with userData:', userData);
     setIsAuthenticated(true);
     setUser(userData);
   };
 
   const logout = () => {
-    console.log('🔐 Global logout called');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     sessionStorage.removeItem('token');
@@ -113,7 +102,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'token' || e.key === 'user') {
-        console.log('🔄 Token or user changed in storage, rechecking authentication...');
         checkAuthentication();
       }
     };
@@ -137,7 +125,6 @@ export const AuthProvider = ({ children }) => {
   // Listen for custom auth events
   useEffect(() => {
     const handleAuthChange = () => {
-      console.log('🔄 Custom auth change event received');
       checkAuthentication();
     };
 

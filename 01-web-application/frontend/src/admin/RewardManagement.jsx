@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaEyeSlash, FaCog } from 'react-icons/fa';
-import { Gift } from 'lucide-react';
+import { Gift, Check, Loader2 } from 'lucide-react';
 import { MdCardGiftcard, MdDescription, MdDateRange } from "react-icons/md";
 import { Search } from "lucide-react";
 import EnhancedDropdown from './components/EnhancedDropdown';
@@ -22,7 +22,7 @@ const emptyForm = {
   status: "Active"
 };
 
-const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalError }) => {
+const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalError, saving }) => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
 
@@ -426,8 +426,17 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
             type="button"
             onClick={handleSave}
             className="admin-btn admin-btn-primary"
+            disabled={saving}
+            style={{ opacity: saving ? 0.9 : 1, cursor: saving ? 'wait' : 'pointer' }}
           >
-            {editing ? "Save Changes" : "Add Reward"}
+            {saving ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                {editing ? 'Saving...' : 'Adding...'}
+              </span>
+            ) : (
+              editing ? "Save Changes" : "Add Reward"
+            )}
           </button>
         </div>
       </div>
@@ -448,10 +457,15 @@ const RewardManagement = () => {
   const [modalError, setModalError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [isSavingReward, setIsSavingReward] = useState(false);
+  const [isDeletingReward, setIsDeletingReward] = useState(false);
+  const [showAddSuccessModal, setShowAddSuccessModal] = useState(false);
+  const [showEditSuccessModal, setShowEditSuccessModal] = useState(false);
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   // Prevent body scrolling when modal is open
   useEffect(() => {
-    if (showModal || showDeleteConfirm) {
+    if (showModal || showDeleteConfirm || showAddSuccessModal || showEditSuccessModal || showDeleteSuccessModal) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -464,7 +478,7 @@ const RewardManagement = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showModal, showDeleteConfirm]);
+  }, [showModal, showDeleteConfirm, showAddSuccessModal, showEditSuccessModal, showDeleteSuccessModal]);
 
 
   // Check authentication status
@@ -537,18 +551,14 @@ const RewardManagement = () => {
   const isViewOnly = userRole === 'staff';
 
   const handleSaveReward = async (rewardData) => {
+    setIsSavingReward(true);
     try {
-      setLoading(true);
       setError('');
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      
       if (!token) {
         setError('No authentication token found');
-        setLoading(false);
         return;
       }
-      
       const requestData = {
         title: rewardData.title,
         description: rewardData.description,
@@ -559,11 +569,8 @@ const RewardManagement = () => {
         usageLimit: parseInt(rewardData.usageLimit) || 0,
         status: rewardData.status
       };
-      
-      
       const url = editing ? `${API_BASE}/api/rewards/${currentReward._id}` : `${API_BASE}/api/rewards`;
       const method = editing ? 'PUT' : 'POST';
-      
       const response = await fetch(url, {
         method: method,
         headers: {
@@ -572,39 +579,35 @@ const RewardManagement = () => {
         },
         body: JSON.stringify(requestData)
       });
-      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Failed to ${editing ? 'update' : 'create'} reward`);
       }
-      
-      await fetchRewards(); // Refresh the list
+      const wasEditing = editing;
+      await fetchRewards();
       setShowModal(false);
       setEditing(false);
       setCurrentReward(null);
-      
-      // Trigger activity refresh
+      setModalError('');
+      setTimeout(() => (wasEditing ? setShowEditSuccessModal(true) : setShowAddSuccessModal(true)), 120);
       window.dispatchEvent(new CustomEvent('adminAction'));
     } catch (err) {
       console.error('Network error:', err);
       setModalError(`Network error: ${err.message}`);
     } finally {
-      setLoading(false);
+      setIsSavingReward(false);
     }
   };
 
   const handleDeleteReward = async (rewardId) => {
+    setIsDeletingReward(true);
     try {
-      setLoading(true);
       setError('');
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
       if (!token) {
         setError('No authentication token found');
-        setLoading(false);
         return;
       }
-      
       const response = await fetch(`${API_BASE}/api/rewards/${rewardId}`, {
         method: 'DELETE',
         headers: {
@@ -612,22 +615,19 @@ const RewardManagement = () => {
           'Content-Type': 'application/json'
         }
       });
-      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to delete reward');
       }
-      
-      await fetchRewards(); // Refresh the list
+      await fetchRewards();
       setShowDeleteConfirm(null);
-      
-      // Trigger activity refresh
+      setTimeout(() => setShowDeleteSuccessModal(true), 120);
       window.dispatchEvent(new CustomEvent('adminAction'));
     } catch (err) {
       console.error('Delete error:', err);
       setError(`Error deleting reward: ${err.message}`);
     } finally {
-      setLoading(false);
+      setIsDeletingReward(false);
     }
   };
 
@@ -745,6 +745,10 @@ const RewardManagement = () => {
       minHeight: '100vh',
       background: '#f8f9fa'
     }}>
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes rewardSuccessSlideIn { from { opacity: 0; transform: scale(0.92) translateY(-16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+      `}</style>
       {/* Page Header */}
       <PageHeader 
         title="Reward Management" 
@@ -1350,12 +1354,19 @@ const RewardManagement = () => {
                 flex: 1 !important;
                 font-size: 0.9rem !important;
               }
-              .admin-modal .admin-btn-danger:hover {
+              .admin-modal .admin-btn-danger:hover:not(:disabled) {
                 background: #dc3545 !important;
                 border-color: #dc3545 !important;
                 color: white !important;
                 transform: translateY(-2px) !important;
                 box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger:disabled {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                cursor: wait !important;
+                opacity: 1 !important;
               }
             `}
           </style>
@@ -1396,6 +1407,7 @@ const RewardManagement = () => {
                 type="button"
                 onClick={() => setShowDeleteConfirm(null)}
                 className="admin-btn admin-btn-secondary"
+                disabled={isDeletingReward}
               >
                 Cancel
               </button>
@@ -1403,16 +1415,62 @@ const RewardManagement = () => {
                 type="button"
                 onClick={() => handleDeleteReward(showDeleteConfirm)}
                 className="admin-btn admin-btn-danger"
+                disabled={isDeletingReward}
               >
-                Delete Reward
+                {isDeletingReward ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete Reward'
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Success modals */}
+      {showAddSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'rewardSuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Reward Added Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The reward has been added.</p>
+            <button type="button" onClick={() => setShowAddSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showEditSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'rewardSuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Changes Saved Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The reward has been updated.</p>
+            <button type="button" onClick={() => setShowEditSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showDeleteSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'rewardSuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Reward Deleted Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The reward has been removed.</p>
+            <button type="button" onClick={() => setShowDeleteSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Add Button - hidden for staff (view only) */}
-      {!showModal && !showDeleteConfirm && !isViewOnly && (
+      {!showModal && !showDeleteConfirm && !showAddSuccessModal && !showEditSuccessModal && !showDeleteSuccessModal && !isViewOnly && (
         <div className="menu-actions">
         <button
             className="add-item-btn" 
@@ -1443,6 +1501,7 @@ const RewardManagement = () => {
         editing={editing}
         initialData={currentReward}
         modalError={modalError}
+        saving={isSavingReward}
       />
     </div>
   );

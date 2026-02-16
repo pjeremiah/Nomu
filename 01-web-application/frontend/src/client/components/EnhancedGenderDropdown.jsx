@@ -296,8 +296,7 @@ const EnhancedGenderDropdown = ({
     if (!disabled) {
       e.preventDefault();
       e.stopPropagation();
-      console.log('Dropdown toggle clicked, current state:', isOpen); // Debug log
-      
+
       if (!isOpen) {
         checkPosition();
         setIsOpening(true);
@@ -312,21 +311,15 @@ const EnhancedGenderDropdown = ({
   const handleSelect = (option, e) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Gender selected:', option.value); // Debug log
-    console.log('Current value before change:', value); // Debug log
     onChange(option.value);
-    console.log('onChange called with:', option.value); // Debug log
     setIsOpen(false);
-    console.log('Dropdown closed'); // Debug log
   };
 
   const handleClickOutside = useCallback((event) => {
-    console.log('Click outside detected, target:', event.target);
     const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(event.target);
     const isInsidePortal = portalRef.current && portalRef.current.contains(event.target);
-    
+
     if (!isInsideDropdown && !isInsidePortal) {
-      console.log('Closing dropdown due to outside click');
       setIsOpen(false);
     }
   }, []);
@@ -392,15 +385,11 @@ const EnhancedGenderDropdown = ({
       
       {isOpen && createPortal(
         <DropdownMenu ref={portalRef} $isOpen={isOpen} $buttonRect={buttonRect}>
-          {console.log('Rendering dropdown menu with options:', genderOptions)}
           {genderOptions.map((option) => (
             <DropdownItem
               key={option.value}
               type="button"
-              onClick={(e) => {
-                console.log('Dropdown item clicked:', option.label, option.value);
-                handleSelect(option, e);
-              }}
+              onClick={(e) => handleSelect(option, e)}
               className={value === option.value ? 'selected' : ''}
             >
               <span>{option.label}</span>

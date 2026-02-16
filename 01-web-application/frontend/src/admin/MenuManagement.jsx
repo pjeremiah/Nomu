@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { Coffee } from 'lucide-react';
+import { Coffee, Check, Loader2 } from 'lucide-react';
 import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
@@ -32,12 +32,21 @@ const MenuManagement = () => {
   const [showDelete, setShowDelete] = useState(false);
   const [deleteId, setDeleteId] = useState('');
 
+  // Loading states for add / edit / delete
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isUpdatingItem, setIsUpdatingItem] = useState(false);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+  // Success modals
+  const [showAddSuccessModal, setShowAddSuccessModal] = useState(false);
+  const [showEditSuccessModal, setShowEditSuccessModal] = useState(false);
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
+
   // Check user role for access control
   const [currentUser, setCurrentUser] = useState(null);
 
   // Prevent body scrolling when any modal is open
   useEffect(() => {
-    if (showAdd || showEdit || showDelete) {
+    if (showAdd || showEdit || showDelete || showAddSuccessModal || showEditSuccessModal || showDeleteSuccessModal) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -50,7 +59,7 @@ const MenuManagement = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showAdd, showEdit, showDelete]);
+  }, [showAdd, showEdit, showDelete, showAddSuccessModal, showEditSuccessModal, showDeleteSuccessModal]);
 
   useEffect(() => {
     // Fetch current user info
@@ -169,9 +178,9 @@ const MenuManagement = () => {
     fd.append('price', addForm.price);
     fd.append('description', addForm.description);
     fd.append('category', addForm.category);
-    // Always send secondPrice for all categories, even if empty
     fd.append('secondPrice', addForm.secondPrice || '');
     if (addForm.image) fd.append('image', addForm.image);
+    setIsAddingItem(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/menu`, {
@@ -182,12 +191,14 @@ const MenuManagement = () => {
         body: fd
       });
       if (response.ok) {
+        const itemName = addForm.name;
         setShowAdd(false);
         setAddForm(emptyForm);
+        setModalError('');
         await fetchItems();
-        // Dispatch event to update recent activity
+        setTimeout(() => setShowAddSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
-          detail: { action: 'menu_added', item: addForm.name } 
+          detail: { action: 'menu_added', item: itemName } 
         }));
       } else {
         const errorData = await response.json();
@@ -195,6 +206,8 @@ const MenuManagement = () => {
       }
     } catch (err) {
       setModalError(err.message || 'Failed to add item');
+    } finally {
+      setIsAddingItem(false);
     }
   };
 
@@ -242,9 +255,9 @@ const MenuManagement = () => {
     fd.append('price', editForm.price);
     fd.append('description', editForm.description);
     fd.append('category', editForm.category);
-    // Always send secondPrice for all categories, even if empty (to clear it)
     fd.append('secondPrice', editForm.secondPrice || '');
     if (editForm.image) fd.append('image', editForm.image);
+    setIsUpdatingItem(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/menu/${editId}`, {
@@ -255,13 +268,15 @@ const MenuManagement = () => {
         body: fd
       });
       if (response.ok) {
+        const itemName = editForm.name;
         setShowEdit(false);
         setEditId('');
         setEditForm(emptyForm);
+        setModalError('');
         await fetchItems();
-        // Dispatch event to update recent activity
+        setTimeout(() => setShowEditSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
-          detail: { action: 'menu_updated', item: editForm.name } 
+          detail: { action: 'menu_updated', item: itemName } 
         }));
       } else {
         const errorData = await response.json();
@@ -269,10 +284,13 @@ const MenuManagement = () => {
       }
     } catch (err) {
       setModalError(err.message || 'Failed to update item');
+    } finally {
+      setIsUpdatingItem(false);
     }
   };
 
   const handleDelete = async () => {
+    setIsDeletingItem(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/menu/${deleteId}`, {
@@ -284,8 +302,9 @@ const MenuManagement = () => {
       if (response.ok) {
         setShowDelete(false);
         setDeleteId('');
+        setModalError('');
         await fetchItems();
-        // Dispatch event to update recent activity
+        setTimeout(() => setShowDeleteSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
           detail: { action: 'menu_deleted' } 
         }));
@@ -295,6 +314,8 @@ const MenuManagement = () => {
       }
     } catch (err) {
       setModalError(err.message || 'Failed to delete item');
+    } finally {
+      setIsDeletingItem(false);
     }
   };
 
@@ -335,6 +356,16 @@ const MenuManagement = () => {
       minHeight: '100vh',
       background: '#f8f9fa'
     }}>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes menuSuccessSlideIn {
+          from { opacity: 0; transform: scale(0.92) translateY(-16px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
       {/* Page Header */}
       <PageHeader 
         title="Menu Management" 
@@ -824,34 +855,45 @@ const MenuManagement = () => {
                   <button
                     type="submit"
                     className="admin-btn admin-btn-primary"
+                    disabled={isAddingItem}
                     style={{
                       background: 'white',
                       color: '#212c59',
                       border: '2px solid #212c59',
-                      borderRadius: '8px', // SLIGHT CURVE LIKE ADD NEW PROMO
+                      borderRadius: '8px',
                       padding: '12px 24px',
                       fontWeight: '600',
                       transition: 'all 0.3s ease',
-                      cursor: 'pointer',
+                      cursor: isAddingItem ? 'wait' : 'pointer',
                       boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                      outline: 'none'
+                      outline: 'none',
+                      opacity: isAddingItem ? 0.9 : 1
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.background = '#212c59';
-                      e.target.style.borderColor = '#212c59';
-                      e.target.style.color = 'white';
-                      e.target.style.transform = 'translateY(-1px)';
-                      e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+                      if (!isAddingItem) {
+                        e.target.style.background = '#212c59';
+                        e.target.style.borderColor = '#212c59';
+                        e.target.style.color = 'white';
+                        e.target.style.transform = 'translateY(-1px)';
+                        e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.background = '#f8f9fa';
+                      e.target.style.background = isAddingItem ? 'white' : '#f8f9fa';
                       e.target.style.borderColor = '#212c59';
                       e.target.style.color = '#212c59';
                       e.target.style.transform = 'translateY(0)';
                       e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
                     }}
                   >
-                    Add Item
+                    {isAddingItem ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                        Adding...
+                      </span>
+                    ) : (
+                      'Add Item'
+                    )}
                   </button>
                 </div>
             </form>
@@ -1200,34 +1242,45 @@ const MenuManagement = () => {
                 <button
                   type="submit"
                   className="admin-btn admin-btn-primary"
+                  disabled={isUpdatingItem}
                   style={{
                     background: 'white',
                     color: '#212c59',
                     border: '2px solid #212c59',
-                    borderRadius: '8px', // SLIGHT CURVE LIKE ADD NEW PROMO
+                    borderRadius: '8px',
                     padding: '12px 24px',
                     fontWeight: '600',
                     transition: 'all 0.3s ease',
-                    cursor: 'pointer',
+                    cursor: isUpdatingItem ? 'wait' : 'pointer',
                     boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
-                    outline: 'none'
+                    outline: 'none',
+                    opacity: isUpdatingItem ? 0.9 : 1
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.background = '#212c59';
-                    e.target.style.borderColor = '#212c59';
-                    e.target.style.color = 'white';
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+                    if (!isUpdatingItem) {
+                      e.target.style.background = '#212c59';
+                      e.target.style.borderColor = '#212c59';
+                      e.target.style.color = 'white';
+                      e.target.style.transform = 'translateY(-1px)';
+                      e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.background = '#f8f9fa';
+                    e.target.style.background = isUpdatingItem ? 'white' : '#f8f9fa';
                     e.target.style.borderColor = '#212c59';
                     e.target.style.color = '#212c59';
                     e.target.style.transform = 'translateY(0)';
                     e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
                   }}
                 >
-                  Save Changes
+                  {isUpdatingItem ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                      Saving...
+                    </span>
+                  ) : (
+                    'Save Changes'
+                  )}
                 </button>
               </div>
             </form>
@@ -1281,12 +1334,19 @@ const MenuManagement = () => {
                 flex: 1 !important;
                 font-size: 0.95rem !important;
               }
-              .admin-modal .admin-btn-danger:hover {
+              .admin-modal .admin-btn-danger:hover:not(:disabled) {
                 background: #dc3545 !important;
                 border-color: #dc3545 !important;
                 color: white !important;
                 transform: translateY(-1px) !important;
                 box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger:disabled {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                cursor: wait !important;
+                opacity: 1 !important;
               }
             `}
           </style>
@@ -1326,11 +1386,11 @@ const MenuManagement = () => {
               <button
                 type="button"
                 onClick={() => {
-                  // Dispatch event to close all dropdowns
                   document.dispatchEvent(new CustomEvent('modalClose'));
                   setShowDelete(false);
                 }}
                 className="admin-btn admin-btn-secondary"
+                disabled={isDeletingItem}
               >
                 Cancel
               </button>
@@ -1338,16 +1398,62 @@ const MenuManagement = () => {
                 type="button"
                 onClick={handleDelete}
                 className="admin-btn admin-btn-danger"
+                disabled={isDeletingItem}
               >
-                Delete Item
+                {isDeletingItem ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete Item'
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Success modals - Add / Edit / Delete */}
+      {showAddSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'menuSuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Item Added Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The new menu item has been added.</p>
+            <button type="button" onClick={() => setShowAddSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showEditSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'menuSuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Changes Saved Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The menu item has been updated.</p>
+            <button type="button" onClick={() => setShowEditSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showDeleteSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'menuSuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Item Deleted Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The menu item has been removed from the menu.</p>
+            <button type="button" onClick={() => setShowDeleteSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Add Button */}
-      {!showAdd && !showEdit && !showDelete && (
+      {!showAdd && !showEdit && !showDelete && !showAddSuccessModal && !showEditSuccessModal && !showDeleteSuccessModal && (
         <div className="menu-actions" style={{
           filter: showLogoutConfirm ? 'blur(2px)' : 'none',
           opacity: showLogoutConfirm ? 0.6 : 1,

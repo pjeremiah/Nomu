@@ -397,15 +397,6 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     
     // Convert post to plain object to avoid Mongoose document issues
     // We'll work with the document but convert media to plain objects
-    console.log('Post found. Media count:', post.media ? post.media.length : 0);
-    if (post.media && post.media.length > 0) {
-      console.log('First media item structure:', {
-        hasGridfsId: !!post.media[0].gridfsId,
-        gridfsIdType: post.media[0].gridfsId ? typeof post.media[0].gridfsId : 'none',
-        gridfsIdValue: post.media[0].gridfsId ? String(post.media[0].gridfsId) : 'none',
-        keys: Object.keys(post.media[0].toObject ? post.media[0].toObject() : post.media[0])
-      });
-    }
 
     // Update basic fields
     if (title) post.title = title;
@@ -438,41 +429,13 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       }
     }
     
-    // Debug log (can be removed in production)
-    console.log('=== Gallery Update Debug ===');
-    console.log('Existing media count:', post.media.length);
-    console.log('Keep IDs:', keepMediaIds);
-    console.log('New files count:', req.files ? req.files.length : 0);
-    if (req.files && req.files.length > 0) {
-      console.log('New files details:', req.files.map(f => ({
-        name: f.originalname,
-        mimetype: f.mimetype,
-        size: f.size,
-        id: f.id
-      })));
-    }
-    console.log('Request body keys:', Object.keys(req.body));
-    console.log('keepMediaIds from body:', req.body.keepMediaIds);
-
     // Process new uploaded files from GridFS
     const newMediaItems = [];
     if (req.files && req.files.length > 0) {
-      console.log('Processing', req.files.length, 'new files');
       try {
         for (let i = 0; i < req.files.length; i++) {
           const file = req.files[i];
-          console.log(`Processing file ${i + 1}:`, {
-            originalname: file.originalname,
-            filename: file.filename,
-            mimetype: file.mimetype,
-            size: file.size,
-            hasId: !!file.id,
-            id: file.id,
-            idType: file.id ? typeof file.id : 'none',
-            keys: Object.keys(file),
-            fullFile: JSON.stringify(file, null, 2)
-          });
-          
+
           // GridFS returns file info in a specific structure
           // The file object should have: id, filename, originalname, mimetype, size
           if (!file.id) {
@@ -498,7 +461,6 @@ router.put('/:id', authMiddleware, (req, res, next) => {
               throw new Error(`Invalid ObjectId format: ${file.id}`);
             }
             
-            console.log(`File ${i + 1} gridfsId:`, gridfsId.toString());
           } catch (idError) {
             console.error('Error processing file ID:', idError);
             console.error('File details:', file);
@@ -519,10 +481,8 @@ router.put('/:id', authMiddleware, (req, res, next) => {
             gridfsId: gridfsId
           };
           
-          console.log(`Created media item ${i + 1}:`, mediaItem);
           newMediaItems.push(mediaItem);
         }
-        console.log('Successfully processed', newMediaItems.length, 'new media items');
       } catch (fileError) {
         console.error('Error processing new files:', fileError);
         console.error('File error stack:', fileError.stack);
@@ -533,8 +493,6 @@ router.put('/:id', authMiddleware, (req, res, next) => {
           details: process.env.NODE_ENV === 'development' ? fileError.stack : undefined
         });
       }
-    } else {
-      console.log('No new files to process');
     }
 
     // Determine which existing media to keep
@@ -545,9 +503,6 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       // Normalize keepMediaIds to strings for comparison
       const keepMediaIdsStrings = keepMediaIds.map(id => String(id));
       
-      console.log('Filtering existing media. Keep IDs:', keepMediaIdsStrings);
-      console.log('Post media gridfsIds:', post.media.map(m => m.gridfsId ? String(m.gridfsId) : 'MISSING'));
-      
       // Convert existing media to plain objects to avoid Mongoose document issues
       keptExistingMedia = post.media
         .map(media => {
@@ -556,17 +511,9 @@ router.put('/:id', authMiddleware, (req, res, next) => {
           return mediaObj;
         })
         .filter(media => {
-          if (!media.gridfsId) {
-            console.warn('Media item missing gridfsId:', media);
-            return false;
-          }
-          // Convert gridfsId to string for comparison
+          if (!media.gridfsId) return false;
           const mediaIdString = String(media.gridfsId);
-          const shouldKeep = keepMediaIdsStrings.includes(mediaIdString);
-          if (!shouldKeep) {
-            console.log(`Excluding media with ID: ${mediaIdString}`);
-          }
-          return shouldKeep;
+          return keepMediaIdsStrings.includes(mediaIdString);
         })
         .map(media => {
           // Ensure gridfsId is a valid ObjectId
@@ -600,7 +547,6 @@ router.put('/:id', authMiddleware, (req, res, next) => {
         })
         .filter(media => media !== null); // Remove any null entries
       
-      console.log('Kept existing media count after filtering:', keptExistingMedia.length);
     } else {
       // If no keepMediaIds provided, keep ALL existing media (user didn't remove any)
       // Convert to plain objects to avoid Mongoose document issues
@@ -655,20 +601,6 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     // Combine kept existing media with new media
     const finalMedia = [...keptExistingMedia, ...newMediaItems];
 
-    console.log('=== Final Media Array ===');
-    console.log('Kept existing media count:', keptExistingMedia.length);
-    console.log('New media items count:', newMediaItems.length);
-    console.log('Total final media count:', finalMedia.length);
-    console.log('Final media structure:', JSON.stringify(finalMedia.map(m => ({
-      type: m.type,
-      url: m.url,
-      filename: m.filename,
-      originalName: m.originalName,
-      size: m.size,
-      mimetype: m.mimetype,
-      gridfsId: m.gridfsId ? m.gridfsId.toString() : 'MISSING'
-    })), null, 2));
-
     // Validate total media count doesn't exceed 5
     if (finalMedia.length > 5) {
       return res.status(400).json({
@@ -710,14 +642,6 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     post.set('media', finalMedia);
     // Mark media array as modified to ensure Mongoose saves it
     post.markModified('media');
-    
-    console.log('Post media after update:', post.media.length, 'items');
-    console.log('Post media structure check:', post.media.map((m, i) => ({
-      index: i,
-      type: m.type,
-      hasGridfsId: !!m.gridfsId,
-      gridfsIdType: m.gridfsId ? typeof m.gridfsId : 'none'
-    })));
 
     // Validate before saving
     try {
@@ -739,9 +663,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     }
 
     try {
-      console.log('Attempting to save post...');
       const savedPost = await post.save();
-      console.log('Post saved successfully. Media count:', savedPost.media.length);
     } catch (saveError) {
       console.error('=== SAVE ERROR ===');
       console.error('Error name:', saveError.name);

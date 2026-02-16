@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar, FaEdit, FaInstagram, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import { Grid3X3 } from 'lucide-react';
+import { Grid3X3, Check, Loader2 } from 'lucide-react';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -9,33 +9,6 @@ const getMediaUrl = (url) => {
   if (!url) return '';
   return url.startsWith('http') ? url : `${API_BASE}${url}`;
 };
-
-  // Helper to format time ago (same as client-side)
-const formatTimeAgo = (dateString) => {
-  const now = new Date();
-  const date = new Date(dateString);
-  const diffInSeconds = Math.floor((now - date) / 1000);
-
-  if (diffInSeconds < 60) {
-    return `${diffInSeconds}s`;
-  } else if (diffInSeconds < 3600) {
-    const minutes = Math.floor(diffInSeconds / 60);
-    return `${minutes}m`;
-  } else if (diffInSeconds < 86400) {
-    const hours = Math.floor(diffInSeconds / 3600);
-    return `${hours}h`;
-  } else if (diffInSeconds < 2592000) {
-    const days = Math.floor(diffInSeconds / 86400);
-    return `${days}d`;
-  } else if (diffInSeconds < 31536000) {
-    const months = Math.floor(diffInSeconds / 2592000);
-    return `${months}mo`;
-  } else {
-    const years = Math.floor(diffInSeconds / 31536000);
-    return `${years}y`;
-  }
-};
-
 
 // Responsive helpers
 const getGridMinWidth = () => {
@@ -62,100 +35,6 @@ const getFabOffset = () => {
   return { bottom: base * 1.5, right: base * 1.5 };
 };
 
-// Simple Modal component - moved outside to prevent recreation
-const SimpleModal = ({ show, onHide, title, children, size = 'medium' }) => {
-  if (!show) return null;
-
-  const getModalSize = () => {
-    // STANDARDIZED MODAL SIZING - Same as ResponsiveModal
-    switch (size) {
-      case 'small': return { maxWidth: '450px', width: '90%' };
-      case 'large': return { maxWidth: '650px', width: '95%' };
-      case 'extra-large': return { maxWidth: '750px', width: '98%' };
-      default: return { maxWidth: '550px', width: '92%' };
-    }
-  };
-
-  const modalSize = getModalSize();
-
-  // Handle backdrop click - only close if clicking the backdrop itself
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onHide();
-    }
-  };
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: '15px', // STANDARDIZED PADDING
-        boxSizing: 'border-box',
-        overflow: 'auto'
-      }}
-      onClick={handleBackdropClick}
-    >
-      <div 
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#f8f9fa',
-          borderRadius: '16px', // STANDARDIZED BORDER RADIUS
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          width: modalSize.width,
-          maxWidth: modalSize.maxWidth,
-          maxHeight: 'calc(100vh - 30px)', // STANDARDIZED HEIGHT
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(33, 44, 89, 0.3), 0 8px 25px rgba(0, 0, 0, 0.1)'
-        }}
-      >
-        {/* Modal Header */}
-        <div style={{ 
-          padding: '1.75rem 2.25rem', // STANDARDIZED PADDING
-          borderRadius: '16px 16px 0 0', // STANDARDIZED BORDER RADIUS
-          borderBottom: '1px solid #e9ecef',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <h3 style={{
-            margin: 0,
-            color: '#212c59',
-            fontWeight: '700',
-            fontSize: '1.25rem', // STANDARDIZED FONT SIZE
-            fontFamily: "'Montserrat', sans-serif",
-            textAlign: 'center' // CENTERED TEXT
-          }}>
-            {title}
-          </h3>
-        </div>
-
-        {/* Modal Content */}
-        <div style={{
-          padding: '1.75rem 2.25rem', // STANDARDIZED PADDING
-          flex: 1,
-          overflowY: 'auto',
-          minHeight: 0,
-          background: '#f8f9fa'
-        }}>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const GalleryManagement = () => {
   const [posts, setPosts] = useState([]);
   
@@ -170,6 +49,14 @@ const GalleryManagement = () => {
       @keyframes slideIn {
         from { transform: translateY(-20px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes gallerySuccessSlideIn {
+        from { opacity: 0; transform: scale(0.92) translateY(-16px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
       }
       
       /* Hide fullscreen, download, and picture-in-picture controls */
@@ -230,6 +117,10 @@ const GalleryManagement = () => {
   const [modalSuccess, setModalSuccess] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [showAddSuccessModal, setShowAddSuccessModal] = useState(false);
+  const [showEditSuccessModal, setShowEditSuccessModal] = useState(false);
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   // Modal states
   const [showAdd, setShowAdd] = useState(false);
@@ -237,7 +128,7 @@ const GalleryManagement = () => {
   const [showDelete, setShowDelete] = useState(false);
   const [showView, setShowView] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
-  const [postLikes, setPostLikes] = useState({});
+  const [_postLikes, setPostLikes] = useState({});
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -251,7 +142,7 @@ const GalleryManagement = () => {
 
   // Prevent body scrolling when any modal is open
   useEffect(() => {
-    if (showAdd || showEdit || showDelete || showView) {
+    if (showAdd || showEdit || showDelete || showView || showAddSuccessModal || showEditSuccessModal || showDeleteSuccessModal) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -264,7 +155,7 @@ const GalleryManagement = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showAdd, showEdit, showDelete, showView]);
+  }, [showAdd, showEdit, showDelete, showView, showAddSuccessModal, showEditSuccessModal, showDeleteSuccessModal]);
 
   // Fetch current user for role-based access (Staff = no access to Gallery)
   useEffect(() => {
@@ -609,27 +500,16 @@ const GalleryManagement = () => {
         })
         .filter(id => id !== null && id !== 'undefined' && id !== ''); // Remove any invalid values
       
-      // Debug log
-      console.log('Sending keepMediaIds:', existingMediaToKeep, 'Existing media count:', formData.media.filter(m => m.isExisting).length);
-      
       // Always append keepMediaIds (even if empty array) to tell backend which existing media to keep
       formDataToSend.append('keepMediaIds', JSON.stringify(existingMediaToKeep));
 
       // Only send new media files (not existing ones)
       const newMediaFiles = formData.media.filter(media => !media.isExisting && media.file);
-      console.log('New media files to upload:', newMediaFiles.length, 'files');
-      
+
       // Validate files before sending
       for (let i = 0; i < newMediaFiles.length; i++) {
         const media = newMediaFiles[i];
-        console.log(`File ${i + 1}:`, {
-          name: media.file?.name,
-          type: media.file?.type,
-          size: media.file?.size,
-          hasFile: !!media.file,
-          fileKeys: media.file ? Object.keys(media.file) : 'no file'
-        });
-        
+
         if (!media.file) {
           console.error('Media item has no file object:', media);
           setModalError(`File ${i + 1} is invalid. Please select the file again.`);
@@ -653,12 +533,6 @@ const GalleryManagement = () => {
         return;
       }
 
-      console.log('Sending update request with:', {
-        keepMediaIds: existingMediaToKeep.length,
-        newFiles: newMediaFiles.length,
-        postId: selectedPost._id
-      });
-
       const response = await fetch(`${API_BASE}/api/gallery/${selectedPost._id}`, {
         method: 'PUT',
         headers: {
@@ -673,22 +547,14 @@ const GalleryManagement = () => {
         throw new Error(responseData.message || 'Failed to update post');
       }
 
-      // Success - show green notification
       setModalError('');
-      
-      // Show success message first
-      setModalSuccess('Post updated successfully');
-      
-      // Keep button as "Updating..." for a moment, then close modal and reset
-      // Total time: 2 seconds to show success message
-      setTimeout(() => {
-        setIsEditing(false);
-        setShowEdit(false);
-        setSelectedPost(null);
-        setFormData({ title: '', description: '', tags: '', featured: false, media: [] });
-        setModalSuccess('');
-        fetchPosts();
-      }, 2000);
+      setIsEditing(false);
+      setShowEdit(false);
+      setSelectedPost(null);
+      setFormData({ title: '', description: '', tags: '', featured: false, media: [] });
+      setModalSuccess('');
+      await fetchPosts();
+      setTimeout(() => setShowEditSuccessModal(true), 120);
     } catch (error) {
       console.error('Error in handleEditPost:', error);
       setModalError(error.message || 'An unexpected error occurred');
@@ -786,21 +652,13 @@ const GalleryManagement = () => {
         throw new Error(errorMessage);
       }
 
-      // Success - show green notification
       setModalError('');
-      
-      // Show success message first
-      setModalSuccess('Post created successfully');
-      
-      // Keep button as "Creating..." for a moment, then close modal and reset
-      // Total time: 2 seconds to show success message (same as update)
-      setTimeout(() => {
-        setIsCreating(false);
-        setShowAdd(false);
-        setFormData({ title: '', description: '', tags: '', featured: false, media: [] });
-        setModalSuccess('');
-        fetchPosts();
-      }, 2000);
+      setIsCreating(false);
+      setShowAdd(false);
+      setFormData({ title: '', description: '', tags: '', featured: false, media: [] });
+      setModalSuccess('');
+      await fetchPosts();
+      setTimeout(() => setShowAddSuccessModal(true), 120);
     } catch (err) {
       console.error('Error creating post:', err);
       let errorMessage = 'Failed to create gallery post';
@@ -816,6 +674,7 @@ const GalleryManagement = () => {
 
   // Handle delete post
   const handleDeletePost = async () => {
+    setIsDeletingPost(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE}/api/gallery/${selectedPost._id}`, {
@@ -831,9 +690,12 @@ const GalleryManagement = () => {
 
       setShowDelete(false);
       setSelectedPost(null);
-      fetchPosts();
+      await fetchPosts();
+      setTimeout(() => setShowDeleteSuccessModal(true), 120);
     } catch (err) {
       setModalError(err.message);
+    } finally {
+      setIsDeletingPost(false);
     }
   };
 
@@ -886,10 +748,6 @@ const GalleryManagement = () => {
         // Ensure gridfsId is available (might be _id or gridfsId)
         if (!mediaObj.gridfsId && media._id) {
           mediaObj.gridfsId = media._id;
-        }
-        // Debug log to verify gridfsId exists
-        if (!mediaObj.gridfsId) {
-          console.warn('Media item missing gridfsId:', media);
         }
         return mediaObj;
       }) : []
@@ -1307,6 +1165,7 @@ const GalleryManagement = () => {
       </div>
 
       {/* Add New Post Button - Bottom Right */}
+      {!showAddSuccessModal && !showEditSuccessModal && !showDeleteSuccessModal && (
       <div style={{
         position: 'fixed',
         bottom: `${getFabOffset().bottom}px`,
@@ -1349,6 +1208,7 @@ const GalleryManagement = () => {
           <FaPlus /> Add New Post
         </button>
       </div>
+      )}
 
       {/* Add Post Modal */}
       {showAdd && (
@@ -1726,13 +1586,12 @@ const GalleryManagement = () => {
            <div style={{
              background: 'white',
                 borderRadius: '8px',
-             maxWidth: '90vw',
+             maxWidth: 'min(1000px, 90vw)',
              maxHeight: '90vh',
              overflow: 'hidden',
              position: 'relative',
              display: 'flex',
              width: '100%',
-             maxWidth: '1000px',
              height: '80vh'
            }} onClick={(e) => e.stopPropagation()}>
              {selectedPost && (
@@ -2083,12 +1942,19 @@ const GalleryManagement = () => {
                 flex: 1 !important;
                 font-size: 0.85rem !important;
               }
-              .admin-modal .admin-btn-danger:hover {
+              .admin-modal .admin-btn-danger:hover:not(:disabled) {
                 background: #dc3545 !important;
                 border-color: #dc3545 !important;
                 color: white !important;
                 transform: translateY(-1px) !important;
                 box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger:disabled {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                cursor: wait !important;
+                opacity: 1 !important;
               }
             `}
           </style>
@@ -2128,11 +1994,11 @@ const GalleryManagement = () => {
               <button
                 type="button"
                 onClick={() => {
-                  // Dispatch event to close all dropdowns
                   document.dispatchEvent(new CustomEvent('modalClose'));
                   setShowDelete(false);
                 }}
                 className="admin-btn admin-btn-secondary"
+                disabled={isDeletingPost}
               >
                 Cancel
               </button>
@@ -2140,13 +2006,59 @@ const GalleryManagement = () => {
                 type="button"
                 onClick={handleDeletePost}
                 className="admin-btn admin-btn-danger"
+                disabled={isDeletingPost}
               >
-                Delete Post
+                {isDeletingPost ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete Post'
+                )}
               </button>
             </div>
             </div>
           </div>
         )}
+
+      {/* Success modals */}
+      {showAddSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'gallerySuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Post Created Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The gallery post has been added.</p>
+            <button type="button" onClick={() => setShowAddSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showEditSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'gallerySuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Changes Saved Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The gallery post has been updated.</p>
+            <button type="button" onClick={() => setShowEditSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
+      {showDeleteSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(8px)', padding: '15px', boxSizing: 'border-box' }}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '90%', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)', animation: 'gallerySuccessSlideIn 0.3s ease-out' }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{ color: '#212c59', fontFamily: "'Montserrat', sans-serif", fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', lineHeight: 1.3 }}>Post Deleted Successfully!</h2>
+            <p style={{ color: '#5a6c7d', fontFamily: "'Montserrat', sans-serif", fontSize: '16px', margin: '0 0 32px 0', lineHeight: 1.5 }}>The gallery post has been removed.</p>
+            <button type="button" onClick={() => setShowDeleteSuccessModal(false)} style={{ background: 'white', color: '#212c59', border: '2px solid #212c59', borderRadius: '12px', padding: '16px 32px', fontSize: '16px', fontWeight: '600', fontFamily: "'Montserrat', sans-serif", cursor: 'pointer', width: '100%', boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)', transition: 'all 0.3s ease' }} onMouseEnter={(e) => { e.target.style.background = '#212c59'; e.target.style.color = 'white'; e.target.style.borderColor = '#0d1220'; }} onMouseLeave={(e) => { e.target.style.background = 'white'; e.target.style.color = '#212c59'; e.target.style.borderColor = '#212c59'; }}>Close</button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Post Modal */}
       {showEdit && (

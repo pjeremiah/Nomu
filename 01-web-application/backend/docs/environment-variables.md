@@ -71,7 +71,14 @@ EMAIL_PASS=your_gmail_app_password
 - OTP verification for admin login
 - Customer feedback notifications
 - Password reset emails
+- Admin account created notification (sent to new admin when Owner/Manager adds them)
 - System notifications
+
+### Optional: Frontend URL (for email links)
+```env
+# Base URL for links in emails (e.g. admin login). If not set, defaults to http://localhost:3000
+FRONTEND_URL=https://your-domain.com
+```
 
 ## Security Configuration
 

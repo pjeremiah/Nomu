@@ -10,7 +10,8 @@ import {
   Users,
   Shield,
   UserCheck,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
@@ -81,7 +82,14 @@ const ManageAdmins = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showResetSuccessModal, setShowResetSuccessModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false); 
+  const [showAddUpdateSuccessModal, setShowAddUpdateSuccessModal] = useState(false);
+  const [addUpdateSuccessType, setAddUpdateSuccessType] = useState('added'); // 'added' | 'updated'
+  const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [isUpdatingAdmin, setIsUpdatingAdmin] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   
   // Form states
@@ -117,7 +125,7 @@ const ManageAdmins = () => {
 
   // Prevent body scrolling when any modal is open - simple approach like other admin pages
   useEffect(() => {
-    if (showAddModal || showEditModal || showResetModal || showResetSuccessModal || showDeleteModal) {
+    if (showAddModal || showEditModal || showResetModal || showResetSuccessModal || showAddUpdateSuccessModal || showDeleteModal || showDeleteSuccessModal) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
@@ -130,7 +138,7 @@ const ManageAdmins = () => {
       document.body.style.overflow = 'unset';
       document.documentElement.style.overflow = 'unset';
     };
-  }, [showAddModal, showEditModal, showResetModal, showResetSuccessModal, showDeleteModal]);
+  }, [showAddModal, showEditModal, showResetModal, showResetSuccessModal, showAddUpdateSuccessModal, showDeleteModal, showDeleteSuccessModal]);
 
   // Fetch current user info
   useEffect(() => {
@@ -295,6 +303,7 @@ const ManageAdmins = () => {
     // Manager can only add Staff (enforced in UI and backend)
     const roleToSend = currentUser?.role === 'manager' ? 'staff' : addForm.role;
 
+    setIsAddingAdmin(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/admins`, {
@@ -314,6 +323,8 @@ const ManageAdmins = () => {
 
       if (response.ok) {
         const data = await response.json();
+        const addedName = addForm.fullName;
+        const addedRole = addForm.role;
         setAdmins([data.admin, ...admins]);
         setShowAddModal(false);
         setAddForm({
@@ -324,9 +335,11 @@ const ManageAdmins = () => {
           status: 'inactive'
         });
         setError('');
-        // Dispatch event to update recent activity
+        setAddUpdateSuccessType('added');
+        // Brief delay so Add modal closes first, then success modal animates in smoothly
+        setTimeout(() => setShowAddUpdateSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
-          detail: { action: 'admin_created', admin: addForm.fullName, role: addForm.role } 
+          detail: { action: 'admin_created', admin: addedName, role: addedRole } 
         }));
       } else {
         const errorData = await response.json();
@@ -334,7 +347,8 @@ const ManageAdmins = () => {
       }
     } catch (err) {
       setError('Network error occurred');
-
+    } finally {
+      setIsAddingAdmin(false);
     }
   };
 
@@ -378,6 +392,7 @@ const ManageAdmins = () => {
       ? { fullName: editForm.fullName, email: editForm.email }
       : editForm;
 
+    setIsUpdatingAdmin(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/admins/${selectedAdmin._id}`, {
@@ -391,15 +406,17 @@ const ManageAdmins = () => {
 
       if (response.ok) {
         const data = await response.json();
+        const updatedName = editForm.fullName;
         setAdmins(admins.map(admin => 
           admin._id === selectedAdmin._id ? data.admin : admin
         ));
         setShowEditModal(false);
         setSelectedAdmin(null);
         setError('');
-        // Dispatch event to update recent activity
+        setAddUpdateSuccessType('updated');
+        setTimeout(() => setShowAddUpdateSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
-          detail: { action: 'admin_updated', admin: editForm.fullName } 
+          detail: { action: 'admin_updated', admin: updatedName } 
         }));
       } else {
         const errorData = await response.json();
@@ -407,7 +424,8 @@ const ManageAdmins = () => {
       }
     } catch (err) {
       setError('Network error occurred');
-
+    } finally {
+      setIsUpdatingAdmin(false);
     }
   };
 
@@ -435,6 +453,7 @@ const ManageAdmins = () => {
       return;
     }
 
+    setIsResettingPassword(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/admins/${selectedAdmin._id}/reset-password`, {
@@ -461,17 +480,17 @@ const ManageAdmins = () => {
       }
     } catch (err) {
       setError('Network error occurred');
-
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
   // Handle delete admin
   const handleDeleteAdmin = async () => {
     if (!selectedAdmin) return;
-    
-    try {
 
-      
+    setIsDeletingAdmin(true);
+    try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/admins/${selectedAdmin._id}`, {
         method: 'DELETE',
@@ -480,33 +499,26 @@ const ManageAdmins = () => {
         }
       });
 
-
-
       if (response.ok) {
         await response.json();
-
-        
+        const deletedName = selectedAdmin.fullName;
         setShowDeleteModal(false);
         setSelectedAdmin(null);
         setError('');
-        
-        // Remove the deleted admin from the list
         const updatedAdmins = admins.filter(admin => admin._id !== selectedAdmin._id);
         setAdmins(updatedAdmins);
-        
-        // Dispatch event to update recent activity
+        setTimeout(() => setShowDeleteSuccessModal(true), 120);
         window.dispatchEvent(new CustomEvent('adminAction', { 
-          detail: { action: 'admin_deleted', admin: selectedAdmin.fullName } 
+          detail: { action: 'admin_deleted', admin: deletedName } 
         }));
-
       } else {
         const errorData = await response.json();
-
         setError(errorData.message || 'Failed to delete admin');
       }
     } catch (err) {
-
       setError('Network error occurred');
+    } finally {
+      setIsDeletingAdmin(false);
     }
   };
 
@@ -775,6 +787,9 @@ const ManageAdmins = () => {
                   <div className="admin-email" title="Email address is protected for privacy">
                     {maskEmail(admin.email)}
                   </div>
+                  {admin._id === currentUser.id && (
+                    <div className="current-user-indicator">You</div>
+                  )}
                   <div className="admin-role">
                     <span className={`role-badge ${admin.role === 'superadmin' ? 'owner' : admin.role}`}>
                       {getRoleDisplayName(admin.role)}
@@ -788,9 +803,6 @@ const ManageAdmins = () => {
                       <span className="new-admin-badge">New</span>
                     )}
                   </div>
-                  {admin._id === currentUser.id && (
-                    <div className="current-user-indicator">You</div>
-                  )}
                 </div>
               </div>
             </div>
@@ -799,7 +811,7 @@ const ManageAdmins = () => {
       </div>
 
       {/* Floating Add Admin Button */}
-      {canAddAdmin && !showAddModal && !showEditModal && !showDeleteModal && (
+      {canAddAdmin && !showAddModal && !showEditModal && !showDeleteModal && !showDeleteSuccessModal && (
         <div className="menu-actions" style={{
           filter: showLogoutConfirm ? 'blur(2px)' : 'none',
           opacity: showLogoutConfirm ? 0.6 : 1,
@@ -1168,8 +1180,17 @@ const ManageAdmins = () => {
                 <button
                   type="submit"
                   className="admin-btn admin-btn-primary"
+                  disabled={isAddingAdmin}
+                  style={{ opacity: isAddingAdmin ? 0.85 : 1 }}
                 >
-                  Add Admin
+                  {isAddingAdmin ? (
+                    <>
+                      <Loader2 size={18} style={{ marginRight: 8, animation: 'spin 0.8s linear infinite' }} />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Admin'
+                  )}
                 </button>
               </div>
             </form>
@@ -1478,8 +1499,17 @@ const ManageAdmins = () => {
                   <button
                     type="submit"
                     className="admin-btn admin-btn-primary"
+                    disabled={isUpdatingAdmin}
+                    style={{ opacity: isUpdatingAdmin ? 0.85 : 1 }}
                   >
-                    Update Admin
+                    {isUpdatingAdmin ? (
+                      <>
+                        <Loader2 size={18} style={{ marginRight: 8, animation: 'spin 0.8s linear infinite' }} />
+                        Updating...
+                      </>
+                    ) : (
+                      'Update Admin'
+                    )}
                   </button>
                 )}
               </div>
@@ -1784,11 +1814,144 @@ const ManageAdmins = () => {
                 <button
                   type="submit"
                   className="admin-btn admin-btn-success"
+                  disabled={isResettingPassword}
+                  style={{ opacity: isResettingPassword ? 0.85 : 1 }}
                 >
-                  Reset Password
+                  {isResettingPassword ? (
+                    <>
+                      <Loader2 size={18} style={{ marginRight: 8, animation: 'spin 0.8s linear infinite' }} />
+                      Resetting...
+                    </>
+                  ) : (
+                    'Reset Password'
+                  )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Update Admin success modal */}
+      {showAddUpdateSuccessModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(8px)',
+            padding: '15px',
+            boxSizing: 'border-box',
+            animation: 'addUpdateSuccessOverlayFade 0.25s ease-out'
+          }}
+        >
+          <style>
+            {`
+              @keyframes addUpdateSuccessOverlayFade {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes addUpdateSuccessSlideIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.92) translateY(-16px);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+            `}
+          </style>
+          <div
+            className="admin-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '16px',
+              maxWidth: '400px',
+              width: '90%',
+              padding: '32px',
+              textAlign: 'center',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+              animation: 'addUpdateSuccessSlideIn 0.3s ease-out'
+            }}
+          >
+            <div style={{
+              width: '80px',
+              height: '80px',
+              background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)'
+            }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{
+              color: '#212c59',
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: '24px',
+              fontWeight: '700',
+              margin: '0 0 12px 0',
+              lineHeight: 1.3
+            }}>
+              {addUpdateSuccessType === 'added' ? 'Admin Added Successfully!' : 'Admin Updated Successfully!'}
+            </h2>
+            <p style={{
+              color: '#5a6c7d',
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: '16px',
+              margin: '0 0 32px 0',
+              lineHeight: 1.5
+            }}>
+              {addUpdateSuccessType === 'added'
+                ? 'The new admin has been added to the system.'
+                : 'The admin details have been updated successfully.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowAddUpdateSuccessModal(false)}
+              style={{
+                background: 'white',
+                color: '#212c59',
+                border: '2px solid #212c59',
+                borderRadius: '12px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                fontFamily: "'Montserrat', sans-serif",
+                cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#212c59';
+                e.target.style.color = 'white';
+                e.target.style.borderColor = '#0d1220';
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'white';
+                e.target.style.color = '#212c59';
+                e.target.style.borderColor = '#212c59';
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -1810,10 +1973,6 @@ const ManageAdmins = () => {
             backdropFilter: 'blur(8px)',
             padding: '15px',
             boxSizing: 'border-box'
-          }}
-          onClick={() => {
-            setShowResetSuccessModal(false);
-            setSelectedAdmin(null);
           }}
         >
           <div
@@ -1884,7 +2043,7 @@ const ManageAdmins = () => {
               onMouseEnter={(e) => {
                 e.target.style.background = '#212c59';
                 e.target.style.color = 'white';
-                e.target.style.borderColor = '#1a2347';
+                e.target.style.borderColor = '#0d1220';
                 e.target.style.transform = 'translateY(-2px)';
                 e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
               }}
@@ -1948,12 +2107,19 @@ const ManageAdmins = () => {
                 flex: 1 !important;
                 font-size: 0.95rem !important;
               }
-              .admin-modal .admin-btn-danger:hover {
+              .admin-modal .admin-btn-danger:hover:not(:disabled) {
                 background: #dc3545 !important;
                 border-color: #dc3545 !important;
                 color: white !important;
                 transform: translateY(-1px) !important;
                 box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3) !important;
+              }
+              .admin-modal .admin-btn-danger:disabled {
+                background: white !important;
+                color: #dc3545 !important;
+                border: 2px solid #dc3545 !important;
+                cursor: wait !important;
+                opacity: 1 !important;
               }
             `}
           </style>
@@ -1993,6 +2159,8 @@ const ManageAdmins = () => {
               <button
                 type="button"
                 className="admin-btn admin-btn-secondary"
+                onClick={() => { setShowDeleteModal(false); setSelectedAdmin(null); }}
+                disabled={isDeletingAdmin}
               >
                 Cancel
               </button>
@@ -2000,10 +2168,121 @@ const ManageAdmins = () => {
                 type="button"
                 onClick={handleDeleteAdmin}
                 className="admin-btn admin-btn-danger"
+                disabled={isDeletingAdmin}
               >
-                Delete Admin
+                {isDeletingAdmin ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <Loader2 size={18} style={{ flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
+                    Deleting...
+                  </span>
+                ) : (
+                  'Delete Admin'
+                )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Admin success modal */}
+      {showDeleteSuccessModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(8px)',
+            padding: '15px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '16px',
+              maxWidth: '400px',
+              width: '90%',
+              padding: '32px',
+              textAlign: 'center',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+              animation: 'addUpdateSuccessSlideIn 0.3s ease-out'
+            }}
+          >
+            <div style={{
+              width: '80px',
+              height: '80px',
+              background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)'
+            }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h2 style={{
+              color: '#212c59',
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: '24px',
+              fontWeight: '700',
+              margin: '0 0 12px 0',
+              lineHeight: 1.3
+            }}>
+              Admin Deleted Successfully!
+            </h2>
+            <p style={{
+              color: '#5a6c7d',
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: '16px',
+              margin: '0 0 32px 0',
+              lineHeight: 1.5
+            }}>
+              The admin account has been removed from the system.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowDeleteSuccessModal(false)}
+              style={{
+                background: 'white',
+                color: '#212c59',
+                border: '2px solid #212c59',
+                borderRadius: '12px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                fontFamily: "'Montserrat', sans-serif",
+                cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#212c59';
+                e.target.style.color = 'white';
+                e.target.style.borderColor = '#0d1220';
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 4px 12px rgba(33, 44, 89, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'white';
+                e.target.style.color = '#212c59';
+                e.target.style.borderColor = '#212c59';
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 2px 8px rgba(33, 44, 89, 0.1)';
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -2056,6 +2335,21 @@ const ManageAdmins = () => {
         .action-icon.reset:hover {
           background: #28a745 !important;
           color: white !important;
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes addUpdateSuccessSlideIn {
+          from {
+            opacity: 0;
+            transform: scale(0.92) translateY(-16px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
         }
       `}</style>
     </div>

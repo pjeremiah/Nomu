@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const authMiddleware = require('../middleware/authMiddleware');
 const { body, validationResult } = require('express-validator');
 const ActivityService = require('../services/activityService');
+const emailService = require('../services/emailService');
 
 // Import security middleware
 const { sanitizeInput, validateInput, createRateLimiter } = require('../middleware/securityMiddleware');
@@ -146,6 +147,19 @@ router.post('/',
       `Role: ${newAdmin.role}, Status: ${newAdmin.status}`
     );
 
+    // Send notification email to the new admin (don't fail creation if email fails)
+    try {
+      const emailResult = await emailService.sendCongratsEmail(newAdmin.email, 'admin_account_created', {
+        fullName: newAdmin.fullName,
+        email: newAdmin.email,
+        role: newAdmin.role
+      });
+      if (!emailResult.success) {
+      }
+    } catch (emailErr) {
+      console.error('[Admins] Failed to send admin-created notification email:', emailErr);
+    }
+
     // Return admin without password
     const adminResponse = newAdmin.toObject();
     delete adminResponse.password;
@@ -193,6 +207,20 @@ router.put('/:id', adminUpdateRateLimiter, authMiddleware, requireAdmin, async (
         updatedAdmin,
         `Self-edit (name/email only)`
       );
+      // Send update notification to the admin's (possibly new) email
+      const selfEditChanges = [];
+      if (updateData.fullName !== undefined) selfEditChanges.push('Full name updated');
+      if (updateData.email !== undefined) selfEditChanges.push('Email address updated');
+      try {
+        await emailService.sendCongratsEmail(updatedAdmin.email, 'admin_account_updated', {
+          fullName: updatedAdmin.fullName,
+          email: updatedAdmin.email,
+          role: updatedAdmin.role,
+          changes: selfEditChanges.length ? selfEditChanges : ['Profile updated']
+        });
+      } catch (emailErr) {
+        console.error('[Admins] Failed to send admin-updated notification email:', emailErr);
+      }
       return res.status(200).json({
         message: 'Profile updated successfully',
         admin: updatedAdmin
@@ -234,6 +262,24 @@ router.put('/:id', adminUpdateRateLimiter, authMiddleware, requireAdmin, async (
       updatedAdmin,
       `Role: ${updatedAdmin.role}, Status: ${updatedAdmin.status}`
     );
+
+    // Send update notification to the admin's (possibly new) email
+    const roleLabel = (r) => (r === 'superadmin' ? 'Owner' : r === 'manager' ? 'Manager' : 'Staff');
+    const updateChanges = [];
+    if (updateData.fullName !== undefined) updateChanges.push('Full name updated');
+    if (updateData.email !== undefined) updateChanges.push('Email address updated');
+    if (updateData.role !== undefined) updateChanges.push(`Role changed to ${roleLabel(updatedAdmin.role)}`);
+    if (updateData.status !== undefined) updateChanges.push(`Status set to ${updatedAdmin.status.charAt(0).toUpperCase() + updatedAdmin.status.slice(1)}`);
+    try {
+      await emailService.sendCongratsEmail(updatedAdmin.email, 'admin_account_updated', {
+        fullName: updatedAdmin.fullName,
+        email: updatedAdmin.email,
+        role: updatedAdmin.role,
+        changes: updateChanges.length ? updateChanges : ['Account details updated']
+      });
+    } catch (emailErr) {
+      console.error('[Admins] Failed to send admin-updated notification email:', emailErr);
+    }
 
     res.status(200).json({
       message: 'Admin updated successfully',
@@ -295,6 +341,16 @@ router.post('/:id/reset-password',
       `Role: ${admin.role}`
     );
 
+    // Send same password-reset-success email to the admin (same as forgot-password flow)
+    try {
+      await emailService.sendCongratsEmail(admin.email, 'password_reset_success', {
+        fullName: admin.fullName,
+        email: admin.email
+      });
+    } catch (emailErr) {
+      console.error('[Admins] Failed to send password-reset-success email:', emailErr);
+    }
+
     res.status(200).json({ message: 'Password reset successfully' });
   } catch (error) {
 
@@ -331,8 +387,22 @@ router.delete('/:id', adminDeleteRateLimiter, authMiddleware, requireSuperAdmin,
       `Role: ${admin.role}`
     );
 
+    // Save email and name for notification before deleting (needed to send email after delete)
+    const deletedEmail = admin.email;
+    const deletedFullName = admin.fullName;
+
     // Actually delete the admin account from the database
     await Admin.findByIdAndDelete(id);
+
+    // Send removal notification to the deleted admin's email (don't fail response if email fails)
+    try {
+      await emailService.sendCongratsEmail(deletedEmail, 'admin_account_deleted', {
+        fullName: deletedFullName,
+        email: deletedEmail
+      });
+    } catch (emailErr) {
+      console.error('[Admins] Failed to send admin-deleted notification email:', emailErr);
+    }
 
     res.status(200).json({ message: 'Admin deleted successfully' });
   } catch (error) {

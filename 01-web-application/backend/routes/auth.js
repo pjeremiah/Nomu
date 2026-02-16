@@ -787,7 +787,7 @@ router.post('/login',
               email: admin.email, 
               role: role, 
               principalType: 'admin' 
-            }, JWT_SECRET, { expiresIn: '30d' });
+            }, JWT_SECRET, { expiresIn: '1d' }); // 24 hours, consistent with "Remember me for 24 hours"
             
             return res.status(200).json({
               message: 'Admin login successful',
@@ -1209,7 +1209,7 @@ router.post('/signin',
               email: admin.email, 
               role: role, 
               principalType: 'admin' 
-            }, JWT_SECRET, { expiresIn: '30d' });
+            }, JWT_SECRET, { expiresIn: '1d' }); // 24 hours, consistent with "Remember me for 24 hours"
             
             return res.status(200).json({
               message: 'Admin login successful',
@@ -1394,7 +1394,7 @@ router.post('/mobile/admin/login',
           email: admin.email, 
           role: role, 
           principalType: 'admin' 
-        }, JWT_SECRET, { expiresIn: '30d' });
+        }, JWT_SECRET, { expiresIn: '1d' }); // 24 hours, consistent with "Remember me for 24 hours"
         
         return res.status(200).json({
           message: 'Admin login successful',
