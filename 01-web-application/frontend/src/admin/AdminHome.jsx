@@ -488,7 +488,7 @@ const AdminHome = () => {
       {/* Stats Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
+        gridTemplateColumns: 'repeat(2, 1fr)',
         gap: '0.75rem',
         marginBottom: '1.5rem'
       }}
@@ -505,27 +505,6 @@ const AdminHome = () => {
           value={stats.totalOrders.toLocaleString()}
           icon={FaChartLine}
           color={{ background: '#e8f5e9', text: '#388e3c' }}
-          loading={loading}
-        />
-        <StatCard
-          title="Active Menu Items"
-          value={stats.activeMenuItems}
-          icon={FaCoffee}
-          color={{ background: '#f3e5f5', text: '#7b1fa2' }}
-          loading={loading}
-        />
-        <StatCard
-          title="Pending Feedback"
-          value={stats.pendingFeedback}
-          icon={FaClock}
-          color={{ background: '#fff3e0', text: '#f57c00' }}
-          loading={loading}
-        />
-        <StatCard
-          title="Total Feedback"
-          value={stats.totalFeedback}
-          icon={FaStar}
-          color={{ background: '#fce4ec', text: '#c2185b' }}
           loading={loading}
         />
       </div>

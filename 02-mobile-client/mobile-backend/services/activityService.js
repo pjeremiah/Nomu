@@ -67,7 +67,6 @@ class ActivityService {
       });
 
       await activity.save();
-      console.log(`📝 Activity logged: ${activityData.action}`);
       return activity;
     } catch (error) {
       console.error('❌ Failed to log activity:', error);

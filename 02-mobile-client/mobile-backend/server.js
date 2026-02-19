@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+const DEBUG = false; // set true to re-enable verbose logs
+const _log = (...a) => DEBUG && _log(...a);
+const _warn = (...a) => DEBUG && _warn(...a);
+
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'EMAIL_USER', 'EMAIL_PASS'];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -38,7 +42,8 @@ const {
   checkCustomerLimits, 
   recordCustomerScan, 
   detectAbuse, 
-  generateQrToken, 
+  generateQrToken,
+  generateScanToken,
   validateJwtToken, 
   securityHeaders, 
   corsSecurity,
@@ -84,7 +89,6 @@ app.post('/api/reset-rate-limit', (req, res) => {
     // Reset rate limit for the requesting IP
     const clientIP = req.ip || req.connection.remoteAddress;
     // Note: Security middleware uses in-memory storage, so this is mainly for logging
-    console.log(`🔄 Rate limit reset requested for IP: ${clientIP}`);
     res.json({ 
       success: true, 
       message: 'Rate limit reset requested (security middleware uses in-memory storage)',
@@ -110,13 +114,6 @@ app.use(express.json({ limit: '10mb' }));
 // Request logging middleware
 app.use(morgan('combined'));
 
-// Debug middleware for CORS and requests
-app.use((req, res, next) => {
-  console.log(`🔍 [DEBUG] ${req.method} ${req.url}`);
-  console.log(`🔍 [DEBUG] Origin: ${req.headers.origin || 'No origin'}`);
-  console.log(`🔍 [DEBUG] User-Agent: ${req.headers['user-agent'] || 'No user-agent'}`);
-  next();
-});
 
 // JWT Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -185,14 +182,9 @@ const transporter = nodemailer.createTransport({
 });
 
 // Verify transporter at startup
-transporter.verify((error, success) => {
+transporter.verify((error) => {
   if (error) {
-    console.error("❌ Email transporter error:", error);
-    console.error("❌ Check your EMAIL_USER and EMAIL_PASS environment variables");
-    console.error("❌ Make sure you're using an App Password for Gmail, not your regular password");
-  } else {
-    console.log("✅ Email transporter is ready");
-    console.log(`📧 Using email: ${process.env.EMAIL_USER}`);
+    console.error("❌ Email transporter error:", error.message);
   }
 });
 
@@ -240,7 +232,7 @@ async function sendOTPEmail(email, otp) {
 
   try {
     const result = await transporter.sendMail(mailOptions);
-    console.log(`✅ [EMAIL] Email sent successfully to: ${email}`);
+    _log(`✅ [EMAIL] Email sent successfully to: ${email}`);
     return true;
   } catch (error) {
     console.error('❌ [EMAIL] Email sending error:', error);
@@ -333,10 +325,95 @@ async function sendLoyaltyPointsEmail(email, name, points, drink, isRewardEligib
 
   try {
     const result = await transporter.sendMail(mailOptions);
-    console.log(`✅ [LOYALTY EMAIL] Email sent successfully to: ${email}`);
+    _log(`✅ [LOYALTY EMAIL] Email sent successfully to: ${email}`);
     return true;
   } catch (error) {
     console.error('❌ [LOYALTY EMAIL] Email sending error:', error);
+    return false;
+  }
+}
+
+// Send order completion notification email
+async function sendOrderCompletionEmail(email, name, orderTotal, currentPoints, isEligibleForPoints, pointsAdded, orderItems) {
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    console.error('❌ [ORDER EMAIL] Invalid email format:', email);
+    return false;
+  }
+
+  // Check if email credentials are set
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ [ORDER EMAIL] Email credentials not configured');
+    return false;
+  }
+
+  const MINIMUM_SPENDING = 100;
+  const needed = MINIMUM_SPENDING - orderTotal;
+  const itemNames = orderItems.map(item => item.itemName || item.name || 'Item').join(', ');
+  
+  let subject, htmlContent;
+  
+  if (isEligibleForPoints) {
+    // Email for when customer is eligible for loyalty points
+    subject = '🎉 Order Completed! You\'ve earned loyalty points at Nomu Cafe!';
+    htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px;">
+        <div style="background: white; padding: 30px; border-radius: 10px; text-align: center;">
+          <h1 style="color: #2d3748; margin-bottom: 20px;">🎉 Order Completed, ${name}!</h1>
+          <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h2 style="color: #4a5568; margin: 0;">Order Total: ₱${orderTotal}</h2>
+            <p style="color: #718096; margin: 10px 0 0 0;">Items: <strong>${itemNames}</strong></p>
+          </div>
+          <div style="background: #e6fffa; border: 2px solid #38b2ac; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3 style="color: #2c7a7b; margin: 0 0 10px 0;">🎁 Congratulations!</h3>
+            <p style="color: #2c7a7b; margin: 0;">You've earned <strong>1 loyalty point</strong> for spending ₱${orderTotal}!</p>
+            <p style="color: #2c7a7b; margin: 10px 0 0 0;">You now have <strong>${currentPoints} points</strong> total.</p>
+          </div>
+          <p style="color: #4a5568; margin: 20px 0;">Thank you for choosing Nomu Cafe. Keep earning points for amazing rewards!</p>
+          <hr style="margin: 20px 0;">
+          <p style="color: #718096; font-size: 12px;">Nomu Cafe - Your Coffee Journey Continues</p>
+        </div>
+      </div>
+    `;
+  } else {
+    // Email for when customer is not eligible for loyalty points
+    subject = '☕ Order Completed at Nomu Cafe!';
+    htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px;">
+        <div style="background: white; padding: 30px; border-radius: 10px; text-align: center;">
+          <h1 style="color: #2d3748; margin-bottom: 20px;">☕ Order Completed, ${name}!</h1>
+          <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h2 style="color: #4a5568; margin: 0;">Order Total: ₱${orderTotal}</h2>
+            <p style="color: #718096; margin: 10px 0 0 0;">Items: <strong>${itemNames}</strong></p>
+          </div>
+          <div style="background: #fff5f5; border: 2px solid #f56565; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3 style="color: #c53030; margin: 0 0 10px 0;">💡 Almost there!</h3>
+            <p style="color: #c53030; margin: 0;">Spend at least <strong>₱${MINIMUM_SPENDING}</strong> next time to earn loyalty points.</p>
+            <p style="color: #c53030; margin: 10px 0 0 0;">You need <strong>₱${needed}</strong> more to qualify.</p>
+          </div>
+          <p style="color: #4a5568; margin: 20px 0;">Thank you for choosing Nomu Cafe. We look forward to serving you again!</p>
+          <hr style="margin: 20px 0;">
+          <p style="color: #718096; font-size: 12px;">Nomu Cafe - Your Coffee Journey Continues</p>
+        </div>
+      </div>
+    `;
+  }
+
+  const mailOptions = {
+    from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: subject,
+    html: htmlContent
+  };
+
+  try {
+    const result = await transporter.sendMail(mailOptions);
+    _log(`✅ [ORDER EMAIL] Order completion email sent successfully to: ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ [ORDER EMAIL] Email sending error:', error);
     return false;
   }
 }
@@ -396,7 +473,7 @@ async function sendRewardClaimEmail(email, name, rewardType, description, remain
 
   try {
     const result = await transporter.sendMail(mailOptions);
-    console.log(`✅ [REWARD EMAIL] Email sent successfully to: ${email}`);
+    _log(`✅ [REWARD EMAIL] Email sent successfully to: ${email}`);
     return true;
   } catch (error) {
     console.error('❌ [REWARD EMAIL] Email sending error:', error);
@@ -442,7 +519,7 @@ async function sendWelcomeEmail(email, name) {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Welcome email sent successfully to: ${email}`);
+    _log(`✅ Welcome email sent successfully to: ${email}`);
     return true;
   } catch (error) {
     console.error('Welcome email sending error:', error);
@@ -496,7 +573,7 @@ async function sendPasswordChangeEmail(email, name) {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Password change confirmation email sent successfully to: ${email}`);
+    _log(`✅ Password change confirmation email sent successfully to: ${email}`);
     return true;
   } catch (error) {
     console.error('Password change email sending error:', error);
@@ -558,7 +635,7 @@ async function sendPasswordResetEmail(email, name) {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Password reset confirmation email sent successfully to: ${email}`);
+    _log(`✅ Password reset confirmation email sent successfully to: ${email}`);
     return true;
   } catch (error) {
     console.error('Password reset email sending error:', error);
@@ -569,38 +646,80 @@ async function sendPasswordResetEmail(email, name) {
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
+  socket.on('disconnect', () => {});
 });
 
 // GridFS instances
 let gfs;
 let profileGfs;
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
+// MongoDB connection options - prevent connection loss and timeouts
+const mongoOptions = {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-})
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-    // Initialize GridFS
+  serverSelectionTimeoutMS: 15000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  retryWrites: true,
+};
+
+function initGridFS() {
+  if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
     gfs = Grid(mongoose.connection.db, mongoose.mongo);
     gfs.collection('promo_images');
-    console.log('✅ GridFS initialized for promo images');
-    
-    // Initialize GridFS for profile pictures
     profileGfs = Grid(mongoose.connection.db, mongoose.mongo);
     profileGfs.collection('profile_images');
-    console.log('✅ GridFS initialized for profile pictures');
-    
-    // Initialize GridFS storage for multer
     initializeGridFSStorage();
-  })
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+  }
+}
+
+// Ensure MongoDB is connected before DB operations (e.g. saving orders)
+function ensureConnection() {
+  return new Promise((resolve, reject) => {
+    if (mongoose.connection.readyState === 1) {
+      return resolve();
+    }
+    // If disconnected, trigger reconnect immediately (don't wait for 2s)
+    if (mongoose.connection.readyState === 0) {
+      connectMongo();
+    }
+    const timeout = setTimeout(() => {
+      mongoose.connection.removeListener('connected', onConnected);
+      reject(new Error('MongoDB connection timeout - please try again'));
+    }, 15000);
+    function onConnected() {
+      clearTimeout(timeout);
+      resolve();
+    }
+    mongoose.connection.once('connected', onConnected);
+  });
+}
+
+// MongoDB Connection with reconnect on disconnect
+function connectMongo() {
+  mongoose.connect(process.env.MONGO_URI, mongoOptions)
+    .then(() => {
+      initGridFS();
+    })
+    .catch(err => {
+      console.error('❌ MongoDB connection error:', err.message);
+    });
+}
+
+connectMongo();
+
+mongoose.connection.on('disconnected', () => {
+  setTimeout(() => connectMongo(), 2000);
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB connection error:', err.message);
+});
+
+mongoose.connection.on('reconnected', () => {
+  initGridFS();
+});
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -630,6 +749,7 @@ const userSchema = new mongoose.Schema({
   pastOrders: [
     {
       orderId: String, // Unique identifier for this order
+      cycle: { type: Number, default: 1 }, // Which loyalty cycle this order belongs to (1, 2, 3...)
       items: [
         {
           itemName: String,
@@ -740,7 +860,7 @@ const rewardsSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
   pointsRequired: { type: Number, required: true },
-  rewardType: { type: String, required: true, enum: ['donut', 'coffee', 'pastry', 'special'] },
+  rewardType: { type: String, required: true, enum: ['donut', 'coffee', 'pastry', 'special', 'Loyalty Bonus'] },
   bannerColor: { type: String, default: '#FFD700' }, // Hex color for banner background
   iconName: { type: String, default: 'emoji_events' }, // Material icon name
   isActive: { type: Boolean, default: true },
@@ -748,6 +868,11 @@ const rewardsSchema = new mongoose.Schema({
   startDate: { type: Date, default: Date.now },
   endDate: { type: Date },
   maxClaimsPerUser: { type: Number, default: 1 }, // How many times a user can claim this reward
+  status: { type: String, default: 'Active' }, // Additional status field found in actual data
+  usageLimit: { type: Number, default: 1 }, // Usage limit field found in actual data
+  currentUsage: { type: Number, default: 0 }, // Current usage field found in actual data
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Creator field found in actual data
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Updater field found in actual data
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -760,7 +885,7 @@ Promo.createIndexes([
   { createdAt: -1 }, // Index for sorting by creation date
   { status: 1 }, // Index for status filtering
   { isActive: 1 } // Index for active filtering
-]).catch(err => console.log('Index creation warning:', err.message));
+]).catch(err => _log('Index creation warning:', err.message));
 
 // Multer setup for profile pictures using GridFS
 const { GridFsStorage } = require('multer-gridfs-storage');
@@ -797,9 +922,8 @@ function initializeGridFSStorage() {
       }
     });
     
-    console.log('✅ GridFS storage and multer configuration initialized for profile images');
   } else {
-    console.log('⚠️ MongoDB not connected, GridFS storage will be initialized later');
+    // MongoDB not connected; GridFS will be initialized on connect
   }
 }
 
@@ -828,7 +952,7 @@ const genericImageStorage = new GridFsStorage({
     // Use profile_pictures collection for profile images to match existing setup
     const bucketName = imageType === 'profile' ? 'profile_pictures' : `${imageType}_images`;
     
-    console.log('✅ [GRIDFS STORAGE] File configuration:', {
+    _log('✅ [GRIDFS STORAGE] File configuration:', {
       imageType: imageType,
       bucketName: bucketName,
       originalname: file.originalname,
@@ -879,7 +1003,7 @@ function validateImageFile(buffer, originalname, req = null) {
       const isProfileUpload = req && req.body && req.body.imageType === 'profile';
       
       if (isProfileUpload) {
-        console.log('⚠️ [PROFILE UPLOAD] Unsupported file type, but allowing for profile picture:', fileExtension);
+        _log('⚠️ [PROFILE UPLOAD] Unsupported file type, but allowing for profile picture:', fileExtension);
         // Allow unsupported file types for profile pictures but add a warning
         return { 
           isValid: true, 
@@ -926,14 +1050,14 @@ const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    console.log(`❌ [MULTER] File is not an image: ${file.mimetype}`);
+    _log(`❌ [MULTER] File is not an image: ${file.mimetype}`);
     cb(new Error('Only image files are allowed.'), false);
   }
 };
 
 // File filter for profile pictures - accepts ANY file type
 const profileFileFilter = (req, file, cb) => {
-  console.log(`✅ [PROFILE MULTER] Accepting file: ${file.originalname} (${file.mimetype})`);
+  _log(`✅ [PROFILE MULTER] Accepting file: ${file.originalname} (${file.mimetype})`);
   cb(null, true); // Accept all files
 };
 
@@ -1106,7 +1230,7 @@ app.get('/api/debug/gridfs', async (req, res) => {
 app.post('/api/clear-cache', (req, res) => {
   promoCache.data = null;
   promoCache.timestamp = null;
-  console.log('🧹 [CACHE] Promo cache cleared');
+  _log('🧹 [CACHE] Promo cache cleared');
   res.json({ 
     success: true, 
     message: 'Cache cleared successfully',
@@ -1234,34 +1358,37 @@ app.post('/api/register', async (req, res) => {
     const fullName = req.body.fullName || req.body.FullName || req.body.fullname;
     const birthday = req.body.birthday || req.body.Birthday;
     const gender = req.body.gender || req.body.Gender;
-    const employmentStatus = req.body.employmentStatus || req.body.EmploymentStatus;
+    let employmentStatus = req.body.employmentStatus || req.body.EmploymentStatus || 'Prefer not to say';
+    if (!VALID_EMPLOYMENT_STATUS.includes(employmentStatus)) {
+      employmentStatus = 'Prefer not to say';
+    }
     const role = req.body.role || req.body.Role || req.body.userType || 'Customer';
     const source = req.body.source || req.body.Source || 'web';
 
 
     // Validate required fields
     if (!email || !username || !password || !fullName) {
-      console.log('❌ Missing required fields');
-      console.log('❌ email:', email, 'username:', username, 'password:', password, 'fullName:', fullName);
+      _log('❌ Missing required fields');
+      _log('❌ email:', email, 'username:', username, 'password:', password, 'fullName:', fullName);
       return res.status(400).json({ error: 'Missing required fields: email, username, password, fullName' });
     }
 
     // Additional validation for username
     if (username === null || username === undefined || username.trim() === '') {
-      console.log('❌ Invalid username:', username);
+      _log('❌ Invalid username:', username);
       return res.status(400).json({ error: 'Username cannot be null, undefined, or empty' });
     }
 
     // Additional validation for email
     if (email === null || email === undefined || email.trim() === '') {
-      console.log('❌ Invalid email:', email);
+      _log('❌ Invalid email:', email);
       return res.status(400).json({ error: 'Email cannot be null, undefined, or empty' });
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.log('❌ Invalid email format:', email);
+      _log('❌ Invalid email format:', email);
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
@@ -1276,17 +1403,18 @@ app.post('/api/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, bcryptRounds);
 
     // Create user with all required fields and defaults
+    // Note: We'll generate qrToken after user._id is available
     const user = new User({
       fullName: fullName || '',
       username: username,
       email: email,
       birthday: birthday || '',
       gender: gender || '',
-      employmentStatus: employmentStatus || 'Prefer not to say',
+      employmentStatus: employmentStatus,
       role: role || 'Customer',
       source: source || 'web',
       password: hashedPassword,
-      qrToken: '', // Will be set after user creation
+      qrToken: '', // Temporary - will be set before save
       points: 0,
       reviewPoints: 0,
       lastOrder: '',
@@ -1295,11 +1423,28 @@ app.post('/api/register', async (req, res) => {
       rewardsHistory: [],
     });
 
+    // Save user first to get _id
     await user.save();
     
-    // Generate JWT-based QR token after user creation
+    // Generate JWT-based QR token immediately after user creation
+    // This ensures qrToken is always set before the user can be scanned
     user.qrToken = generateQrToken(user._id);
     await user.save();
+    
+    // Verify qrToken was saved successfully
+    if (!user.qrToken || user.qrToken === '') {
+      console.error('❌ [REGISTRATION] Failed to generate qrToken for user:', user._id);
+      // Try one more time
+      user.qrToken = generateQrToken(user._id);
+      await user.save();
+    }
+    
+    _log('✅ [REGISTRATION] User registered with qrToken:', {
+      userId: user._id,
+      email: user.email,
+      hasQrToken: !!user.qrToken,
+      qrTokenLength: user.qrToken ? user.qrToken.length : 0
+    });
     
     // Log user registration activity
     try {
@@ -1378,7 +1523,7 @@ app.post('/api/register', async (req, res) => {
 
 // Helper function to handle user login
 async function handleUserLogin(user, password, res) {
-  console.log('✅ User found:', { 
+  _log('✅ User found:', { 
     id: user._id, 
     fullName: user.fullName, 
     username: user.username, 
@@ -1392,20 +1537,44 @@ async function handleUserLogin(user, password, res) {
 
   // Check if user has a password
   if (!user.password) {
-    console.log('❌ User has no password stored:', user.email);
+    _log('❌ User has no password stored:', user.email);
     return res.status(401).json({ message: 'Invalid credentials - no password stored' });
   }
 
-  console.log('🔐 Attempting password verification...');
+  _log('🔐 Attempting password verification...');
   const isMatch = await bcrypt.compare(password, user.password);
   
   if (!isMatch) {
-    console.log('❌ Password mismatch for user:', user.email);
+    _log('❌ Password mismatch for user:', user.email);
     
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
-  console.log('✅ Password verified for user:', user.email);
+  _log('✅ Password verified for user:', user.email);
+
+  // Ensure user has a qrToken (fix for users who might not have one)
+  if (!user.qrToken || user.qrToken === '') {
+    _log('⚠️ [LOGIN] User missing qrToken, generating new one:', user.email);
+    user.qrToken = generateQrToken(user._id);
+    await user.save();
+    _log('✅ [LOGIN] qrToken generated for user:', user.email);
+    _log('✅ [LOGIN] qrToken length:', user.qrToken ? user.qrToken.length : 0);
+  }
+
+  // Verify qrToken is present before sending response
+  if (!user.qrToken || user.qrToken === '') {
+    console.error('❌ [LOGIN] CRITICAL: qrToken still empty after generation attempt for user:', user.email);
+    // Try one more time with a fresh save
+    user.qrToken = generateQrToken(user._id);
+    await user.save();
+    
+    // Reload user from database to ensure we have the latest data
+    const refreshedUser = await User.findById(user._id);
+    if (refreshedUser && refreshedUser.qrToken) {
+      user.qrToken = refreshedUser.qrToken;
+      _log('✅ [LOGIN] qrToken retrieved from refreshed user');
+    }
+  }
 
   // Generate JWT token
   const token = jwt.sign(
@@ -1418,7 +1587,14 @@ async function handleUserLogin(user, password, res) {
     { expiresIn: '24h' }
   );
 
-  console.log('🎫 JWT token generated successfully');
+  _log('🎫 JWT token generated successfully');
+  _log('📋 [LOGIN] Sending login response with qrToken:', {
+    userId: user._id,
+    email: user.email,
+    hasQrToken: !!user.qrToken,
+    qrTokenLength: user.qrToken ? user.qrToken.length : 0,
+    qrTokenPreview: user.qrToken ? user.qrToken.substring(0, 20) + '...' : 'EMPTY'
+  });
 
   res.json({
     message: 'Login successful',
@@ -1431,7 +1607,7 @@ async function handleUserLogin(user, password, res) {
       role: user.role,
       points: user.points,
       reviewPoints: user.reviewPoints,
-      qrToken: user.qrToken,
+      qrToken: user.qrToken || '', // Ensure qrToken is always included, even if empty
       profilePicture: user.profilePicture,
       lastOrder: user.lastOrder,
       pastOrders: user.pastOrders,
@@ -1442,12 +1618,12 @@ async function handleUserLogin(user, password, res) {
 
 // Login endpoint (without OTP) - with special rate limiting
 app.post('/api/user/login', async (req, res) => {
-  console.log('🔐 Login request body:', req.body);
+  _log('🔐 Login request body:', req.body);
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      console.log('❌ Missing email or password in request');
+      _log('❌ Missing email or password in request');
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
@@ -1455,12 +1631,12 @@ app.post('/api/user/login', async (req, res) => {
     const user = await User.findOne({ email: email });
     
     if (!user) {
-      console.log('❌ User not found for email:', email);
+      _log('❌ User not found for email:', email);
       
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    console.log('✅ User found:', { 
+    _log('✅ User found:', { 
       id: user._id, 
       fullName: user.fullName, 
       username: user.username, 
@@ -1474,20 +1650,20 @@ app.post('/api/user/login', async (req, res) => {
 
     // Check if user has a password
     if (!user.password) {
-      console.log('❌ User has no password stored:', email);
+      _log('❌ User has no password stored:', email);
       return res.status(401).json({ message: 'Invalid credentials - no password stored' });
     }
 
-    console.log('🔐 Attempting password verification...');
+    _log('🔐 Attempting password verification...');
     const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
-      console.log('❌ Password mismatch for user:', email);
+      _log('❌ Password mismatch for user:', email);
       
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    console.log('✅ Password verified for user:', email);
+    _log('✅ Password verified for user:', email);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -1521,8 +1697,8 @@ app.post('/api/user/login', async (req, res) => {
       createdAt: user.createdAt
     };
     
-    console.log('🎉 Login successful for user:', email);
-    console.log('📤 Sending user data:', userData);
+    _log('🎉 Login successful for user:', email);
+    _log('📤 Sending user data:', userData);
     
     res.json({
       message: 'Login successful',
@@ -1577,7 +1753,13 @@ app.post('/api/request-otp', async (req, res) => {
       io.emit('otp_sent', { email, success: true });
       res.json({ message: 'OTP sent successfully' });
     } else {
-      res.status(500).json({ error: 'Failed to send OTP email' });
+      if (process.env.NODE_ENV === 'development') {
+        _log(`🔑 [DEV] Resend OTP - use in app: ${otp}`);
+        io.emit('otp_sent', { email, success: true });
+        res.json({ message: 'OTP sent successfully', devOtp: otp });
+      } else {
+        res.status(500).json({ error: 'Failed to send OTP email' });
+      }
     }
   } catch (error) {
     console.error('Request OTP error:', error);
@@ -1621,12 +1803,18 @@ app.get('/api/user/qr/:qrToken', async (req, res) => {
   }
 });
 
+// Valid employment status values (for orders and profile)
+const VALID_EMPLOYMENT_STATUS = ['Student', 'Prefer not to say', 'Employed'];
+
 // Update user info
 app.patch('/api/user/:id', async (req, res) => {
   try {
     const updates = req.body;
     delete updates.password;
-    console.log('PATCH /api/user/:id', req.params.id, updates);
+    if (updates.employmentStatus != null && !VALID_EMPLOYMENT_STATUS.includes(updates.employmentStatus)) {
+      updates.employmentStatus = 'Prefer not to say';
+    }
+    _log('PATCH /api/user/:id', req.params.id, updates);
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { $set: updates },
@@ -1658,20 +1846,20 @@ app.post('/api/user/:id/profile-picture', profileUploadMiddleware, async (req, r
     
     // Check if file was uploaded
     if (!req.file) {
-      console.log('❌ [PROFILE PICTURE] No file uploaded');
+      _log('❌ [PROFILE PICTURE] No file uploaded');
       return res.status(400).json({ error: 'No image file provided' });
     }
 
     // Find the user first
     const user = await User.findById(userId);
     if (!user) {
-      console.log('❌ [PROFILE PICTURE] User not found:', userId);
+      _log('❌ [PROFILE PICTURE] User not found:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Skip validation completely for profile pictures - allow any file type
     const fileBuffer = req.file.buffer;
-    console.log('✅ [PROFILE PICTURE] Skipping validation - allowing any file type:', {
+    _log('✅ [PROFILE PICTURE] Skipping validation - allowing any file type:', {
       originalname: req.file.originalname,
       size: req.file.size,
       mimetype: req.file.mimetype
@@ -1687,9 +1875,9 @@ app.post('/api/user/:id/profile-picture', profileUploadMiddleware, async (req, r
         if (fs.existsSync(oldFilePath)) {
           try {
             fs.unlinkSync(oldFilePath);
-            console.log('🗑️ [PROFILE PICTURE] Deleted old file system profile picture:', oldFilePath);
+            _log('🗑️ [PROFILE PICTURE] Deleted old file system profile picture:', oldFilePath);
           } catch (deleteError) {
-            console.log('⚠️ [PROFILE PICTURE] Could not delete old file:', deleteError.message);
+            _log('⚠️ [PROFILE PICTURE] Could not delete old file:', deleteError.message);
           }
         }
       } else if (user.profilePicture.startsWith('/api/images/profile/')) {
@@ -1697,9 +1885,9 @@ app.post('/api/user/:id/profile-picture', profileUploadMiddleware, async (req, r
         try {
           const oldFileId = user.profilePicture.split('/').pop();
           await profileGfs.remove({ _id: oldFileId });
-          console.log('🗑️ [PROFILE PICTURE] Deleted old GridFS profile picture:', oldFileId);
+          _log('🗑️ [PROFILE PICTURE] Deleted old GridFS profile picture:', oldFileId);
         } catch (deleteError) {
-          console.log('⚠️ [PROFILE PICTURE] Could not delete old GridFS file:', deleteError.message);
+          _log('⚠️ [PROFILE PICTURE] Could not delete old GridFS file:', deleteError.message);
         }
       }
     }
@@ -1712,12 +1900,12 @@ app.post('/api/user/:id/profile-picture', profileUploadMiddleware, async (req, r
       // GridFS storage
       fileUrl = `/api/images/profile/${req.file.id}`;
       storageType = 'GridFS';
-      console.log('✅ [PROFILE PICTURE] Using GridFS storage');
+      _log('✅ [PROFILE PICTURE] Using GridFS storage');
     } else {
       // Regular file storage
       fileUrl = `/uploads/${req.file.filename}`;
       storageType = 'File System';
-      console.log('✅ [PROFILE PICTURE] Using file system storage');
+      _log('✅ [PROFILE PICTURE] Using file system storage');
     }
 
     await User.updateOne(
@@ -1728,8 +1916,8 @@ app.post('/api/user/:id/profile-picture', profileUploadMiddleware, async (req, r
       }
     );
 
-    console.log(`✅ [PROFILE PICTURE] Profile picture saved to ${storageType} successfully`);
-    console.log('✅ [PROFILE PICTURE] File URL:', fileUrl);
+    _log(`✅ [PROFILE PICTURE] Profile picture saved to ${storageType} successfully`);
+    _log('✅ [PROFILE PICTURE] File URL:', fileUrl);
 
     const responseData = { 
       success: true, 
@@ -1764,14 +1952,14 @@ app.post('/api/user/:id/profile-picture-base64', async (req, res) => {
     const userId = req.params.id;
     
     if (!image) {
-      console.log('❌ [PROFILE PICTURE] No image provided');
+      _log('❌ [PROFILE PICTURE] No image provided');
       return res.status(400).json({ error: 'No image provided' });
     }
 
     // Find the user first
     const user = await User.findById(userId);
     if (!user) {
-      console.log('❌ [PROFILE PICTURE] User not found:', userId);
+      _log('❌ [PROFILE PICTURE] User not found:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -1786,7 +1974,7 @@ app.post('/api/user/:id/profile-picture-base64', async (req, res) => {
         fileExtension = matches[1]; // jpeg, png, etc.
         base64Data = matches[2];
       } else {
-        console.log('❌ [PROFILE PICTURE] Invalid data URL format');
+        _log('❌ [PROFILE PICTURE] Invalid data URL format');
         return res.status(400).json({ error: 'Invalid image format' });
       }
     } else {
@@ -1815,9 +2003,9 @@ app.post('/api/user/:id/profile-picture-base64', async (req, res) => {
       if (fs.existsSync(oldFilePath)) {
         try {
           fs.unlinkSync(oldFilePath);
-          console.log('🗑️ [PROFILE PICTURE] Deleted old profile picture:', oldFilePath);
+          _log('🗑️ [PROFILE PICTURE] Deleted old profile picture:', oldFilePath);
         } catch (deleteError) {
-          console.log('⚠️ [PROFILE PICTURE] Could not delete old file:', deleteError.message);
+          _log('⚠️ [PROFILE PICTURE] Could not delete old file:', deleteError.message);
         }
       }
     }
@@ -1832,8 +2020,8 @@ app.post('/api/user/:id/profile-picture-base64', async (req, res) => {
       }
     );
 
-    console.log('✅ [PROFILE PICTURE] Profile picture saved to:', filePath);
-    console.log('✅ [PROFILE PICTURE] File URL:', fileUrl);
+    _log('✅ [PROFILE PICTURE] Profile picture saved to:', filePath);
+    _log('✅ [PROFILE PICTURE] File URL:', fileUrl);
 
     res.json({ 
       success: true, 
@@ -1863,7 +2051,7 @@ app.get('/api/profile-picture/:fileId', async (req, res) => {
     // Check if file exists in GridFS (use profileGfs for profile pictures)
     const file = await profileGfs.files.findOne({ _id: fileId });
     if (!file) {
-      console.log('❌ [PROFILE PICTURE] File not found in GridFS:', fileId);
+      _log('❌ [PROFILE PICTURE] File not found in GridFS:', fileId);
       return res.status(404).send('Profile picture not found');
     }
 
@@ -1911,7 +2099,7 @@ app.get('/api/user/:id/profile-picture', async (req, res) => {
         // Serve the file directly
         res.sendFile(filePath);
       } else {
-        console.log('❌ [PROFILE PICTURE] File not found:', filePath);
+        _log('❌ [PROFILE PICTURE] File not found:', filePath);
         return res.status(404).send('Profile picture file not found');
       }
     } 
@@ -1944,7 +2132,7 @@ app.post('/api/images/upload', profileUpload.single('image'), async (req, res) =
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    console.log('✅ [GRIDFS UPLOAD] File received:', {
+    _log('✅ [GRIDFS UPLOAD] File received:', {
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
@@ -1965,7 +2153,7 @@ app.post('/api/images/upload', profileUpload.single('image'), async (req, res) =
 
     // Validate the uploaded file
     const fileBuffer = req.file.buffer;
-    console.log('✅ [GRIDFS UPLOAD] File buffer info:', {
+    _log('✅ [GRIDFS UPLOAD] File buffer info:', {
       bufferLength: fileBuffer ? fileBuffer.length : 'undefined',
       hasBuffer: !!fileBuffer,
       imageType: imageType
@@ -1973,7 +2161,7 @@ app.post('/api/images/upload', profileUpload.single('image'), async (req, res) =
     
     // Skip validation for profile pictures - allow any file type
     if (imageType === 'profile') {
-      console.log('✅ [UPLOAD] Skipping validation for profile picture - allowing any file type:', {
+      _log('✅ [UPLOAD] Skipping validation for profile picture - allowing any file type:', {
         originalname: req.file.originalname,
         size: req.file.size,
         mimetype: req.file.mimetype
@@ -1981,7 +2169,7 @@ app.post('/api/images/upload', profileUpload.single('image'), async (req, res) =
     } else {
       // Validate other image types normally
       const validation = validateImageFile(fileBuffer, req.file.originalname, req);
-      console.log('✅ [UPLOAD] Validation result:', {
+      _log('✅ [UPLOAD] Validation result:', {
         isValid: validation.isValid,
         error: validation.error,
         fileType: validation.fileType,
@@ -1989,7 +2177,7 @@ app.post('/api/images/upload', profileUpload.single('image'), async (req, res) =
       });
       
       if (!validation.isValid) {
-        console.log('❌ [UPLOAD] File validation failed:', validation.error);
+        _log('❌ [UPLOAD] File validation failed:', validation.error);
         return res.status(400).json({ error: validation.error });
       }
     }
@@ -1997,7 +2185,7 @@ app.post('/api/images/upload', profileUpload.single('image'), async (req, res) =
     // Generate file URL (using regular file storage)
     const imageUrl = `/uploads/${req.file.filename}`;
 
-    console.log('✅ [UPLOAD] Upload successful, sending response:', {
+    _log('✅ [UPLOAD] Upload successful, sending response:', {
       filename: req.file.filename,
       imageUrl: imageUrl
     });
@@ -2045,7 +2233,7 @@ app.get('/api/images/:imageType/:imageId', async (req, res) => {
     // Check if file exists in GridFS
     const file = await gfsInstance.files.findOne({ _id: imageId });
     if (!file) {
-      console.log('❌ [GRIDFS IMAGE] File not found in GridFS:', imageId);
+      _log('❌ [GRIDFS IMAGE] File not found in GridFS:', imageId);
       return res.status(404).send('Image not found');
     }
 
@@ -2095,7 +2283,7 @@ app.delete('/api/images/:imageType/:imageId', async (req, res) => {
     // Delete from GridFS
     await gfs.remove({ _id: imageId });
     
-    console.log('✅ [GRIDFS DELETE] Image deleted successfully:', imageId);
+    _log('✅ [GRIDFS DELETE] Image deleted successfully:', imageId);
     res.json({ success: true, message: 'Image deleted successfully' });
     
   } catch (err) {
@@ -2110,15 +2298,18 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Update user by QR token (for reward reset)
 app.patch('/api/user/qr/:qrToken', async (req, res) => {
   try {
-    console.log('PATCH /api/user/qr/:qrToken', req.params.qrToken, req.body);
+    _log('PATCH /api/user/qr/:qrToken', req.params.qrToken, req.body);
     const updates = req.body;
     delete updates.password;
+    if (updates.employmentStatus != null && !VALID_EMPLOYMENT_STATUS.includes(updates.employmentStatus)) {
+      updates.employmentStatus = 'Prefer not to say';
+    }
     const user = await User.findOneAndUpdate(
       { qrToken: req.params.qrToken },
       { $set: updates },
       { new: true, runValidators: true, context: 'query' }
     ).select('-password');
-    console.log('PATCH result:', user);
+    _log('PATCH result:', user);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch (err) {
@@ -2131,8 +2322,9 @@ app.patch('/api/user/qr/:qrToken', async (req, res) => {
 app.post('/api/user/:id/claim-reward', async (req, res) => {
   try {
     const { type, description } = req.body;
-    console.log(`Claiming reward: ${type} - ${description} for user ${req.params.id}`);
-    
+    _log(`Claiming reward: ${type} - ${description} for user ${req.params.id}`);
+    await ensureConnection();
+
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
     
@@ -2155,7 +2347,7 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
     
     // For donut rewards, no restrictions - unlimited claims
     if (type === 'donut') {
-      console.log(`Donut claim - user has ${user.points} points, allowing unlimited claims`);
+      _log(`Donut claim - user has ${user.points} points, allowing unlimited claims`);
     }
     
     // Use current cycle from user data
@@ -2172,15 +2364,15 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       pointsAtClaim: user.points
     });
     
-    console.log(`Reward claim created at: ${now.toISOString()} (${now.toLocaleString()})`);
+    _log(`Reward claim created at: ${now.toISOString()} (${now.toLocaleString()})`);
     
-    console.log(`Reward claim created: ${rewardClaim._id}`);
+    _log(`Reward claim created: ${rewardClaim._id}`);
     
     // Add to user's rewardsHistory
     try {
       // Ensure rewardsHistory is an array
       if (!Array.isArray(user.rewardsHistory)) {
-        console.log('Converting rewardsHistory from string to array');
+        _log('Converting rewardsHistory from string to array');
         user.rewardsHistory = [];
       }
       
@@ -2196,7 +2388,7 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
         user.rewardsHistory = user.rewardsHistory.slice(-50);
       }
       
-      console.log('Successfully added to rewardsHistory:', user.rewardsHistory[user.rewardsHistory.length - 1]);
+      _log('Successfully added to rewardsHistory:', user.rewardsHistory[user.rewardsHistory.length - 1]);
     } catch (rewardsHistoryError) {
       console.error('Error adding to rewardsHistory:', rewardsHistoryError);
       // Continue with the claim even if rewardsHistory fails
@@ -2206,14 +2398,14 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
     if (type === 'coffee') {
       user.points = 0; // Reset to 0 after claiming 10-point reward
       user.currentCycle = (user.currentCycle || 1) + 1; // Increment cycle
-      console.log(`Reset points to 0 for coffee claim, cycle advanced to: ${user.currentCycle}`);
+      _log(`Reset points to 0 for coffee claim, cycle advanced to: ${user.currentCycle}`);
     } else if (type === 'donut') {
       // Don't deduct points for donut reward - let points continue accumulating
-      console.log(`Donut reward claimed, points remain at: ${user.points}`);
+      _log(`Donut reward claimed, points remain at: ${user.points}`);
     }
     
     await user.save();
-    console.log(`User points updated to: ${user.points}`);
+    _log(`User points updated to: ${user.points}`);
     
     // Send email notification for reward claim
     try {
@@ -2226,9 +2418,9 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       );
       
       if (emailSent) {
-        console.log(`✅ [REWARD] Email notification sent to: ${user.email}`);
+        _log(`✅ [REWARD] Email notification sent to: ${user.email}`);
       } else {
-        console.log(`⚠️ [REWARD] Failed to send email notification to: ${user.email}`);
+        _log(`⚠️ [REWARD] Failed to send email notification to: ${user.email}`);
       }
     } catch (emailError) {
       console.error('❌ [REWARD] Error sending email notification:', emailError);
@@ -2236,11 +2428,13 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
     }
     
     // Customer collection removed - using only User collection
-    
-    res.json({ 
-      success: true, 
+    const newCycle = user.currentCycle || 1;
+
+    res.json({
+      success: true,
       rewardClaim: rewardClaim,
-      newPoints: user.points 
+      newPoints: user.points,
+      currentCycle: newCycle
     });
   } catch (err) {
     console.error('❌ [CLAIM REWARD] Error:', err);
@@ -2311,12 +2505,16 @@ app.get('/api/rewards/active', async (req, res) => {
   try {
     const now = new Date();
     const activeRewards = await Rewards.find({
-      status: 'Active',
-      startDate: { $lte: now },
-      $or: [
-        { endDate: { $exists: false } },
-        { endDate: null },
-        { endDate: { $gte: now } }
+      $and: [
+        { $or: [{ isActive: true }, { status: 'Active' }] },
+        { startDate: { $lte: now } },
+        {
+          $or: [
+            { endDate: { $exists: false } },
+            { endDate: null },
+            { endDate: { $gte: now } }
+          ]
+        }
       ]
     }).sort({ pointsRequired: 1, priority: -1 }); // Sort by points required (ascending) then priority (descending)
     
@@ -2328,7 +2526,7 @@ app.get('/api/rewards/active', async (req, res) => {
       priority: reward.priority || 0 // Default priority
     }));
     
-    console.log(`Found ${rewardsWithDefaults.length} active rewards`);
+    _log(`Found ${rewardsWithDefaults.length} active rewards`);
     res.json(rewardsWithDefaults);
   } catch (err) {
     console.error('Error fetching active rewards:', err);
@@ -2351,7 +2549,7 @@ app.get('/api/promos', async (req, res) => {
     // Check cache first
     if (promoCache.data && promoCache.timestamp && 
         (now.getTime() - promoCache.timestamp.getTime()) < promoCache.ttl) {
-      console.log('🎯 [PROMO] Serving from cache');
+      _log('🎯 [PROMO] Serving from cache');
       return res.json({ 
         success: true, 
         promos: promoCache.data,
@@ -2360,7 +2558,7 @@ app.get('/api/promos', async (req, res) => {
       });
     }
     
-    console.log('🎯 [PROMO] Fetching active promos from database...');
+    _log('🎯 [PROMO] Fetching active promos from database...');
     
     // Clear cache to force fresh data
     promoCache.data = null;
@@ -2373,7 +2571,7 @@ app.get('/api/promos', async (req, res) => {
       // Removed strict date filtering for testing with future dates
     }).select('title description promoType discountValue minOrderAmount startDate endDate imageUrl imageId imageFilename status isActive createdAt updatedAt').sort({ createdAt: -1 }).limit(10); // Limit to 10 most recent
     
-    console.log(`🎯 [PROMO] Found ${promos.length} active promos (optimized query)`);
+    _log(`🎯 [PROMO] Found ${promos.length} active promos (optimized query)`);
     
     // Update cache
     promoCache.data = promos;
@@ -2404,10 +2602,10 @@ app.get('/api/promos', async (req, res) => {
 // Get all promos WITH images (for admin purposes)
 app.get('/api/promos/full', async (req, res) => {
   try {
-    console.log('🎯 [PROMO] Fetching all promos (with images)...');
+    _log('🎯 [PROMO] Fetching all promos (with images)...');
     const promos = await Promo.find({}).sort({ createdAt: -1 });
     
-    console.log(`🎯 [PROMO] Found ${promos.length} total promos (with images)`);
+    _log(`🎯 [PROMO] Found ${promos.length} total promos (with images)`);
     
     res.json({ 
       success: true, 
@@ -2426,7 +2624,7 @@ app.get('/api/promos/full', async (req, res) => {
 app.post('/api/promo/:id/image', promoImageUpload.single('image'), async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('🎯 [PROMO IMAGE] Uploading image for promo:', id);
+    _log('🎯 [PROMO IMAGE] Uploading image for promo:', id);
     
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -2442,7 +2640,7 @@ app.post('/api/promo/:id/image', promoImageUpload.single('image'), async (req, r
     promo.imageFilename = req.file.filename;
     await promo.save();
     
-    console.log('✅ [PROMO IMAGE] Image uploaded:', req.file.filename);
+    _log('✅ [PROMO IMAGE] Image uploaded:', req.file.filename);
     
     res.json({
       success: true,
@@ -2460,7 +2658,7 @@ app.post('/api/promo/:id/image', promoImageUpload.single('image'), async (req, r
 app.post('/api/promo/:id/image-gridfs', promoGridFSUpload.single('image'), async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('🎯 [PROMO GRIDFS] Uploading image for promo:', id);
+    _log('🎯 [PROMO GRIDFS] Uploading image for promo:', id);
     
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -2471,7 +2669,7 @@ app.post('/api/promo/:id/image-gridfs', promoGridFSUpload.single('image'), async
     const validation = validateImageFile(fileBuffer, req.file.originalname);
     
     if (!validation.isValid) {
-      console.log('❌ [PROMO GRIDFS] File validation failed:', validation.error);
+      _log('❌ [PROMO GRIDFS] File validation failed:', validation.error);
       return res.status(400).json({ error: validation.error });
     }
     
@@ -2484,9 +2682,9 @@ app.post('/api/promo/:id/image-gridfs', promoGridFSUpload.single('image'), async
     if (promo.imageId) {
       try {
         await gfs.remove({ _id: promo.imageId });
-        console.log('🗑️ [PROMO GRIDFS] Deleted old GridFS promo image:', promo.imageId);
+        _log('🗑️ [PROMO GRIDFS] Deleted old GridFS promo image:', promo.imageId);
       } catch (deleteError) {
-        console.log('⚠️ [PROMO GRIDFS] Could not delete old GridFS file:', deleteError.message);
+        _log('⚠️ [PROMO GRIDFS] Could not delete old GridFS file:', deleteError.message);
       }
     }
     
@@ -2497,8 +2695,8 @@ app.post('/api/promo/:id/image-gridfs', promoGridFSUpload.single('image'), async
     promo.imageFilename = req.file.filename;
     await promo.save();
     
-    console.log('✅ [PROMO GRIDFS] Image uploaded to GridFS:', req.file.id);
-    console.log('✅ [PROMO GRIDFS] GridFS URL:', fileUrl);
+    _log('✅ [PROMO GRIDFS] Image uploaded to GridFS:', req.file.id);
+    _log('✅ [PROMO GRIDFS] GridFS URL:', fileUrl);
     
     res.json({
       success: true,
@@ -2517,26 +2715,26 @@ app.post('/api/promo/:id/image-gridfs', promoGridFSUpload.single('image'), async
 app.get('/api/promo-image/:promoId', async (req, res) => {
   try {
     const { promoId } = req.params;
-    console.log('🎯 [PROMO IMAGE] Fetching image for promo:', promoId);
+    _log('🎯 [PROMO IMAGE] Fetching image for promo:', promoId);
     
     const promo = await Promo.findById(promoId);
     if (!promo) {
-      console.log('❌ [PROMO IMAGE] Promo not found:', promoId);
+      _log('❌ [PROMO IMAGE] Promo not found:', promoId);
       return res.status(404).json({ error: 'Promo not found' });
     }
     
     // Serve image - prioritize GridFS over file system
     if (promo.imageId) {
-      console.log('🎯 [PROMO IMAGE] Serving GridFS image:', promo.imageId);
+      _log('🎯 [PROMO IMAGE] Serving GridFS image:', promo.imageId);
       
       // Check if file exists in GridFS
       const file = await gfs.files.findOne({ _id: promo.imageId });
       if (!file) {
-        console.log('❌ [PROMO IMAGE] GridFS file not found, trying fallback:', promo.imageId);
+        _log('❌ [PROMO IMAGE] GridFS file not found, trying fallback:', promo.imageId);
         
         // Fallback to imageUrl if GridFS image not found
         if (promo.imageUrl) {
-          console.log('🎯 [PROMO IMAGE] Falling back to imageUrl:', promo.imageUrl);
+          _log('🎯 [PROMO IMAGE] Falling back to imageUrl:', promo.imageUrl);
           // Continue to the imageUrl handling below
         } else {
           return res.status(404).send('Promo image not found in GridFS and no fallback URL');
@@ -2564,7 +2762,7 @@ app.get('/api/promo-image/:promoId', async (req, res) => {
     
     // Handle imageUrl (either as primary or fallback)
     if (promo.imageUrl) {
-      console.log('🎯 [PROMO IMAGE] Serving file system image:', promo.imageUrl);
+      _log('🎯 [PROMO IMAGE] Serving file system image:', promo.imageUrl);
       
       // Check if imageUrl is a base64 data URL
       if (promo.imageUrl.startsWith('data:')) {
@@ -2579,7 +2777,7 @@ app.get('/api/promo-image/:promoId', async (req, res) => {
         res.send(imgBuffer);
       } else if (promo.imageUrl.startsWith('/api/images/')) {
         // Handle legacy API image URLs - redirect to GridFS or return 404
-        console.log('🎯 [PROMO IMAGE] Legacy API image URL detected:', promo.imageUrl);
+        _log('🎯 [PROMO IMAGE] Legacy API image URL detected:', promo.imageUrl);
         return res.status(404).json({ error: 'Legacy image URL not supported' });
       } else if (promo.imageUrl.startsWith('/uploads/')) {
         // If it's a file path, serve it as static file
@@ -2587,7 +2785,7 @@ app.get('/api/promo-image/:promoId', async (req, res) => {
         if (fs.existsSync(filePath)) {
           res.sendFile(filePath);
         } else {
-          console.log('❌ [PROMO IMAGE] File not found:', filePath);
+          _log('❌ [PROMO IMAGE] File not found:', filePath);
           return res.status(404).send('Image file not found');
         }
       } else {
@@ -2596,12 +2794,12 @@ app.get('/api/promo-image/:promoId', async (req, res) => {
         if (fs.existsSync(filePath)) {
           res.sendFile(filePath);
         } else {
-          console.log('❌ [PROMO IMAGE] File not found:', filePath);
+          _log('❌ [PROMO IMAGE] File not found:', filePath);
           return res.status(404).send('Image file not found');
         }
       }
     } else {
-      console.log('❌ [PROMO IMAGE] No image available for promo:', promoId);
+      _log('❌ [PROMO IMAGE] No image available for promo:', promoId);
       return res.status(404).json({ error: 'No image available' });
     }
   } catch (err) {
@@ -2614,18 +2812,18 @@ app.get('/api/promo-image/:promoId', async (req, res) => {
 app.get('/api/images/promo/:imageId', async (req, res) => {
   try {
     const { imageId } = req.params;
-    console.log('🔄 [PROMO LEGACY] Redirecting legacy promo image URL:', imageId);
+    _log('🔄 [PROMO LEGACY] Redirecting legacy promo image URL:', imageId);
     
     // Find the promo that has this imageId
     const promo = await Promo.findOne({ imageId: imageId });
     if (!promo) {
-      console.log('❌ [PROMO LEGACY] Promo not found for imageId:', imageId);
+      _log('❌ [PROMO LEGACY] Promo not found for imageId:', imageId);
       return res.status(404).json({ error: 'Promo not found' });
     }
     
     // Redirect to the correct endpoint
     const redirectUrl = `/api/promo-image/${promo._id}`;
-    console.log('🔄 [PROMO LEGACY] Redirecting to:', redirectUrl);
+    _log('🔄 [PROMO LEGACY] Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
   } catch (err) {
@@ -2638,12 +2836,12 @@ app.get('/api/images/promo/:imageId', async (req, res) => {
 app.get('/api/promo-image-gridfs/:fileId', async (req, res) => {
   try {
     const fileId = req.params.fileId;
-    console.log('🎯 [PROMO GRIDFS] Fetching image from GridFS:', fileId);
+    _log('🎯 [PROMO GRIDFS] Fetching image from GridFS:', fileId);
     
     // Check if file exists in GridFS
     const file = await gfs.files.findOne({ _id: fileId });
     if (!file) {
-      console.log('❌ [PROMO GRIDFS] File not found in GridFS:', fileId);
+      _log('❌ [PROMO GRIDFS] File not found in GridFS:', fileId);
       return res.status(404).send('Promo image not found');
     }
 
@@ -2676,168 +2874,88 @@ app.get('/api/promo-image-gridfs/:fileId', async (req, res) => {
 
 
 const menuInfo = `
-🍝 PASTAS – 250
-Guanciale Alfredo 
-Fiery Carbonara
-Truffle Cream Pasta
+Nomu Cafe menu – by category, names and prices only.
 
-🥟 CALZONE – 170
-Creamy Bacon Calzone
-Pepperoni Calzone
+——— PASTAS ——— (250 each)
+• Guanciale Alfredo
+• Fiery Carbonara
+• Truffle Cream Pasta
 
-🍕 PIZZAS
-Indulge in our Neapolitan-style pizzas, freshly crafted with love.
+——— CALZONE ——— (170 each)
+• Creamy Bacon Calzone
+• Pepperoni Calzone
 
-                     price
-Pizza	      Pizzetta	12th
-Creamy Pesto	220	400
-Salame Piccante	220	400
-Savory Spinach	220	400
-The Five Cheese	280	440
-Black Truffle	280	440
-Cheese	        200   	350
+——— PIZZAS ——— (Pizzetta / 12")
+• Creamy Pesto — 220 / 400
+• Salame Piccante — 220 / 400
+• Savory Spinach — 220 / 400
+• The Five Cheese — 280 / 440
+• Black Truffle — 280 / 440
+• Cheese — 200 / 350
+Add-Ons: Pesto +50 Salami +50 Spinach +50 Spicy Honey +25 Chilli Flakes +25
 
-Add-Ons:
-Pesto +50
-Salami +50
-Spinach +50
-Spicy Honey +25
-Chilli Flakes +25
+——— PASTRIES ———
+• Pain Suisse — 120
+• French Butter Croissant — 120
+• Blueberry Cheesecake Danish — 120
+• Mango Cheesecake Danish — 120
+• Crookie — 130
+• Pain Au Chocolat — 140
+• Almond Croissant — 150
+• Pain Suisse Chocolate — 150
+• Hokkaido Cheese Danish — 150
+• Vanilla Flan Brulee Tart — 150
+• Pain Au Pistachio — 180
+• Strawberry Cream Croissant — 180
+• Choco-Berry Pain Suisse — 180
+• Kunefe Pistachio Croissant — 200
+• Garlic Cream Cheese Croissant — 160
+• Pain Au Ham & Cheese — 180
+• Grilled Cheese — 190
 
-🥐 PASTRIES
-Item	                        Price
-Pain Suisse	                120
-French Butter Croissant	120
-Blueberry Cheesecake Danish	120
-Mango Cheesecake Danish 	120
-Crookie	                        130
-Pain Au Chocolat	        140
-Almond Croissant	        150
-Pain Suisse Chocolate	        150
-Hokkaido Cheese Danish	        150
-Vanilla Flan Brulee Tart	150
-Pain Au Pistachio	        180
-Strawberry Cream Croissant	180
-Choco-Berry Pain Suisse  	180
-Kunefe Pistachio Croissant	200
-Garlic Cream Cheese Croissant	160
-Pain Au Ham & Cheese	        180
-Grilled Cheese           	190
+——— DONUTS ———
+• Original Milky Vanilla Glaze — 40
+• Oreo Overload — 45
+• White Chocolate with Almonds — 45
+• Dark Chocolate with Cashew Nuts — 45
+• Dark Chocolate with Sprinkles — 45
+• Matcha — 45
+• Strawberry with Sprinkles — 45
+• Smores — 50
+• Box of 6 (Classic) — 200
+• Box of 6 (Assorted) — 250
 
-🍩 DONUTS
-Made fresh daily using Hokkaido Milk Bread
+——— DRINKS ———
+Milk Tea (Medium / Large): Nomu Milk Tea, Wintermelon, Taro w/ Taro Paste, Blue Cotton Candy, Mixed Fruit Tea, Tiger Brown Sugar, Mixed Berries w/ Popping Boba, Strawberry Lemonade Green Tea
+Hot & Iced: Honey Citron Ginger Tea, Matcha Latte, Sakura Latte, Honey Lemon Chia, Hot Chocolate, Hot Mint Chocolate
+Kumo Cream: Chiztill, Kumo Wintermelon, Kumo Nomu Milk Tea, Kumo Matcha, Kumo Taro, Kumo Choco, Kumo Tiger Brown Sugar, Kumo Sakura Latte, Kumo Milo with Oreo, Kumo Mixed Berries, Kumo Fresh Strawberry, Kumo Fresh Mango
+Drink Add-Ons: Pearls +10 Pudding +15 Grass Jelly/Nata +15 Popping Boba +15 Espresso Shot +30 Kumo Cream +40
 
-Flavor	Price                   price
-Original Milky Vanilla Glaze	40
-Oreo Overload	                45
-White Chocolate with Almonds	45
-Dark Chocolate with Cashew Nuts	45
-Dark Chocolate with Sprinkles	45
-Matcha                   	45
-Strawberry with Sprinkles	45
-Smores                  	50
+——— COFFEE SERIES ——— (Iced / Hot)
+• Americano — 120 / 120
+• Cold Brew — 130
+• Nomu Latte — 130 / 130
+• Kumo Coffee — 130 / 140
+• Orange Long Black — 130 / 140
+• Cappuccino — 130 / 140
+• Flavored Latte (Vanilla/Hazelnut) — 140 / 140
+• Salted Caramel Latte — 140 / 150
+• Spanish Latte — 140 / 150
+• Chai Latte — 140 / 150
+• Ube Vanilla Latte — 140 / 160
+• Mazagran (Lemon Coffee) — 160
+• Coconut Vanilla Latte — 160 / 170
+• Chocolate Mocha (White or Dark) — 160 / 170
+• Caramel Macchiato — 160 / 170
+• Macadamia Latte — 160 / 170
+• Butterscotch Latte — 160 / 170
+• Peachespresso — 160
+• Shakerato (Caramel/Spanish/Dark Choco) — 180
+• Mint Latte — 180
+• Honey Oatmilk Latte — 200
+Coffee Add-Ons: Medium +10 Large +20 Espresso Shot +30 Kumo Cream +40 Oatmilk/Soymilk +40 Pearls +15 Pudding +15 Grass Jelly/Nata +15 Popping Boba +15
 
-Donut Boxes:
-Box of 6 (Classic) – 200
-Box of 6 (Assorted) – 250
-
-🧋 DRINKS
-Non-Coffee Series (Milk teas made from brewed tea leaves)
-
-                                  price
-Drink	                       Medium	Large
-Nomu Milk Tea	                120    140
-Wintermelon Milk Tea	        120	140
-Taro Milk Tea w/ Taro Paste	120	140
-Blue Cotton Candy	        130	150
-Mixed Fruit Tea         	130	150
-Tiger Brown Sugar       	140	160
-Mixed Berries w/ Popping Boba	150	170
-Strawberry Lemonade Green Tea	150	170
-
-Hot/Iced Drinks:
-
-Drink               	Price
-                          Iced    Hot
-Honey Citron Ginger Tea	  120    130
-Matcha Latte	          140    150
-Sakura Latte	          140    150
-Honey Lemon Chia	  180    190
-Hot Chocolate	                  130
-Hot Mint Chocolate	          150
-
-Kumo Cream Series (Topped with salty cream cheese)
-                                  Price
-Drink	                       Medium	Large
-Chiztill (Black/Oolong/Jasmine)	100	120
-Kumo Wintermelon	        120	140
-Kumo Nomu Milk Tea	        130	150
-Kumo Matcha             	140	160
-Kumo Taro Milk Tea       	130	150
-Kumo Choco	                120	140
-Kumo Tiger Brown Sugar   	140	160
-Kumo Sakura Latte	        140	160
-Kumo Milo with Oreo    	130	150
-Kumo Mixed Berries	        140	160
-Kumo Fresh Strawberry  	160	180
-Kumo Fresh Mango	        160	180
-
-Drink Add-Ons:
-Black / White Pearls +10
-Pudding +15
-Grass Jelly / Nata +15
-Popping Boba +15
-Espresso Shot +30
-Kumo Cream +40
-
-NOMU CAFE
-
-Drinks – Coffee Series
-Freshly roasted, locally sourced.
-
-Drink	                               Iced	Hot
-Americano	                       120	120
-Cold Brew	                       130	-
-Nomu Latte	                       130	130
-Kumo Coffee	                       130	140
-Orange Long Black	               130	140
-Cappuccino	                       130	140
-Flavored Latte (Vanilla / Hazelnut)    140	140
-Salted Caramel Latte	               140	150
-Spanish Latte                        140	150
-Chai Latte	                       140	150
-Ube Vanilla Latte	               140	160
-Mazagran (Lemon Coffee)	               160	-
-Coconut Vanilla Latte	               160	170
-Chocolate Mocha (White or Dark)	       160	170
-Caramel Macchiato	               160	170
-Macadamia Latte	                       160	170
-Butterscotch Latte	               160	170
-Peachespresso	                       160	-
-Shakerato (Caramel/Spanish/Dark Choco) 180	-
-Mint Latte	                       180	-
-Honey Oatmilk Latte	               200	-
-
-Best Seller
-Upsize
-Medium: +10
-Large: +20
-Add Ons
-Espresso Shot: +30
-Kumo Cream: +40
-Oatmilk / Soymilk: +40
-Black / White Pearls: +15
-Pudding: +15
-Grass Jelly / Nata: +15
-Popping Boba: +15
-
-Best Sellers are highlighted in the menu.
-
-Opening and Closing Hours:
-Our opening and closing hours vary per branch. For the UST branch, we usually open as early as 7 a.m. and close around 10 p.m.
-
-Holiday Hours:
-For holiday hours and special announcements, please check our website at https://www.nomu.ph for the most current updates.
+Opening and Closing Hours: Vary per branch. UST branch usually 7 a.m. – 10 p.m. Check https://nomu.cafe for current hours.
 
 ACCOUNT MANAGEMENT HELP:
 - To change personal information: Go to Profile page → Edit Profile → Update your details
@@ -2873,7 +2991,7 @@ async function getAIResponse(message) {
         messages: [
           { 
             role: 'system', 
-            content: `You are a helpful AI assistant for NOMU Cafe. Use the following menu for reference:\n${menuInfo}\n\nACCOUNT MANAGEMENT HELP:\n- To change personal information: Go to Profile page → Edit Profile → Update your details\n- To change password: Go to Profile page → Account Settings → Change Password\n- For password reset: Use "Forgot Password" on login page\n- For account issues: Contact support via our website\n\nIMPORTANT: If a user asks about topics outside of cafe operations, menu items, store hours, locations, loyalty program, account management, or general customer service, politely redirect them to contact NOMU Cafe directly via our website at https://www.nomu.ph for more detailed assistance.` 
+            content: `You are a helpful AI assistant for Nomu Cafe. Use the following menu for reference:\n${menuInfo}\n\nACCOUNT MANAGEMENT HELP:\n- To change personal information: Go to Profile page → Edit Profile → Update your details\n- To change password: Go to Profile page → Account Settings → Change Password\n- For password reset: Use "Forgot Password" on login page\n- For account issues: Contact support via our website\n\nIMPORTANT: If a user asks about topics outside of cafe operations, menu items, store hours, locations, loyalty program, account management, or general customer service, politely redirect them to contact Nomu Cafe directly via our website at https://nomu.cafe for more detailed assistance.` 
           },
           { role: 'user', content: message }
         ],
@@ -2892,7 +3010,7 @@ async function getAIResponse(message) {
     return cleanAIResponse(rawResponse);
   } catch (err) {
     console.error('OpenAI API error:', err.response?.data || err.message);
-    return 'Sorry, I am having trouble responding right now. For immediate assistance, please contact NOMU Cafe directly via our website: https://www.nomu.ph';
+    return 'Sorry, I am having trouble responding right now. For immediate assistance, please contact Nomu Cafe directly via our website: https://www.nomu.ph';
   }
 }
 
@@ -2926,10 +3044,88 @@ app.get('/api/chat/history/:userId', async (req, res) => {
   }
 });
 
+// DELETE /api/chat/history/:userId - Permanently clear chat history for a user
+app.delete('/api/chat/history/:userId', async (req, res) => {
+  try {
+    const chat = await Chat.findOne({ userId: req.params.userId });
+    if (!chat) return res.status(204).send(); // already empty
+    chat.messages = [];
+    await chat.save();
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== QR SCANNING ENDPOINTS ====================
+
+// Test endpoint to verify QR token without adding points
+app.post('/api/loyalty/verify-qr', async (req, res) => {
+  try {
+    const { qrToken } = req.body;
+    
+    if (!qrToken) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'QR token is required' 
+      });
+    }
+    
+    // Find user by QR token
+    let user = await User.findOne({ qrToken: qrToken });
+    
+    // If not found, try JWT validation
+    if (!user) {
+      try {
+        const decoded = validateJwtToken(qrToken);
+        if (decoded && decoded.userId) {
+          user = await User.findById(decoded.userId);
+        }
+      } catch (jwtError) {
+        // JWT validation failed
+      }
+    }
+    
+    if (user) {
+      return res.json({
+        success: true,
+        valid: true,
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          points: user.points
+        }
+      });
+    } else {
+      return res.status(404).json({
+        success: false,
+        valid: false,
+        error: 'User not found for this QR token'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ 
+      success: false,
+      error: err.message 
+    });
+  }
+});
 
 // Add loyalty point when barista scans QR code (single item - legacy support)
 app.post('/api/loyalty/scan', async (req, res) => {
+  const startTime = Date.now();
+  _log('📱 [LOYALTY] Scan request received:', {
+    timestamp: new Date().toISOString(),
+    body: {
+      hasQrToken: !!req.body.qrToken,
+      qrTokenLength: req.body.qrToken ? req.body.qrToken.length : 0,
+      itemName: req.body.itemName,
+      price: req.body.price,
+      employeeId: req.body.employeeId
+    }
+  });
+  
   try {
     const { qrToken, itemName, itemType, category, price, employeeId } = req.body;
     
@@ -2940,14 +3136,104 @@ app.post('/api/loyalty/scan', async (req, res) => {
     const orderPrice = price || 0;
     
     if (!qrToken) {
-      return res.status(400).json({ error: 'QR token is required' });
+      _log('❌ [LOYALTY] Missing qrToken in request');
+      return res.status(400).json({ 
+        error: 'QR token is required',
+        message: 'Please scan a valid QR code',
+        code: 'MISSING_QR_TOKEN'
+      });
     }
+    
+    _log('🔍 [LOYALTY] Searching for user with qrToken...');
 
     // Find user by QR token with timeout
-    const user = await User.findOne({ qrToken: qrToken }).maxTimeMS(5000);
+    let user = await User.findOne({ qrToken: qrToken }).maxTimeMS(5000);
+    let usedShortLivedScanToken = false;
+
+    // If user not found by qrToken, try to find by validating the JWT token
+    // (handles short-lived scan tokens from QR dialog and legacy qrToken mismatch)
     if (!user) {
-      console.log('❌ [LOYALTY] User not found for QR token:', qrToken);
-      return res.status(404).json({ error: 'User not found' });
+      try {
+        const decoded = validateJwtToken(qrToken);
+        if (decoded && decoded.userId) {
+          user = await User.findById(decoded.userId);
+          if (user) {
+            const isShortLivedScan = decoded.type === 'qr_scan';
+            usedShortLivedScanToken = isShortLivedScan;
+            _log(isShortLivedScan
+              ? '✅ [LOYALTY] User found by short-lived scan token'
+              : '⚠️ [LOYALTY] User found by JWT validation but qrToken mismatch. Updating qrToken...', { userId: user._id });
+            // Only update stored qrToken if this is a long-lived token, not a one-time scan token
+            if (!isShortLivedScan) {
+              user.qrToken = qrToken;
+              await user.save();
+            }
+          }
+        }
+      } catch (jwtError) {
+        // JWT validation failed, continue with normal error handling
+        _log('⚠️ [LOYALTY] JWT validation failed:', jwtError.message);
+      }
+    }
+
+    if (!user) {
+      _log('❌ [LOYALTY] User not found for QR token');
+      _log('❌ [LOYALTY] QR token length:', qrToken ? qrToken.length : 0);
+      _log('❌ [LOYALTY] QR token preview:', qrToken ? qrToken.substring(0, 50) + '...' : 'EMPTY');
+      
+      // Try to find any user with empty qrToken (for debugging)
+      const usersWithEmptyToken = await User.find({ qrToken: '' }).limit(5).select('email qrToken createdAt');
+      if (usersWithEmptyToken.length > 0) {
+        _log('⚠️ [LOYALTY] Found users with empty qrToken:', usersWithEmptyToken.map(u => ({
+          email: u.email,
+          createdAt: u.createdAt
+        })));
+      }
+      
+      // Try to find users created in the last hour (might be new users)
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const recentUsers = await User.find({ 
+        createdAt: { $gte: oneHourAgo },
+        qrToken: { $ne: '' }
+      }).limit(5).select('email qrToken createdAt');
+      _log('📋 [LOYALTY] Recent users with qrToken:', recentUsers.length);
+      
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found',
+        message: 'The QR code is not valid. Please make sure the customer has a valid QR code.',
+        code: 'INVALID_QR_TOKEN',
+        debug: {
+          tokenLength: qrToken ? qrToken.length : 0,
+          tokenPreview: qrToken ? qrToken.substring(0, 30) + '...' : 'EMPTY'
+        }
+      });
+    }
+    
+    _log('✅ [LOYALTY] User found:', {
+      userId: user._id,
+      email: user.email,
+      fullName: user.fullName,
+      hasQrToken: !!user.qrToken,
+      qrTokenMatches: user.qrToken === qrToken
+    });
+    
+    // Safety check: Ensure user has a valid qrToken (do not overwrite when scan used short-lived token)
+    if (!usedShortLivedScanToken) {
+      if (!user.qrToken || user.qrToken === '') {
+        _log('⚠️ [LOYALTY] User found but qrToken is empty. Generating new one...', {
+          userId: user._id,
+          email: user.email
+        });
+        user.qrToken = generateQrToken(user._id);
+        await user.save();
+        _log('✅ [LOYALTY] qrToken generated and saved');
+      } else if (user.qrToken !== qrToken) {
+        // If qrToken doesn't match but user was found, update it
+        _log('⚠️ [LOYALTY] qrToken mismatch - updating user qrToken to match scanned token');
+        user.qrToken = qrToken;
+        await user.save();
+      }
     }
 
     // High-volume security checks
@@ -2961,7 +3247,7 @@ app.post('/api/loyalty/scan', async (req, res) => {
         
         // Detect abuse patterns
         if (detectAbuse(employeeId, user._id.toString())) {
-          console.log('🚨 [SECURITY] Abuse detected, blocking scan');
+          _log('🚨 [SECURITY] Abuse detected, blocking scan');
           return res.status(429).json({ 
             error: 'Suspicious activity detected. Scan blocked for security.',
             code: 'ABUSE_DETECTED'
@@ -2969,27 +3255,54 @@ app.post('/api/loyalty/scan', async (req, res) => {
         }
       }
     } catch (securityError) {
-      console.log('🚨 [SECURITY] Security check failed:', securityError.message);
+      _log('🚨 [SECURITY] Security check failed:', securityError.message);
       return res.status(429).json({ 
         error: securityError.message,
         code: 'RATE_LIMIT_EXCEEDED'
       });
     }
     
-
-    // No maximum points limit - unlimited cycles
-    console.log(`📱 [LOYALTY] Adding point to user ${user.fullName} (current: ${user.points})`);
-
-    // Add 1 point with validation
-    const currentPoints = user.points || 0;
-    const newPoints = currentPoints + 1;
+    // Check minimum spending requirement (100 pesos)
+    const MINIMUM_SPENDING = 100;
+    const isEligibleForPoints = orderPrice >= MINIMUM_SPENDING;
     
-    // Validate points before updating
-    if (currentPoints < 0) {
-      console.log('⚠️ [LOYALTY] Invalid current points detected, resetting to 0');
-      user.points = 1; // Set to 1 since we're adding 1
+    let pointsAdded = 0;
+    let customerMessage = '';
+    let messageType = 'info'; // 'success', 'warning', 'info'
+    
+    if (isEligibleForPoints) {
+      _log(`📱 [LOYALTY] Adding point to user ${user.fullName} (current: ${user.points})`);
+      
+      // Add 1 point with validation
+      const currentPoints = user.points || 0;
+      const newPoints = currentPoints + 1;
+      
+      // Validate points before updating
+      if (currentPoints < 0) {
+        _log('⚠️ [LOYALTY] Invalid current points detected, resetting to 0');
+        user.points = 1; // Set to 1 since we're adding 1
+      } else {
+        user.points = newPoints;
+      }
+      pointsAdded = 1;
+      
+      // Create success message for customer
+      customerMessage = `✅ Points added! You now have ${user.points} ${user.points === 1 ? 'point' : 'points'}.`;
+      messageType = 'success';
+      
+      // Special message for milestone points
+      if (user.points === 5) {
+        customerMessage = `🎉 Congratulations! You've earned 5 points! You can now claim a reward!`;
+      } else if (user.points === 10) {
+        customerMessage = `🎉 Amazing! You've earned 10 points! You can claim another reward!`;
+      }
     } else {
-      user.points = newPoints;
+      const remaining = MINIMUM_SPENDING - orderPrice;
+      _log(`⚠️ [LOYALTY] Order total ₱${orderPrice} is below minimum ₱${MINIMUM_SPENDING} for loyalty points`);
+      
+      // Create warning message for customer
+      customerMessage = `⚠️ Minimum spending not met. Your order of ₱${orderPrice.toFixed(2)} needs ₱${remaining.toFixed(2)} more to earn points. Minimum spending: ₱${MINIMUM_SPENDING}.`;
+      messageType = 'warning';
     }
     
     // Record the order with new structure (single item)
@@ -2999,8 +3312,10 @@ app.post('/api/loyalty/scan', async (req, res) => {
       
       // Create order with single item
       const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const currentCycle = user.currentCycle || 1;
       const newOrder = {
         orderId: orderId,
+        cycle: currentCycle,
         items: [{
           itemName: orderItem,
           itemType: orderType,
@@ -3020,6 +3335,7 @@ app.post('/api/loyalty/scan', async (req, res) => {
       }
     }
 
+    await ensureConnection();
     await user.save();
     
     // Record scan for security tracking
@@ -3029,7 +3345,7 @@ app.post('/api/loyalty/scan', async (req, res) => {
         recordEmployeeScan(employeeId, user._id.toString());
       }
     } catch (error) {
-      console.log('⚠️ [SECURITY] Failed to record scan:', error.message);
+      _log('⚠️ [SECURITY] Failed to record scan:', error.message);
     }
     
     // Add rate limiting to prevent spam
@@ -3038,7 +3354,7 @@ app.post('/api/loyalty/scan', async (req, res) => {
     const lastScanTime = global.lastScanTimes?.[lastScanKey] || 0;
     
     if (now - lastScanTime < 1000) { // 1 second cooldown
-      console.log('⚠️ [LOYALTY] Rate limit exceeded for user:', user.fullName);
+      _log('⚠️ [LOYALTY] Rate limit exceeded for user:', user.fullName);
       return res.status(429).json({ error: 'Please wait before scanning again' });
     }
     
@@ -3048,13 +3364,13 @@ app.post('/api/loyalty/scan', async (req, res) => {
 
     // Validate points before saving
     if (user.points < 0) {
-      console.log('⚠️ [LOYALTY] Invalid points detected, resetting to 0');
+      _log('⚠️ [LOYALTY] Invalid points detected, resetting to 0');
       user.points = 0;
     }
     
     // Ensure points don't exceed reasonable limits (prevent glitches)
     if (user.points > 1000) {
-      console.log('⚠️ [LOYALTY] Points exceed reasonable limit, capping at 1000');
+      _log('⚠️ [LOYALTY] Points exceed reasonable limit, capping at 1000');
       user.points = 1000;
     }
 
@@ -3070,9 +3386,9 @@ app.post('/api/loyalty/scan', async (req, res) => {
       );
       
       if (emailSent) {
-        console.log(`✅ [LOYALTY] Email notification sent to: ${user.email}`);
+        _log(`✅ [LOYALTY] Email notification sent to: ${user.email}`);
       } else {
-        console.log(`⚠️ [LOYALTY] Failed to send email notification to: ${user.email}`);
+        _log(`⚠️ [LOYALTY] Failed to send email notification to: ${user.email}`);
       }
     } catch (emailError) {
       console.error('❌ [LOYALTY] Error sending email notification:', emailError);
@@ -3082,25 +3398,70 @@ app.post('/api/loyalty/scan', async (req, res) => {
     // Emit real-time notification to all connected clients with user identification
     io.emit('loyalty-point-added', {
       qrToken: user.qrToken,
-      userId: user._id,
+      userId: user._id != null ? user._id.toString() : null,
       itemName: orderItem || 'Your order',
       itemType: orderType,
       category: orderCategory,
-      points: user.points,
+      points: Number(user.points) || 0,
+      pointsAdded: pointsAdded,
       totalOrders: user.pastOrders ? user.pastOrders.length : 0,
       timestamp: new Date(),
-      message: `New order: ${orderItem || 'Your order'} (${orderType}) - User now has ${user.points} points`
+      message: customerMessage,
+      messageType: messageType,
+      orderPrice: orderPrice,
+      minimumSpending: MINIMUM_SPENDING,
+      isEligibleForPoints: isEligibleForPoints
+    });
+
+    const responseTime = Date.now() - startTime;
+    _log('✅ [LOYALTY] Scan successful:', {
+      userId: user._id,
+      email: user.email,
+      fullName: user.fullName,
+      points: user.points,
+      pointsAdded: pointsAdded,
+      orderItem: orderItem,
+      orderPrice: orderPrice,
+      isEligibleForPoints: isEligibleForPoints,
+      responseTime: `${responseTime}ms`
     });
 
     res.json({ 
-      points: user.points, 
+      success: true,
+      message: `Scan processed successfully for ${user.fullName}`,
+      customerMessage: customerMessage,
+      messageType: messageType,
+      points: user.points,
+      pointsAdded: pointsAdded,
       lastOrder: user.lastOrder, 
       pastOrders: user.pastOrders,
-      totalOrders: user.pastOrders ? user.pastOrders.length : 0
+      totalOrders: user.pastOrders ? user.pastOrders.length : 0,
+      orderInfo: {
+        itemName: orderItem,
+        itemType: orderType,
+        price: orderPrice,
+        minimumSpending: MINIMUM_SPENDING,
+        isEligibleForPoints: isEligibleForPoints
+      },
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email
+      }
     });
   } catch (err) {
-    console.error('❌ [LOYALTY] Error adding loyalty point:', err);
-    res.status(500).json({ error: err.message });
+    const responseTime = Date.now() - startTime;
+    console.error('❌ [LOYALTY] Error adding loyalty point:', {
+      error: err.message,
+      stack: err.stack,
+      responseTime: `${responseTime}ms`
+    });
+    res.status(500).json({ 
+      success: false,
+      error: err.message,
+      message: 'An error occurred while processing the scan. Please try again.',
+      code: 'SCAN_ERROR'
+    });
   }
 });
 
@@ -3120,32 +3481,43 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     // Find user by QR token
     const user = await User.findOne({ qrToken: qrToken });
     if (!user) {
-      console.log('❌ [LOYALTY] User not found for QR token:', qrToken);
+      _log('❌ [LOYALTY] User not found for QR token:', qrToken);
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // No maximum points limit - unlimited cycles
-    console.log(`📱 [LOYALTY] Adding point to user ${user.fullName} (current: ${user.points})`);
-
-    // Add 1 point with validation
-    const currentPoints = user.points || 0;
-    const newPoints = currentPoints + 1;
-    
-    // Validate points before updating
-    if (currentPoints < 0) {
-      console.log('⚠️ [LOYALTY] Invalid current points detected, resetting to 0');
-      user.points = 1; // Set to 1 since we're adding 1
-    } else {
-      user.points = newPoints;
-    }
-    
-    // Calculate total price
+    // Calculate total price first
     const totalPrice = items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
     
-    // Create order with multiple items
+    // Check minimum spending requirement (100 pesos)
+    const MINIMUM_SPENDING = 100;
+    const isEligibleForPoints = totalPrice >= MINIMUM_SPENDING;
+    
+    let pointsAdded = 0;
+    if (isEligibleForPoints) {
+      _log(`📱 [LOYALTY] Adding point to user ${user.fullName} (current: ${user.points})`);
+      
+      // Add 1 point with validation
+      const currentPoints = user.points || 0;
+      const newPoints = currentPoints + 1;
+      
+      // Validate points before updating
+      if (currentPoints < 0) {
+        _log('⚠️ [LOYALTY] Invalid current points detected, resetting to 0');
+        user.points = 1; // Set to 1 since we're adding 1
+      } else {
+        user.points = newPoints;
+      }
+      pointsAdded = 1;
+    } else {
+      _log(`⚠️ [LOYALTY] Order total ₱${totalPrice} is below minimum ₱${MINIMUM_SPENDING} for loyalty points`);
+    }
+    
+    // Create order with multiple items (cycle = current loyalty cycle: 1, 2, 3...)
+    const currentCycle = user.currentCycle || 1;
     const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newOrder = {
       orderId: orderId,
+      cycle: currentCycle,
       items: items.map(item => ({
         itemName: item.itemName || item.name || 'Unknown Item',
         itemType: item.itemType || 'food',
@@ -3169,16 +3541,17 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
 
     // Validate points before saving
     if (user.points < 0) {
-      console.log('⚠️ [LOYALTY] Invalid points detected, resetting to 0');
+      _log('⚠️ [LOYALTY] Invalid points detected, resetting to 0');
       user.points = 0;
     }
     
     // Ensure points don't exceed reasonable limits (prevent glitches)
     if (user.points > 1000) {
-      console.log('⚠️ [LOYALTY] Points exceed reasonable limit, capping at 1000');
+      _log('⚠️ [LOYALTY] Points exceed reasonable limit, capping at 1000');
       user.points = 1000;
     }
 
+    await ensureConnection();
     await user.save();
     
     // Send email notification for points earned
@@ -3194,9 +3567,9 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       );
       
       if (emailSent) {
-        console.log(`✅ [LOYALTY] Email notification sent to: ${user.email}`);
+        _log(`✅ [LOYALTY] Email notification sent to: ${user.email}`);
       } else {
-        console.log(`⚠️ [LOYALTY] Failed to send email notification to: ${user.email}`);
+        _log(`⚠️ [LOYALTY] Failed to send email notification to: ${user.email}`);
       }
     } catch (emailError) {
       console.error('❌ [LOYALTY] Error sending email notification:', emailError);
@@ -3207,11 +3580,11 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     const itemNames = newOrder.items.map(item => item.itemName).join(', ');
     io.emit('loyalty-point-added', {
       qrToken: user.qrToken,
-      userId: user._id,
+      userId: user._id != null ? user._id.toString() : null,
       itemName: itemNames,
       itemType: 'multiple',
       category: 'order',
-      points: user.points,
+      points: Number(user.points) || 0,
       totalOrders: user.pastOrders ? user.pastOrders.length : 0,
       timestamp: new Date(),
       message: `New order: ${itemNames} (${newOrder.items.length} items) - User now has ${user.points} points`
@@ -3232,6 +3605,155 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
   }
 });
 
+// ==================== MECHANIC NOTIFICATION ENDPOINTS ====================
+
+// Mechanic notifies customer about order completion and loyalty points
+app.post('/api/mechanic/notify-order-completion', async (req, res) => {
+  try {
+    const { qrToken, orderTotal, employeeId, orderItems } = req.body;
+    
+    if (!qrToken) {
+      return res.status(400).json({ error: 'QR token is required' });
+    }
+    
+    if (!orderTotal || orderTotal <= 0) {
+      return res.status(400).json({ error: 'Valid order total is required' });
+    }
+
+    // Find user by QR token
+    const user = await User.findOne({ qrToken: qrToken });
+    if (!user) {
+      _log('❌ [MECHANIC] User not found for QR token:', qrToken);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const MINIMUM_SPENDING = 100; // 100 pesos minimum for loyalty points
+    const isEligibleForPoints = orderTotal >= MINIMUM_SPENDING;
+    
+    _log(`🔧 [MECHANIC] Order completion notification for ${user.fullName}:`, {
+      orderTotal,
+      isEligibleForPoints,
+      currentPoints: user.points
+    });
+
+    // Create order record (cycle = current loyalty cycle: 1, 2, 3...)
+    const currentCycle = user.currentCycle || 1;
+    const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newOrder = {
+      orderId: orderId,
+      cycle: currentCycle,
+      items: orderItems || [{
+        itemName: 'Order Items',
+        itemType: 'order',
+        category: 'general',
+        price: orderTotal,
+        quantity: 1
+      }],
+      totalPrice: orderTotal,
+      date: new Date(),
+      employeeId: employeeId || 'unknown'
+    };
+
+    // Update user's order history
+    user.lastOrder = newOrder.items[0].itemName;
+    user.pastOrders = user.pastOrders || [];
+    user.pastOrders.push(newOrder);
+    
+    // Keep only last 20 orders
+    if (user.pastOrders.length > 20) {
+      user.pastOrders.shift();
+    }
+
+    // Add loyalty point if eligible
+    let pointsAdded = 0;
+    let loyaltyMessage = '';
+    
+    if (isEligibleForPoints) {
+      const currentPoints = user.points || 0;
+      user.points = currentPoints + 1;
+      pointsAdded = 1;
+      loyaltyMessage = `Congratulations! You've earned 1 loyalty point for spending ₱${orderTotal}. You now have ${user.points} points.`;
+    } else {
+      const needed = MINIMUM_SPENDING - orderTotal;
+      loyaltyMessage = `Thank you for your order! Spend at least ₱${MINIMUM_SPENDING} next time to earn loyalty points. You need ₱${needed} more.`;
+    }
+
+    await ensureConnection();
+    await user.save();
+
+    // Send real-time notification to customer
+    const notification = {
+      type: 'order_completion',
+      qrToken: user.qrToken,
+      userId: user._id,
+      orderId: orderId,
+      orderTotal: orderTotal,
+      pointsAdded: pointsAdded,
+      currentPoints: user.points,
+      isEligibleForPoints: isEligibleForPoints,
+      message: `Order completed successfully! ${loyaltyMessage}`,
+      timestamp: new Date(),
+      employeeId: employeeId
+    };
+
+    // Emit to all connected clients (customer apps will filter by qrToken)
+    io.emit('order_completion_notification', notification);
+
+    // Send email notification
+    try {
+      const emailSent = await sendOrderCompletionEmail(
+        user.email,
+        user.fullName,
+        orderTotal,
+        user.points,
+        isEligibleForPoints,
+        pointsAdded,
+        orderItems || []
+      );
+      
+      if (emailSent) {
+        _log(`✅ [MECHANIC] Order completion email sent to: ${user.email}`);
+      }
+    } catch (emailError) {
+      console.error('❌ [MECHANIC] Error sending order completion email:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Customer notified successfully',
+      orderId: orderId,
+      orderTotal: orderTotal,
+      pointsAdded: pointsAdded,
+      currentPoints: user.points,
+      isEligibleForPoints: isEligibleForPoints,
+      loyaltyMessage: loyaltyMessage
+    });
+
+  } catch (err) {
+    console.error('❌ [MECHANIC] Error notifying customer:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get a short-lived scan token for QR dialog (QR changes every time it's opened)
+app.post('/api/customer/scan-token', async (req, res) => {
+  try {
+    const { qrToken } = req.body || {};
+    if (!qrToken || typeof qrToken !== 'string') {
+      return res.status(400).json({ error: 'qrToken is required' });
+    }
+    const user = await User.findOne({ qrToken: qrToken }).select('_id');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const scanToken = generateScanToken(user._id.toString());
+    res.json({ scanToken });
+  } catch (err) {
+    console.error('❌ [USER] Error generating scan token:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get user by QR token (for customer info display)
 app.get('/api/customer/qr/:qrToken', async (req, res) => {
   try {
@@ -3240,7 +3762,7 @@ app.get('/api/customer/qr/:qrToken', async (req, res) => {
     
     const user = await User.findOne({ qrToken: qrToken });
     if (!user) {
-      console.log('❌ [USER] User not found for QR token:', qrToken);
+      _log('❌ [USER] User not found for QR token:', qrToken);
       return res.status(404).json({ error: 'User not found' });
     }
     
@@ -3261,7 +3783,7 @@ app.patch('/api/customer/qr/:qrToken', async (req, res) => {
     
     const user = await User.findOne({ qrToken: qrToken });
     if (!user) {
-      console.log('❌ [USER] User not found for QR token:', qrToken);
+      _log('❌ [USER] User not found for QR token:', qrToken);
       return res.status(404).json({ error: 'User not found' });
     }
     
@@ -3290,7 +3812,7 @@ app.post('/api/admin/promos', async (req, res) => {
   try {
     const { title, description, promoType, discountValue, minOrderAmount, startDate, endDate, usageLimit, imageUrl, imageId, imageFilename } = req.body;
     
-    console.log('🎯 [ADMIN-PROMO] Creating new promo:', { title, promoType });
+    _log('🎯 [ADMIN-PROMO] Creating new promo:', { title, promoType });
     
     const promo = new Promo({
       title,
@@ -3312,7 +3834,7 @@ app.post('/api/admin/promos', async (req, res) => {
     });
     
     await promo.save();
-    console.log('✅ [ADMIN-PROMO] Promo created successfully:', promo._id);
+    _log('✅ [ADMIN-PROMO] Promo created successfully:', promo._id);
     
     // Clear cache when new promo is created
     promoCache.data = null;
@@ -3348,7 +3870,7 @@ app.put('/api/admin/promos/:id', async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
     
-    console.log('🎯 [ADMIN-PROMO] Updating promo:', id);
+    _log('🎯 [ADMIN-PROMO] Updating promo:', id);
     
     const promo = await Promo.findByIdAndUpdate(
       id,
@@ -3363,7 +3885,7 @@ app.put('/api/admin/promos/:id', async (req, res) => {
       });
     }
     
-    console.log('✅ [ADMIN-PROMO] Promo updated successfully');
+    _log('✅ [ADMIN-PROMO] Promo updated successfully');
     
     // Clear cache when promo is updated
     promoCache.data = null;
@@ -3396,7 +3918,7 @@ app.delete('/api/admin/promos/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log('🎯 [ADMIN-PROMO] Deleting promo:', id);
+    _log('🎯 [ADMIN-PROMO] Deleting promo:', id);
     
     const promo = await Promo.findByIdAndDelete(id);
     
@@ -3407,7 +3929,7 @@ app.delete('/api/admin/promos/:id', async (req, res) => {
       });
     }
     
-    console.log('✅ [ADMIN-PROMO] Promo deleted successfully');
+    _log('✅ [ADMIN-PROMO] Promo deleted successfully');
     
     // Emit real-time notification to all connected clients
     io.emit('promo_deleted', {
@@ -3435,37 +3957,11 @@ const localIP = getLocalIP();
 
 // Update the server listen to use the HTTP server
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 NOMU Cafe API is running!`);
-  console.log(`🌐 Server running on port ${PORT}`);
-  console.log(`📱 Local: http://localhost:${PORT}`);
-  console.log(`🌍 Network: http://${localIP}:${PORT}`);
-  console.log(`🔗 API Base: http://${localIP}:${PORT}/api`);
-  console.log(`🔌 Socket.IO: ws://${localIP}:${PORT}`);
-  console.log('');
-  console.log('📋 Available endpoints:');
-  console.log('   POST /api/loyalty/scan - Add loyalty points via QR scan');
-  console.log('   GET  /api/customer/qr/:qrToken - Get user info by QR token');
-  console.log('   POST /api/register - User registration');
-  console.log('   POST /api/user/login - User login');
-  console.log('');
-  console.log('🔌 Real-time features:');
-  console.log('   - Live user activity tracking');
-  console.log('   - Real-time order notifications');
-  console.log('   - Live loyalty point updates');
-  console.log('');
-  console.log('👥 Supported User Types:');
-  console.log('   - customer: Regular cafe customers');
-  console.log('');
-  console.log('🔐 User login with email verification available!');
-  console.log('⏹️  Press Ctrl+C to stop the server');
-  // Advertise service via mDNS for auto-discovery from mobile
+  // Advertise service via mDNS for auto-discovery from mobile (no log)
   try {
     const bonjour = require('bonjour')();
     bonjour.publish({ name: 'Nomu Backend', type: 'http', port: Number(PORT), host: localIP, txt: { path: '/api' } });
-    console.log('📣 Bonjour service published for auto-discovery');
-  } catch (e) {
-    console.log('⚠️ Bonjour publish failed (optional):', e.message);
-  }
+  } catch (_) {}
 });
 
 // Send OTP endpoint (for signup)
@@ -3489,22 +3985,29 @@ app.post('/api/send-otp', async (req, res) => {
     // Store OTP with expiry and name for personalized welcome email
     otpStore.set(email, { otp, expiresAt: otpExpiry, name: name || 'User' });
     
-    console.log(`📧 OTP sent for signup - Email: ${email}, Name: ${name || 'User'}, OTP: ${otp}, Expires: ${new Date(otpExpiry).toLocaleString()}`);
+    _log(`📧 OTP sent for signup - Email: ${email}, Name: ${name || 'User'}, OTP: ${otp}, Expires: ${new Date(otpExpiry).toLocaleString()}`);
 
     // Send email
-    console.log(`📧 [SEND-OTP] Sending OTP to: ${email}`);
+    _log(`📧 [SEND-OTP] Sending OTP to: ${email}`);
     const emailSent = await sendOTPEmail(email, otp);
     
     if (emailSent) {
-      console.log(`✅ [SEND-OTP] OTP sent successfully to: ${email}`);
+      _log(`✅ [SEND-OTP] OTP sent successfully to: ${email}`);
       // Emit to connected clients
       io.emit('otp_sent', { email, success: true });
       res.json({ message: 'OTP sent successfully' });
     } else {
       console.error(`❌ [SEND-OTP] Failed to send OTP to: ${email}`);
-      res.status(500).json({ 
-        error: 'Failed to send OTP email. Please check your email configuration and try again.' 
-      });
+      // In development, return OTP so user can still complete signup (e.g. email not configured)
+      if (process.env.NODE_ENV === 'development') {
+        _log(`🔑 [DEV] Use this OTP in the app: ${otp}`);
+        io.emit('otp_sent', { email, success: true });
+        res.json({ message: 'OTP sent successfully', devOtp: otp });
+      } else {
+        res.status(500).json({ 
+          error: 'Failed to send OTP email. Please check your email configuration and try again.' 
+        });
+      }
     }
   } catch (error) {
     console.error('Send OTP error:', error);
@@ -3524,22 +4027,22 @@ app.post('/api/verify-signup-otp', async (req, res) => {
     const storedData = otpStore.get(email);
     
     if (!storedData) {
-      console.log(`❌ No OTP found for ${email}`);
+      _log(`❌ No OTP found for ${email}`);
       return res.status(400).json({ error: 'OTP not found or expired' });
     }
 
     if (Date.now() > storedData.expiresAt) {
-      console.log(`⏰ OTP expired for ${email} - Current: ${new Date().toLocaleString()}, Expires: ${new Date(storedData.expiresAt).toLocaleString()}`);
+      _log(`⏰ OTP expired for ${email} - Current: ${new Date().toLocaleString()}, Expires: ${new Date(storedData.expiresAt).toLocaleString()}`);
       otpStore.delete(email);
       return res.status(400).json({ error: 'OTP has expired' });
     }
 
     if (storedData.otp !== otp) {
-      console.log(`❌ Invalid OTP for ${email} - Expected: ${storedData.otp}, Received: ${otp}`);
+      _log(`❌ Invalid OTP for ${email} - Expected: ${storedData.otp}, Received: ${otp}`);
       return res.status(400).json({ error: 'Invalid OTP' });
     }
 
-    console.log(`✅ OTP verified successfully for ${email}`);
+    _log(`✅ OTP verified successfully for ${email}`);
     
     // OTP verified successfully
     otpStore.delete(email);
@@ -3551,7 +4054,7 @@ app.post('/api/verify-signup-otp', async (req, res) => {
     try {
       const userName = storedData.name || 'User';
       await sendWelcomeEmail(email, userName);
-      console.log(`✅ Welcome email sent to: ${email} for user: ${userName}`);
+      _log(`✅ Welcome email sent to: ${email} for user: ${userName}`);
     } catch (err) {
       console.error('⚠️ Failed to send welcome email:', err.message);
       // Continue even if welcome email fails
@@ -3575,7 +4078,7 @@ app.post('/api/send-password-change-otp', async (req, res) => {
     // Validate email exists in your database
     const user = await User.findOne({ email: email });
     if (!user) {
-      console.log('❌ [PASSWORD CHANGE] User not found:', email);
+      _log('❌ [PASSWORD CHANGE] User not found:', email);
       return res.status(404).json({ error: 'User not found' });
     }
     
@@ -3622,28 +4125,28 @@ app.post('/api/verify-password-change-otp', async (req, res) => {
     const storedData = otpStore.get(email);
     
     if (!storedData) {
-      console.log(`❌ [PASSWORD CHANGE] No OTP found for ${email}`);
+      _log(`❌ [PASSWORD CHANGE] No OTP found for ${email}`);
       return res.status(400).json({ error: 'OTP not found or expired' });
     }
     
     // Check if this is a password change OTP
     if (storedData.purpose !== 'password_change') {
-      console.log(`❌ [PASSWORD CHANGE] Wrong OTP purpose for ${email}: ${storedData.purpose}`);
+      _log(`❌ [PASSWORD CHANGE] Wrong OTP purpose for ${email}: ${storedData.purpose}`);
       return res.status(400).json({ error: 'Invalid OTP purpose' });
     }
     
     if (Date.now() > storedData.expiresAt) {
-      console.log(`⏰ [PASSWORD CHANGE] OTP expired for ${email}`);
+      _log(`⏰ [PASSWORD CHANGE] OTP expired for ${email}`);
       otpStore.delete(email);
       return res.status(400).json({ error: 'OTP has expired' });
     }
     
     if (storedData.otp !== otp) {
-      console.log(`❌ [PASSWORD CHANGE] Invalid OTP for ${email} - Expected: ${storedData.otp}, Received: ${otp}`);
+      _log(`❌ [PASSWORD CHANGE] Invalid OTP for ${email} - Expected: ${storedData.otp}, Received: ${otp}`);
       return res.status(400).json({ error: 'Invalid OTP' });
     }
     
-    console.log(`✅ [PASSWORD CHANGE] OTP verified successfully for ${email}`);
+    _log(`✅ [PASSWORD CHANGE] OTP verified successfully for ${email}`);
     
     // OTP verified successfully - remove from store
     otpStore.delete(email);
@@ -3668,14 +4171,14 @@ app.post('/api/user/:id/change-password', async (req, res) => {
     // Find user
     const user = await User.findById(id);
     if (!user) {
-      console.log('❌ [PASSWORD CHANGE] User not found:', id);
+      _log('❌ [PASSWORD CHANGE] User not found:', id);
       return res.status(404).json({ message: 'User not found' });
     }
     
     // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
-      console.log('❌ [PASSWORD CHANGE] Current password incorrect for user:', id);
+      _log('❌ [PASSWORD CHANGE] Current password incorrect for user:', id);
       return res.status(401).json({ message: 'Current password is incorrect' });
     }
     
@@ -3721,7 +4224,7 @@ app.post('/api/forgot-password', async (req, res) => {
     const user = await User.findOne({ email: email });
     
     if (!user) {
-      console.log('❌ [FORGOT PASSWORD] User not found:', email);
+      _log('❌ [FORGOT PASSWORD] User not found:', email);
       return res.status(404).json({ error: 'User not found' });
     }
     
@@ -3782,20 +4285,20 @@ app.post('/api/verify-forgot-password-otp', async (req, res) => {
     
     const storedData = otpStore.get(email);
     if (!storedData) {
-      console.log(`❌ [FORGOT PASSWORD] No OTP found for ${email}`);
+      _log(`❌ [FORGOT PASSWORD] No OTP found for ${email}`);
       return res.status(400).json({ error: 'OTP not found or expired' });
     }
     
     // Check if this is a forgot password OTP
     if (storedData.purpose !== 'forgot_password') {
-      console.log(`❌ [FORGOT PASSWORD] Wrong OTP purpose for ${email}: ${storedData.purpose}`);
+      _log(`❌ [FORGOT PASSWORD] Wrong OTP purpose for ${email}: ${storedData.purpose}`);
       return res.status(400).json({ error: 'Invalid OTP purpose' });
     }
     
     // Check if account is locked due to too many attempts
     if (storedData.lockedUntil && Date.now() < storedData.lockedUntil) {
       const remainingLockTime = Math.ceil((storedData.lockedUntil - Date.now()) / 1000);
-      console.log(`🔒 [FORGOT PASSWORD] Account locked for ${email} - ${remainingLockTime}s remaining`);
+      _log(`🔒 [FORGOT PASSWORD] Account locked for ${email} - ${remainingLockTime}s remaining`);
       return res.status(429).json({ 
         error: `Account temporarily locked. Try again in ${remainingLockTime} seconds.` 
       });
@@ -3809,7 +4312,7 @@ app.post('/api/verify-forgot-password-otp', async (req, res) => {
         ...storedData,
         lockedUntil: lockoutTime
       });
-      console.log(`🔒 [FORGOT PASSWORD] Account locked for ${email} due to max attempts reached`);
+      _log(`🔒 [FORGOT PASSWORD] Account locked for ${email} due to max attempts reached`);
       return res.status(429).json({ 
         error: 'Too many failed attempts. Account locked for 15 minutes.' 
       });
@@ -3827,7 +4330,7 @@ app.post('/api/verify-forgot-password-otp', async (req, res) => {
         attempts: newAttempts
       });
       
-      console.log(`❌ [FORGOT PASSWORD] Invalid OTP for ${email} - Attempt ${newAttempts}/${storedData.maxAttempts}, ${remainingAttempts} remaining`);
+      _log(`❌ [FORGOT PASSWORD] Invalid OTP for ${email} - Attempt ${newAttempts}/${storedData.maxAttempts}, ${remainingAttempts} remaining`);
       
       if (remainingAttempts > 0) {
         return res.status(400).json({ 
@@ -3882,7 +4385,7 @@ app.post('/api/reset-password', async (req, res) => {
     // Find user
     const user = await User.findById(storedData.userId);
     if (!user) {
-      console.log('❌ [FORGOT PASSWORD] User not found for reset:', email);
+      _log('❌ [FORGOT PASSWORD] User not found for reset:', email);
       return res.status(404).json({ message: 'User not found' });
     }
     

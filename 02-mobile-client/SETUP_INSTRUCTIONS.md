@@ -1,4 +1,4 @@
-# NOMU Cafe App - Setup Instructions
+# Nomu Cafe App - Setup Instructions
 
 ## 🚀 Quick Start
 

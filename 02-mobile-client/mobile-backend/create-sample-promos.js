@@ -126,7 +126,7 @@ const samplePromos = [
   },
   {
     title: "New Customer Welcome",
-    description: "Welcome to NOMU! Get ₱100 off on your first order above ₱250. Start your journey with us today!",
+    description: "Welcome to Nomu! Get ₱100 off on your first order above ₱250. Start your journey with us today!",
     promoType: "fixed",
     discountValue: 100,
     minOrderAmount: 250,

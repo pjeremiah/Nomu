@@ -144,10 +144,13 @@ const NavItem = styled(NavLink)`
   background: transparent;
   border: 1px solid transparent;
   
+  /* Keep label typography identical for all items; only background differs for active */
   &.active, &:hover { 
     background: rgba(255,255,255,0.15); 
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    font-weight: 500;
+    color: #ffffff;
   }
   
   &.disabled {
@@ -560,7 +563,7 @@ const AdminLayout = ({ children }) => {
             {navigationItems.map((item, index) => (
               <NavItemContainer key={index}>
                 {item.accessible ? (
-                  <NavItem to={item.to}>
+                  <NavItem to={item.to} end>
                     <NavIcon>{item.icon}</NavIcon>
                     {item.label}
                   </NavItem>

@@ -6,6 +6,7 @@ import 'usermodel.dart';
 import 'api/api.dart';
 import 'homepage.dart';
 import 'services/logging_service.dart';
+import 'theme/app_theme.dart';
 
 
 
@@ -13,10 +14,10 @@ class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
   @override
-  SignupPageState createState() => SignupPageState();
+  _SignupPageState createState() => _SignupPageState();
 }
 
-class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
+class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   final _fullnameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -85,8 +86,12 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   }
 
   bool _isValidPassword(String password) {
-    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*\W).{8,}$');
-    return passwordRegex.hasMatch(password);
+    final hasMinLength = password.length >= 8;
+    final hasUpper = password.contains(RegExp(r'[A-Z]'));
+    final hasLower = password.contains(RegExp(r'[a-z]'));
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
+    final hasSpecial = password.contains(RegExp(r'[!@#\$%^&*(),.?\":{}|<>]'));
+    return hasMinLength && hasUpper && hasLower && hasDigit && hasSpecial;
   }
 
   Future<void> _sendOTP() async {
@@ -110,21 +115,32 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     setState(() => _isSendingOtp = true);
     
     try {
-      String? error = await ApiService.sendOTP(email, fullname);
+      final result = await ApiService.sendOTP(email, fullname);
       setState(() => _isSendingOtp = false);
       
-      if (error == null) {
+      if (result['error'] == null) {
         if (mounted) {
+          AppHaptics.light();
           setState(() => _otpSent = true);
           _startResendTimer();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP sent to your email!')),
-          );
+          final devOtp = result['devOtp']?.toString();
+          if (devOtp != null && devOtp.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('OTP (use this if email not received): $devOtp'),
+                duration: const Duration(seconds: 30),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('OTP sent to your email!')),
+            );
+          }
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to send OTP: $error')),
+            SnackBar(content: Text('Failed to send OTP: ${result['error']}')),
           );
         }
       }
@@ -288,28 +304,6 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
               
               _showSuccessDialog();
             } else {
-              if (mounted) {
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Registration Successful'),
-                    content: const Text('Account created! Please log in manually.'),
-                    actions: [
-                      TextButton(
-                        child: const Text('OK'),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              }
-            }
-          } catch (loginError) {
-            // If auto-login fails, show success message and ask to login manually
-            if (mounted) {
               showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
@@ -327,33 +321,31 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                 ),
               );
             }
-          }
-        } else {
-          if (mounted) {
+          } catch (loginError) {
+            // If auto-login fails, show success message and ask to login manually
             showDialog(
               context: context,
               builder: (_) => AlertDialog(
-                title: const Text('Registration Failed'),
-                content: Text(error),
+                title: const Text('Registration Successful'),
+                content: const Text('Account created! Please log in manually.'),
                 actions: [
                   TextButton(
                     child: const Text('OK'),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pop();
+                    },
                   ),
                 ],
               ),
             );
           }
-        }
-      } catch (e) {
-        setState(() => _isLoading = false);
-        LoggingService.instance.error("Signup error", e);
-        if (mounted) {
+        } else {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
-              title: const Text('Error'),
-              content: Text(e.toString()),
+              title: const Text('Registration Failed'),
+              content: Text(error),
               actions: [
                 TextButton(
                   child: const Text('OK'),
@@ -363,12 +355,29 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
             ),
           );
         }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        LoggingService.instance.error("Signup error", e);
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Error'),
+            content: Text(e.toString()),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
       }
     }
   }
 
   Future<void> _resendOTP() async {
     final email = _emailController.text.trim();
+    final fullname = _fullnameController.text.trim();
     
     if (email.isEmpty || !_isValidEmail(email)) {
       if (mounted) {
@@ -380,19 +389,30 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     }
 
     try {
-      String? error = await ApiService.requestOTP(email);
+      // Use sendOTP (signup flow), not requestOTP (existing-user flow)
+      final result = await ApiService.sendOTP(email, fullname.isNotEmpty ? fullname : null);
       
-      if (error == null) {
+      if (result['error'] == null) {
         _startResendTimer();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP resent to your email!')),
-          );
+          final devOtp = result['devOtp']?.toString();
+          if (devOtp != null && devOtp.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('OTP (use this if email not received): $devOtp'),
+                duration: const Duration(seconds: 30),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('OTP resent to your email!')),
+            );
+          }
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to resend OTP: $error')),
+            SnackBar(content: Text('Failed to resend OTP: ${result['error']}')),
           );
         }
       }
@@ -509,64 +529,83 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   }
 
   Widget _buildEmailField() {
-    return TextField(
-      controller: _emailController,
-      keyboardType: TextInputType.emailAddress,
-      decoration: InputDecoration(
-        hintText: "Enter your email address",
-        errorText: _emailError,
-        prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
-        suffixIcon: Container(
-          margin: const EdgeInsets.all(8),
-          child: ElevatedButton(
-            onPressed: _otpSent ? null : _sendOTP,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _otpSent ? Colors.grey[400] : Colors.blue[600],
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            hintText: "Enter your email address",
+            errorText: _emailError,
+            prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
             ),
-            child: _isSendingOtp
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(
-                    _otpSent ? 'Sent' : 'Send OTP',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF212c59), width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            filled: true,
+            fillColor: Colors.grey[50],
           ),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+        const SizedBox(height: 12),
+        _buildSendOtpButton(),
+      ],
+    );
+  }
+
+  Widget _buildSendOtpButton() {
+    return Container(
+      height: 50,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        image: const DecorationImage(
+          image: AssetImage("assets/images/istetik.png"),
+          fit: BoxFit.cover,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      child: ElevatedButton(
+        onPressed: (_otpSent || _isSendingOtp) ? null : _sendOTP,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF212c59), width: 2), // Dark blue when focused
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        filled: true,
-        fillColor: Colors.grey[50],
+        child: _isSendingOtp
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                _otpSent ? 'OTP SENT' : 'SEND OTP',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
       ),
     );
   }
@@ -774,7 +813,7 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
 
   Widget _buildGenderField() {
     return DropdownButtonFormField<String>(
-      initialValue: _selectedGender,
+      value: _selectedGender,
       items: ['Male', 'Female', 'Prefer not to say']
           .map((gender) => DropdownMenuItem(
                 value: gender,
@@ -1021,7 +1060,7 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           const Text(
-            "NOMU CAFE",
+            "Nomu Cafe",
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,

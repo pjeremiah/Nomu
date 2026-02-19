@@ -22,13 +22,31 @@ const emptyForm = {
   status: "Active"
 };
 
+// Convert API date (ISO string or Date) to datetime-local input value (local time, yyyy-MM-ddTHH:mm)
+const toDatetimeLocal = (isoOrDate) => {
+  if (isoOrDate == null || isoOrDate === '') return '';
+  const d = new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalError, saving }) => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (initialData) {
-      setForm(initialData);
+      setForm({
+        title: initialData.title ?? '',
+        description: initialData.description ?? '',
+        rewardType: initialData.rewardType ?? REWARD_TYPES[0],
+        pointsRequired: initialData.pointsRequired ?? '',
+        startDate: toDatetimeLocal(initialData.startDate),
+        endDate: toDatetimeLocal(initialData.endDate),
+        usageLimit: initialData.usageLimit ?? '',
+        status: initialData.status ?? 'Active'
+      });
     } else {
       setForm(emptyForm);
     }
@@ -342,7 +360,7 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
 
           <div className="admin-form-row" style={{ marginBottom: '0px', display: 'flex', gap: '1px' }}>
             <div className="admin-form-group" style={{ flex: 1 }}>
-              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Start Date</label>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Start Date & Time</label>
               <input
                 type="datetime-local"
                 value={form.startDate}
@@ -371,7 +389,7 @@ const AddEditRewardModal = ({ show, onHide, onSave, editing, initialData, modalE
             </div>
             
             <div className="admin-form-group" style={{ flex: 1 }}>
-              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>End Date</label>
+              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>End Date & Time</label>
               <input
                 type="datetime-local"
                 value={form.endDate}

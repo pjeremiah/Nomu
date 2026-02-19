@@ -58,8 +58,8 @@ class Config {
     }
   }
   
-  // Build-time defines (fallback)
-  static const String _definedHost = String.fromEnvironment('SERVER_HOST');
+  // Build-time defines (fallback) — default host for deployed backend
+  static const String _definedHost = String.fromEnvironment('SERVER_HOST', defaultValue: '192.168.100.3');
   static const String _definedPort = String.fromEnvironment('SERVER_PORT', defaultValue: '5000');
   static const String _definedOpenAIKey = String.fromEnvironment('OPENAI_API_KEY');
 
@@ -72,10 +72,10 @@ class Config {
     final String host = await _resolveHost();
     final String port = await _resolvePort();
     
-    // For web, try HTTPS first, fallback to HTTP for localhost
+    // For web, try HTTPS first, fallback to HTTP for localhost and local IPs
     if (kIsWeb) {
-      if (host == 'localhost' || host == '127.0.0.1') {
-        // For localhost, use HTTP (no CORS issues with same origin)
+      if (host == 'localhost' || host == '127.0.0.1' || host == '10.10.40.40' || host == '192.168.100.3') {
+        // For localhost and local IPs, use HTTP (no CORS issues with same origin)
         return 'http://$host:$port/api';
       } else {
         // For production domains, use HTTPS
@@ -130,27 +130,27 @@ class Config {
       return _envHost;
     }
 
+    if (kIsWeb) {
+      // For web browser, use the current host or fallback to deployed backend IP
+      final String host = Uri.base.host.isNotEmpty ? Uri.base.host : '192.168.100.3';
+      LoggingService.instance.info('Web detected - using host: $host');
+      return host;
+    }
+
+    // Android / mobile: use default deployed backend host when no .env or override
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      LoggingService.instance.info('Android: using default host $_definedHost');
+      return _definedHost.isNotEmpty ? _definedHost : '192.168.100.3';
+    }
+
+    // dart-define or final fallback
     if (_definedHost.isNotEmpty) {
       LoggingService.instance.info('Using defined host: $_definedHost');
       return _definedHost;
     }
 
-    if (kIsWeb) {
-      // For web browser, use the current host or localhost
-      final String host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-      LoggingService.instance.info('Web detected - using host: $host');
-      return host;
-    }
-    
-    // Production backend for mobile app
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      // For production, use the deployed backend
-      LoggingService.instance.info('Android detected - using production backend: nomu-backend.onrender.com');
-      return 'nomu-backend.onrender.com';
-    }
-    
-    LoggingService.instance.info('Fallback to localhost');
-    return 'localhost';
+    LoggingService.instance.info('Fallback to 192.168.100.3');
+    return '192.168.100.3';
   }
 
   static Future<String> _resolvePort() async {

@@ -3,6 +3,7 @@ import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar, FaEdit, FaInstagram,
 import { Grid3X3, Check, Loader2 } from 'lucide-react';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const MAX_MEDIA_PER_POST = 5;
 
 // Helper to resolve media URL (handles absolute and relative)
 const getMediaUrl = (url) => {
@@ -363,29 +364,10 @@ const GalleryManagement = () => {
     const files = Array.from(e.target.files);
     const currentMediaCount = formData.media.length;
     const maxFileSize = 100 * 1024 * 1024; // 100MB per file (increased for better video support)
-    const maxFiles = 5;
-    
-    // Check file count limit
-    if (currentMediaCount + files.length > maxFiles) {
-      const allowedCount = Math.max(0, maxFiles - currentMediaCount);
-      const limitedFiles = files.slice(0, allowedCount);
-      if (limitedFiles.length === 0) {
-        const existingCount = formData.media.filter(m => m.isExisting).length;
-        const newCount = formData.media.filter(m => !m.isExisting).length;
-        setModalError(`Maximum ${maxFiles} files allowed per post. You currently have ${existingCount} existing and ${newCount} new files (total: ${currentMediaCount}). Please remove some media first.`);
-        e.target.value = '';
-        return;
-      }
-      // Replace files with the limited subset and warn
-      setModalError(`Only ${allowedCount} file(s) added to respect the ${maxFiles}-file limit.`);
-      files.length = 0;
-      Array.prototype.push.apply(files, limitedFiles);
-    }
 
     // Validate file sizes
     const invalidFiles = [];
     const validFiles = [];
-    
     files.forEach(file => {
       if (file.size > maxFileSize) {
         invalidFiles.push(file.name);
@@ -398,22 +380,31 @@ const GalleryManagement = () => {
       const fileList = invalidFiles.join(', ');
       const maxSizeMB = maxFileSize / (1024 * 1024);
       setModalError(`The following file(s) exceed the ${maxSizeMB}MB limit: ${fileList}. Please select smaller files.`);
-      // Remove invalid files from the input
       e.target.value = '';
       if (validFiles.length === 0) {
         return;
       }
     }
 
-    // Only process valid files
     const filesToProcess = invalidFiles.length > 0 ? validFiles : files;
+
+    // If adding these files would exceed the limit, do not add any — show alert and stop
+    if (currentMediaCount + filesToProcess.length > MAX_MEDIA_PER_POST) {
+      const existingCount = formData.media.filter(m => m.isExisting).length;
+      const allowedNew = Math.max(0, MAX_MEDIA_PER_POST - currentMediaCount);
+      setModalError(
+        `Maximum ${MAX_MEDIA_PER_POST} media files allowed per post. You have ${existingCount} existing. You tried to add ${filesToProcess.length}; you can add at most ${allowedNew} more. No files were added.`
+      );
+      e.target.value = '';
+      return;
+    }
 
     const newMedia = filesToProcess.map(file => ({
       file,
       preview: URL.createObjectURL(file),
       type: file.type.startsWith('video/') ? 'video' : 'image',
-      isExisting: false, // Mark as new media
-      size: file.size // Store file size for display
+      isExisting: false,
+      size: file.size
     }));
 
     setFormData(prev => ({
@@ -421,7 +412,6 @@ const GalleryManagement = () => {
       media: [...prev.media, ...newMedia]
     }));
 
-    // Clear error if files were successfully added
     if (invalidFiles.length === 0 && newMedia.length > 0) {
       setModalError('');
     }
@@ -464,13 +454,15 @@ const GalleryManagement = () => {
         return;
       }
 
-      // Validate total media count (existing kept + new) doesn't exceed 5
+      // Validate total media count (existing kept + new) does not exceed maximum
       const existingMediaCount = formData.media.filter(media => media.isExisting).length;
       const newMediaCount = formData.media.filter(media => !media.isExisting && media.file).length;
       const totalMediaCount = existingMediaCount + newMediaCount;
-      
-      if (totalMediaCount > 5) {
-        setModalError(`Maximum 5 media files allowed per post. You have ${existingMediaCount} existing and are trying to add ${newMediaCount} new files (total: ${totalMediaCount}). Please remove some media first.`);
+
+      if (totalMediaCount > MAX_MEDIA_PER_POST) {
+        const message = `Maximum ${MAX_MEDIA_PER_POST} media files allowed per post. You have ${existingMediaCount} existing and ${newMediaCount} new (total: ${totalMediaCount}). Remove at least ${totalMediaCount - MAX_MEDIA_PER_POST} before updating.`;
+        setModalError(message);
+        alert(message);
         setIsEditing(false);
         return;
       }

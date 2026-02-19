@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api/api.dart';
+import 'config.dart';
 import 'homepage.dart';
 import 'sign_up.dart';
 import 'forgot_password_page.dart';
@@ -69,7 +70,93 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       // Continue without loading saved credentials if there's an error
     }
   }
- 
+
+  Future<void> _showServerSettings() async {
+    final current = await Config.currentResolvedServer();
+    final isOverride = await Config.isUsingManualOverride();
+    final hostController = TextEditingController(text: current['host'] ?? '');
+    final portController = TextEditingController(text: current['port'] ?? '5000');
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Server settings'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set your backend server so the app can connect (e.g. when your phone is on Wi‑Fi and PC is on LAN).',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: hostController,
+                decoration: const InputDecoration(
+                  labelText: 'Host (e.g. 192.168.1.105 or 10.0.2.2 for emulator)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                autocorrect: false,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: portController,
+                decoration: const InputDecoration(
+                  labelText: 'Port (usually 5000)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              if (isOverride) ...[
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () async {
+                    await Config.clearServerOverride();
+                    if (ctx.mounted) {
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Server reset to default')),
+                      );
+                    }
+                  },
+                  child: const Text('Reset to default'),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final host = hostController.text.trim();
+              final port = portController.text.trim();
+              if (host.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter a host (e.g. your PC IP)')),
+                );
+                return;
+              }
+              await Config.setServerOverride(host: host, port: port.isNotEmpty ? port : '5000');
+              if (ctx.mounted) Navigator.of(ctx).pop();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Server set to $host:${port.isEmpty ? '5000' : port}. Try logging in again.')),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
  
   @override
   void dispose() {
@@ -83,7 +170,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     myColor = const Color(0xFF212c59);
     mediaSize = MediaQuery.of(context).size;
- 
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -97,21 +184,34 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               ),
             ),
             SafeArea(
-              child: Column(
+              child: Stack(
                 children: [
-                  SizedBox(height: mediaSize.height * 0.08),
-                  FadeTransition(
-                    opacity: _fadeInAnimation,
-                    child: _buildTop(),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: SlideTransition(
-                      position: _slideInAnimation,
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: _buildBottom(),
+                  Column(
+                    children: [
+                      SizedBox(height: mediaSize.height * 0.08),
+                      FadeTransition(
+                        opacity: _fadeInAnimation,
+                        child: _buildTop(),
                       ),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: SlideTransition(
+                          position: _slideInAnimation,
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: _buildBottom(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 12,
+                    child: TextButton.icon(
+                      onPressed: _showServerSettings,
+                      icon: const Icon(Icons.settings_ethernet, color: Colors.white70, size: 20),
+                      label: const Text('Server', style: TextStyle(color: Colors.white70, fontSize: 12)),
                     ),
                   ),
                 ],
@@ -137,7 +237,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           const Text(
-            "NOMU CAFE",
+            "Nomu Cafe",
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -391,10 +491,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 errorMessage = 'Login successful but no user data received. Please try again.';
               } else if (e.toString().contains('Invalid request')) {
                 errorMessage = 'Invalid request. Please check your email format and try again.';
-              } else if (e.toString().contains('timeout')) {
-                errorMessage = 'Login timed out. Please check your internet connection and try again.';
+              } else if (e.toString().toLowerCase().contains('timeout')) {
+                errorMessage = 'Cannot reach server. On this device, tap Server (top right), enter your computer\'s IP (e.g. 192.168.1.x) and port 5000, then try again. Ensure the backend is running on the same network.';
               } else if (e.toString().contains('SocketException')) {
-                errorMessage = 'Network error. Please check your internet connection and try again.';
+                errorMessage = 'Network error. Tap Server (top right) to set your computer\'s IP and port 5000. Ensure the backend is running.';
               }
               
               ScaffoldMessenger.of(context).showSnackBar(

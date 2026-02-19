@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash, FaCoffee } from 'react-icons/fa';
 import { Coffee, Check, Loader2 } from 'lucide-react';
 import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
@@ -371,6 +371,108 @@ const MenuManagement = () => {
         title="Menu Management" 
         icon={Coffee}     
       />
+
+      {/* Active / Inactive Menu Items summary - same layout as Admin Dashboard stat cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '0.75rem',
+        marginBottom: '1.5rem'
+      }}
+      className="stats-grid">
+        <div
+          className="stat-card"
+          style={{
+            background: '#fff',
+            padding: '1.5rem 0.75rem',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+            border: '1px solid #e9ecef',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            cursor: 'pointer'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)';
+          }}
+        >
+          <div style={{
+            fontSize: '1.6rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            width: '48px',
+            height: '48px',
+            background: '#f3e5f5',
+            color: '#7b1fa2',
+            marginLeft: '0.5rem'
+          }}>
+            <FaCoffee />
+          </div>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '0.8rem', color: '#6c757d', fontWeight: 500, marginBottom: '0.5rem' }}>
+              Active Menu Items
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#212c59' }}>
+              {loading ? '…' : items.filter(item => item.status === 'active').length}
+            </div>
+          </div>
+        </div>
+        <div
+          className="stat-card"
+          style={{
+            background: '#fff',
+            padding: '1.5rem 0.75rem',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+            border: '1px solid #e9ecef',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            cursor: 'pointer'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)';
+          }}
+        >
+          <div style={{
+            fontSize: '1.6rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            width: '48px',
+            height: '48px',
+            background: '#eceff1',
+            color: '#546e7a',
+            marginLeft: '0.5rem'
+          }}>
+            <FaEyeSlash />
+          </div>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '0.8rem', color: '#6c757d', fontWeight: 500, marginBottom: '0.5rem' }}>
+              Inactive Menu Items
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#212c59' }}>
+              {loading ? '…' : items.filter(item => item.status === 'disabled').length}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="search-filter-container" style={{
         background: '#fff',

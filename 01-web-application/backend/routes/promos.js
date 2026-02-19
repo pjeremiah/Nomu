@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const mongoose = require('mongoose');
 const Promo = require('../models/Promo');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -243,11 +241,15 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Promo not found' });
     }
 
-    // Delete associated image if exists
+    // Delete image from database (GridFS) if exists - admin images are stored in DB, not local storage
     if (promo.imageUrl) {
-      const imagePath = path.join(__dirname, '..', promo.imageUrl);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+      const match = promo.imageUrl.match(/^\/api\/images\/promo\/([a-fA-F0-9]{24})$/);
+      if (match && req.app.locals.gfsPromo) {
+        try {
+          await req.app.locals.gfsPromo.delete(new mongoose.Types.ObjectId(match[1]));
+        } catch (gfsErr) {
+          console.warn('GridFS promo image delete (non-fatal):', gfsErr.message);
+        }
       }
     }
 

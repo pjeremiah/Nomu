@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const { GridFSBucket } = require('mongodb');
 
+// All admin images are stored in the database (MongoDB GridFS), not in local disk or browser localStorage.
+// Buckets: promo_images, menu_images, inventory_images, profile_images, gallery_media.
+
 // Custom GridFS storage engine
 const createGridFSStorage = (bucketName) => {
   return {

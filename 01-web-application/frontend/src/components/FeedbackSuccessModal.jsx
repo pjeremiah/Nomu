@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Check } from 'lucide-react';
 
 const ModalBackdrop = styled.div`
   position: fixed;
@@ -54,12 +55,6 @@ const SuccessIcon = styled.div`
   justify-content: center;
   margin: 0 auto 24px;
   box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
-
-  svg {
-    width: 40px;
-    height: 40px;
-    color: white;
-  }
 `;
 
 const Title = styled.h2`
@@ -116,10 +111,7 @@ const FeedbackSuccessModal = ({ isOpen, onClose }) => {
     <ModalBackdrop onClick={onClose}>
       <ModalContent onClick={e => e.stopPropagation()}>
         <SuccessIcon>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 12l2 2 4-4"/>
-            <circle cx="12" cy="12" r="10"/>
-          </svg>
+          <Check size={40} color="white" strokeWidth={2.5} />
         </SuccessIcon>
         <Title>Feedback Submitted Successfully!</Title>
         <Message>Thank you for your feedback! We appreciate your message and will get back to you soon.</Message>

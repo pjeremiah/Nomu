@@ -1,6 +1,6 @@
 # High-Volume Security Implementation
 
-This document outlines the high-volume security features implemented for the NOMU mobile applications to handle large numbers of customers and baristas securely.
+This document outlines the high-volume security features implemented for the Nomu mobile applications to handle large numbers of customers and baristas securely.
 
 ## 🔒 Security Features Implemented
 

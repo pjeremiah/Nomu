@@ -3,6 +3,8 @@ const { ipKeyGenerator } = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
+const _log = () => {}; // verbose logs disabled
+
 // In-memory stores for rate limiting and abuse detection
 // In production, use Redis for better performance and persistence
 const employeeScans = new Map(); // employeeId -> { hourly: [], daily: [], lastScan: timestamp }
@@ -16,13 +18,12 @@ let io = null; // Socket.IO instance for real-time notifications
 // Initialize notification system
 function initializeNotifications(socketIO) {
   io = socketIO;
-  console.log('🔔 [NOTIFICATIONS] Security notification system initialized');
 }
 
 // Send notification to customer about scan limits
 async function notifyCustomerScanLimit(customerId, limitType, currentCount, maxLimit) {
   if (!io) {
-    console.log('⚠️ [NOTIFICATIONS] Socket.IO not initialized, cannot send notification');
+    _log('⚠️ [NOTIFICATIONS] Socket.IO not initialized, cannot send notification');
     return;
   }
 
@@ -43,7 +44,7 @@ async function notifyCustomerScanLimit(customerId, limitType, currentCount, maxL
     // Emit to all connected clients (customer apps will filter by customerId)
     io.emit('customer_scan_limit', notification);
     
-    console.log(`🔔 [NOTIFICATIONS] Scan limit notification sent to customer ${customerId}:`, {
+    _log(`🔔 [NOTIFICATIONS] Scan limit notification sent to customer ${customerId}:`, {
       limitType,
       currentCount,
       maxLimit
@@ -76,7 +77,7 @@ async function notifyCustomerApproachingLimit(customerId, limitType, currentCoun
 
     io.emit('customer_scan_warning', notification);
     
-    console.log(`⚠️ [NOTIFICATIONS] Scan limit warning sent to customer ${customerId}:`, {
+    _log(`⚠️ [NOTIFICATIONS] Scan limit warning sent to customer ${customerId}:`, {
       limitType,
       currentCount,
       maxLimit,
@@ -91,7 +92,7 @@ async function notifyCustomerApproachingLimit(customerId, limitType, currentCoun
 // Configuration from environment variables
 const config = {
   // IP-based rate limiting
-  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 5 * 60 * 1000, // 5 minutes
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   
   // Employee limits
@@ -278,12 +279,12 @@ function detectAbuse(employeeId, customerId) {
   
   // Check for suspicious patterns
   if (patterns.sameCustomerMultipleTimes > config.abuseThresholdSameCustomer) {
-    console.log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning same customer ${customerId} repeatedly (${patterns.sameCustomerMultipleTimes} times)`);
+    _log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning same customer ${customerId} repeatedly (${patterns.sameCustomerMultipleTimes} times)`);
     return true;
   }
   
   if (patterns.rapidFireScans > config.abuseThresholdRapidScans) {
-    console.log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning too rapidly (${patterns.rapidFireScans} scans)`);
+    _log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning too rapidly (${patterns.rapidFireScans} scans)`);
     return true;
   }
   
@@ -322,7 +323,7 @@ function checkScanHours(employeeId) {
   return hour >= 23 || hour <= 5;
 }
 
-// JWT token generation for QR codes
+// JWT token generation for QR codes (long-lived, stored on user)
 function generateQrToken(userId) {
   return jwt.sign(
     {
@@ -333,6 +334,21 @@ function generateQrToken(userId) {
     },
     process.env.JWT_SECRET,
     { expiresIn: config.jwtQrExpiry }
+  );
+}
+
+// Short-lived token for display in QR dialog (changes every time user opens QR)
+const SCAN_TOKEN_EXPIRY = '5m';
+function generateScanToken(userId) {
+  return jwt.sign(
+    {
+      userId: userId,
+      sessionId: uuidv4(),
+      type: 'qr_scan',
+      iat: Math.floor(Date.now() / 1000)
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: SCAN_TOKEN_EXPIRY }
   );
 }
 
@@ -422,6 +438,7 @@ module.exports = {
   recordCustomerScan,
   detectAbuse,
   generateQrToken,
+  generateScanToken,
   validateJwtToken,
   securityHeaders,
   corsSecurity,

@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "loyalty-point-added",
+  "description": "Socket payload for loyalty-point-added event. Use in barista server and mobile-backend so the mobile app can update the correct user.",
+  "type": "object",
+  "required": ["qrToken", "points"],
+  "properties": {
+    "qrToken": {
+      "type": "string",
+      "description": "Customer QR token. Mobile app matches this to the logged-in user."
+    },
+    "userId": {
+      "type": ["string", "null"],
+      "description": "Customer ID (e.g. MongoDB _id as string). Optional."
+    },
+    "points": {
+      "type": "number",
+      "description": "Current loyalty points after this transaction. Must be number."
+    },
+    "drink": {
+      "type": "string",
+      "description": "Order item/drink name."
+    },
+    "itemName": {
+      "type": "string",
+      "description": "Same as drink; app may use either."
+    },
+    "totalOrders": {
+      "type": "number",
+      "description": "Count of past orders."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event occurred."
+    },
+    "message": {
+      "type": "string",
+      "description": "Log/notification message."
+    },
+    "customerMessage": {
+      "type": ["string", "null"],
+      "description": "Message to show the customer (e.g. snackbar)."
+    }
+  },
+  "additionalProperties": true
+}

@@ -44,7 +44,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   bool _isValidPassword(String password) {
-    return password.length >= 6;
+    final hasMinLength = password.length >= 8;
+    final hasUpper = password.contains(RegExp(r'[A-Z]'));
+    final hasLower = password.contains(RegExp(r'[a-z]'));
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
+    final hasSpecial = password.contains(RegExp(r'[!@#\$%^&*(),.?\":{}|<>]'));
+    return hasMinLength && hasUpper && hasLower && hasDigit && hasSpecial;
   }
 
   Future<void> _sendOTP() async {

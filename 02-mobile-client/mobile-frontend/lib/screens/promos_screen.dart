@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/promo.dart';
 import '../services/promo_service.dart';
 import '../widgets/promo_card.dart';
+import '../widgets/empty_state.dart';
 import '../config.dart';
 
 class PromosScreen extends StatefulWidget {
@@ -46,18 +47,47 @@ class _PromosScreenState extends State<PromosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Promotions'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        actions: [
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      height: 70,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/istetik.png'),
+          fit: BoxFit.cover,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Promotions',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadPromos,
+            icon: const Icon(Icons.refresh, color: Colors.white, size: 24),
+            onPressed: isLoading ? null : _loadPromos,
           ),
         ],
       ),
-      body: _buildBody(),
     );
   }
 
@@ -100,26 +130,7 @@ class _PromosScreenState extends State<PromosScreen> {
     }
 
     if (promos.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.local_offer_outlined,
-              size: 64,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'No active promotions',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      );
+      return EmptyStates.noPromos();
     }
 
     return RefreshIndicator(

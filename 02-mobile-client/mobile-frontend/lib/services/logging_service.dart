@@ -58,7 +58,7 @@ class LoggingService {
       try {
         developer.log(
           message,
-          name: 'NOMU_APP',
+          name: 'Nomu_APP',
           level: 800,
           time: DateTime.now(),
           error: error,
@@ -84,7 +84,7 @@ class LoggingService {
       try {
         developer.log(
           message,
-          name: 'NOMU_APP',
+          name: 'Nomu_APP',
           level: 900,
           time: DateTime.now(),
           error: error,
@@ -109,7 +109,7 @@ class LoggingService {
       try {
         developer.log(
           message,
-          name: 'NOMU_APP',
+          name: 'Nomu_APP',
           level: 1000,
           time: DateTime.now(),
           error: error,
@@ -126,7 +126,7 @@ class LoggingService {
     try {
       developer.log(
         message,
-        name: 'NOMU_APP',
+        name: 'Nomu_APP',
         level: 800,
         time: DateTime.now(),
         error: data,
@@ -142,20 +142,22 @@ class LoggingService {
     final fullMessage = '🔌 [SOCKET] $message';
     if (kDebugMode) {
       try {
-        _logger.i(fullMessage, error: data);
+        if (data != null) {
+          _logger.i(fullMessage, error: data);
+        } else {
+          _logger.i(fullMessage);
+        }
       } catch (e) {
         print('SOCKET: $fullMessage');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          fullMessage,
-          name: 'NOMU_SOCKET',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(fullMessage, name: 'Nomu_SOCKET', level: 800, time: DateTime.now(), error: data);
+        } else {
+          developer.log(fullMessage, name: 'Nomu_SOCKET', level: 800, time: DateTime.now());
+        }
       } catch (e) {
         print('SOCKET: $fullMessage');
         if (data != null) print('Data: $data');
@@ -168,20 +170,22 @@ class LoggingService {
     final fullMessage = '🏠 [HOMEPAGE] $message';
     if (kDebugMode) {
       try {
-        _logger.i(fullMessage, error: data);
+        if (data != null) {
+          _logger.i(fullMessage, error: data);
+        } else {
+          _logger.i(fullMessage);
+        }
       } catch (e) {
         print('HOMEPAGE: $fullMessage');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          fullMessage,
-          name: 'NOMU_HOMEPAGE',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(fullMessage, name: 'Nomu_HOMEPAGE', level: 800, time: DateTime.now(), error: data);
+        } else {
+          developer.log(fullMessage, name: 'Nomu_HOMEPAGE', level: 800, time: DateTime.now());
+        }
       } catch (e) {
         print('HOMEPAGE: $fullMessage');
         if (data != null) print('Data: $data');
@@ -194,20 +198,33 @@ class LoggingService {
     final fullMessage = '🎯 [LOYALTY] $message';
     if (kDebugMode) {
       try {
-        _logger.i(fullMessage, error: data);
+        if (data != null) {
+          _logger.i(fullMessage, error: data);
+        } else {
+          _logger.i(fullMessage);
+        }
       } catch (e) {
         print('LOYALTY: $fullMessage');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          fullMessage,
-          name: 'NOMU_LOYALTY',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(
+            fullMessage,
+            name: 'Nomu_LOYALTY',
+            level: 800,
+            time: DateTime.now(),
+            error: data,
+          );
+        } else {
+          developer.log(
+            fullMessage,
+            name: 'Nomu_LOYALTY',
+            level: 800,
+            time: DateTime.now(),
+          );
+        }
       } catch (e) {
         print('LOYALTY: $fullMessage');
         if (data != null) print('Data: $data');
@@ -220,20 +237,22 @@ class LoggingService {
     final fullMessage = '🌐 [API] $message';
     if (kDebugMode) {
       try {
-        _logger.i(fullMessage, error: data);
+        if (data != null) {
+          _logger.i(fullMessage, error: data);
+        } else {
+          _logger.i(fullMessage);
+        }
       } catch (e) {
         print('API: $fullMessage');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          fullMessage,
-          name: 'NOMU_API',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(fullMessage, name: 'Nomu_API', level: 800, time: DateTime.now(), error: data);
+        } else {
+          developer.log(fullMessage, name: 'Nomu_API', level: 800, time: DateTime.now());
+        }
       } catch (e) {
         print('API: $fullMessage');
         if (data != null) print('Data: $data');
@@ -246,20 +265,22 @@ class LoggingService {
     final fullMessage = '🎯 [PROMO] $message';
     if (kDebugMode) {
       try {
-        _logger.i(fullMessage, error: data);
+        if (data != null) {
+          _logger.i(fullMessage, error: data);
+        } else {
+          _logger.i(fullMessage);
+        }
       } catch (e) {
         print('PROMO: $fullMessage');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          fullMessage,
-          name: 'NOMU_PROMO',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(fullMessage, name: 'Nomu_PROMO', level: 800, time: DateTime.now(), error: data);
+        } else {
+          developer.log(fullMessage, name: 'Nomu_PROMO', level: 800, time: DateTime.now());
+        }
       } catch (e) {
         print('PROMO: $fullMessage');
         if (data != null) print('Data: $data');
@@ -272,20 +293,22 @@ class LoggingService {
     final message = '⚡ [PERFORMANCE] $operation took ${durationMs}ms';
     if (kDebugMode) {
       try {
-        _logger.i(message, error: data);
+        if (data != null) {
+          _logger.i(message, error: data);
+        } else {
+          _logger.i(message);
+        }
       } catch (e) {
         print('PERFORMANCE: $message');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          message,
-          name: 'NOMU_PERFORMANCE',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(message, name: 'Nomu_PERFORMANCE', level: 800, time: DateTime.now(), error: data);
+        } else {
+          developer.log(message, name: 'Nomu_PERFORMANCE', level: 800, time: DateTime.now());
+        }
       } catch (e) {
         print('PERFORMANCE: $message');
         if (data != null) print('Data: $data');
@@ -298,20 +321,22 @@ class LoggingService {
     final fullMessage = '🚪 [LOGOUT] $message';
     if (kDebugMode) {
       try {
-        _logger.i(fullMessage, error: data);
+        if (data != null) {
+          _logger.i(fullMessage, error: data);
+        } else {
+          _logger.i(fullMessage);
+        }
       } catch (e) {
         print('LOGOUT: $fullMessage');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          fullMessage,
-          name: 'NOMU_LOGOUT',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(fullMessage, name: 'Nomu_LOGOUT', level: 800, time: DateTime.now(), error: data);
+        } else {
+          developer.log(fullMessage, name: 'Nomu_LOGOUT', level: 800, time: DateTime.now());
+        }
       } catch (e) {
         print('LOGOUT: $fullMessage');
         if (data != null) print('Data: $data');
@@ -324,20 +349,22 @@ class LoggingService {
     final fullMessage = '🔐 [AUTH] $message';
     if (kDebugMode) {
       try {
-        _logger.i(fullMessage, error: data);
+        if (data != null) {
+          _logger.i(fullMessage, error: data);
+        } else {
+          _logger.i(fullMessage);
+        }
       } catch (e) {
         print('AUTH: $fullMessage');
         if (data != null) print('Data: $data');
       }
     } else {
       try {
-        developer.log(
-          fullMessage,
-          name: 'NOMU_AUTH',
-          level: 800,
-          time: DateTime.now(),
-          error: data,
-        );
+        if (data != null) {
+          developer.log(fullMessage, name: 'Nomu_AUTH', level: 800, time: DateTime.now(), error: data);
+        } else {
+          developer.log(fullMessage, name: 'Nomu_AUTH', level: 800, time: DateTime.now());
+        }
       } catch (e) {
         print('AUTH: $fullMessage');
         if (data != null) print('Data: $data');

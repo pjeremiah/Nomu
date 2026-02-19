@@ -672,11 +672,16 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
       }
     }
 
-    // Get all menu items to map drink names to categories
-    const menuItems = await MenuItem.find({ status: 'active' });
+    // Build map: menu item name -> category (exact and lowercase so pastOrders match)
+    const menuItems = await MenuItem.find({ status: 'active' }).lean();
     const drinkToCategory = {};
-    menuItems.forEach(item => {
-      drinkToCategory[item.name] = item.category;
+    menuItems.forEach((menuItem) => {
+      const name = (menuItem.name != null ? String(menuItem.name) : '').trim();
+      const cat = menuItem.category;
+      if (!name || !cat) return;
+      drinkToCategory[name] = cat;
+      const nameLower = name.toLowerCase();
+      if (!drinkToCategory[nameLower]) drinkToCategory[nameLower] = cat;
     });
 
     // Aggregate past orders
@@ -704,38 +709,25 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
       { $sort: { totalQuantity: -1 } }
     ]);
 
-    // Group by category
+    // Group by category using menu item category; skip unknown items (do not show in By Category)
     const categoryStats = {};
+    const validCategories = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
     bestSellersByCategory.forEach(item => {
-      let category = drinkToCategory[item.itemName] || 'Unknown';
-      
-      // Enhanced special handling: if item contains pizza-related terms, categorize as "Pizzas"
-      if (item.itemName && (
-        item.itemName.toLowerCase().includes('pizza') ||
-        item.itemName.toLowerCase().includes('pizzetta') ||
-        item.itemName.toLowerCase().includes('pizazzetta') ||
-        item.itemName.toLowerCase().includes('cheese') && item.itemName.toLowerCase().includes('(') ||
-        item.itemName.toLowerCase().includes('pesto') && item.itemName.toLowerCase().includes('(') ||
-        item.itemName.toLowerCase().includes('spinach') && item.itemName.toLowerCase().includes('(') ||
-        item.itemName.toLowerCase().includes('salame') && item.itemName.toLowerCase().includes('(') ||
-        item.itemName.toLowerCase().includes('(12th)') ||
-        item.itemName.toLowerCase().includes('(pizzetta)') ||
-        item.itemName.toLowerCase().includes('(pizazzetta)')
-      )) {
-        category = 'Pizzas';
+      const rawName = item.itemName != null ? String(item.itemName).trim() : '';
+      if (!rawName) return;
+      const nameKeyLower = rawName.toLowerCase();
+      const category = drinkToCategory[rawName] || drinkToCategory[nameKeyLower];
+
+      // Unknown item (not in menu): skip so it does not appear in By Category at all
+      if (!category) {
+        return;
       }
-      
-      // Map "Unknown" category to "Pizzas" to consolidate categories
-      if (category === 'Unknown') {
-        category = 'Pizzas';
-      }
-      
-      // Only include valid categories: Donuts, Drinks, Pastries, Pizzas
-      const validCategories = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
+
+      // Only allow valid menu categories (Donuts, Drinks, Pastries, Pizzas)
       if (!validCategories.includes(category)) {
-        category = 'Pizzas'; // Default to Pizzas for any other categories
+        return;
       }
-      
+
       if (!categoryStats[category]) {
         categoryStats[category] = [];
       }
@@ -760,6 +752,7 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
       };
     });
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.json({
       categories: categoryStats,
       categoryTotals,

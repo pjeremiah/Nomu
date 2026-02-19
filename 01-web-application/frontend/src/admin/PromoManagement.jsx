@@ -21,13 +21,31 @@ const emptyForm = {
   image: null 
 };
 
+// Convert API date (ISO string or Date) to datetime-local input value (local time, yyyy-MM-ddTHH:mm)
+const toDatetimeLocal = (isoOrDate) => {
+  if (isoOrDate == null || isoOrDate === '') return '';
+  const d = new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const AddEditPromoModal = ({ show, onHide, onSave, editing, initialData, modalError, saving }) => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (initialData) {
-      setForm(initialData);
+      setForm({
+        title: initialData.title ?? '',
+        description: initialData.description ?? '',
+        promoType: initialData.promoType ?? PROMO_TYPES[0],
+        discountValue: initialData.discountValue ?? '',
+        startDate: toDatetimeLocal(initialData.startDate),
+        endDate: toDatetimeLocal(initialData.endDate),
+        status: initialData.status ?? 'Active',
+        image: null
+      });
     } else {
       setForm(emptyForm);
     }

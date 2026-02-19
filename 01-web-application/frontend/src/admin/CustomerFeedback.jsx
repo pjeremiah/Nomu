@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaEye, FaReply, FaClock, FaCheckCircle, FaStar, FaSpinner, FaCog } from 'react-icons/fa';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Check, X } from 'lucide-react';
 import { MdNotifications } from 'react-icons/md';
-import { X } from 'lucide-react';
 import Pagination from 'react-bootstrap/Pagination';
 import PageHeader from './components/PageHeader';
 
@@ -50,6 +49,7 @@ const CustomerFeedback = () => {
   }, [showReplyModal, showViewReplyModal]);
   const [replyMessage, setReplyMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showReplySuccessModal, setShowReplySuccessModal] = useState(false);
 
   // Fetch feedback data
   const fetchFeedback = async () => {
@@ -155,6 +155,9 @@ const CustomerFeedback = () => {
         window.dispatchEvent(new CustomEvent('adminAction', { 
           detail: { action: 'feedback_replied', customer: selectedFeedback.name } 
         }));
+        
+        // Show success modal
+        setTimeout(() => setShowReplySuccessModal(true), 120);
       } else {
         const errorData = await response.json();
         setModalError(errorData.message || 'Failed to send reply');
@@ -1042,6 +1045,81 @@ const CustomerFeedback = () => {
                  </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reply sent success modal - icon and button match FeedbackSuccessModal */}
+      {showReplySuccessModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1001,
+          padding: '20px',
+          boxSizing: 'border-box'
+        }} onClick={() => setShowReplySuccessModal(false)}>
+          <style>{`
+            .reply-success-modal .reply-success-close-btn:hover {
+              background: #212c59 !important;
+              color: white !important;
+              border-color: #1a2347 !important;
+              transform: translateY(-2px);
+              box-shadow: 0 4px 12px rgba(33, 44, 89, 0.3);
+            }
+            .reply-success-modal .reply-success-close-btn:active {
+              background: #1a2347 !important;
+              border-color: #1a2347 !important;
+              transform: translateY(0);
+              box-shadow: 0 2px 10px rgba(33, 44, 89, 0.3);
+            }
+          `}</style>
+          <div className="admin-modal reply-success-modal" onClick={(e) => e.stopPropagation()} style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)'
+          }}>
+            <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)' }}>
+              <Check size={40} color="white" strokeWidth={2.5} />
+            </div>
+            <h3 style={{ margin: '0 0 12px', color: '#212c59', fontWeight: '700', fontSize: '1.25rem' }}>
+              Reply sent successfully!
+            </h3>
+            <p style={{ margin: '0 0 32px', color: '#5a6c7d', fontSize: '0.95rem', lineHeight: 1.5 }}>
+              Your reply has been sent to the customer.
+            </p>
+            <button
+              type="button"
+              className="reply-success-close-btn"
+              onClick={() => setShowReplySuccessModal(false)}
+              style={{
+                background: 'white',
+                color: '#212c59',
+                border: '2px solid #212c59',
+                borderRadius: '12px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontWeight: 600,
+                fontFamily: 'Montserrat, sans-serif',
+                cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 2px 8px rgba(33, 44, 89, 0.1)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

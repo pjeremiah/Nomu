@@ -2509,24 +2509,6 @@ const Gallery = () => {
                   </MediaIndicator>
                 )}
               </MediaContainer>
-
-              {/* Outer Navigation Arrows (for different posts) */}
-              {posts.length > 1 && (
-                <>
-                  <OuterLeftArrow 
-                    onClick={prevPost}
-                    disabled={currentPostIndex === 0}
-                  >
-                    <FaChevronLeft />
-                  </OuterLeftArrow>
-                  <OuterRightArrow 
-                    onClick={nextPost}
-                    disabled={currentPostIndex === posts.length - 1}
-                  >
-                    <FaChevronRight />
-                  </OuterRightArrow>
-                </>
-              )}
             </MediaSection>
 
             {/* Right Side - Details Section */}

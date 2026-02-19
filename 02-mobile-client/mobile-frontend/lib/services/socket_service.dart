@@ -29,6 +29,10 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   StreamController<Map<String, dynamic>> _scanWarningController = 
       StreamController<Map<String, dynamic>>.broadcast();
+  
+  // Order completion event streams
+  StreamController<Map<String, dynamic>> _orderCompletionController = 
+      StreamController<Map<String, dynamic>>.broadcast();
 
   // Getters for streams
   Stream<Map<String, dynamic>> get loyaltyPointStream => _loyaltyPointController.stream;
@@ -43,6 +47,9 @@ class SocketService {
   // Scan limit stream getters
   Stream<Map<String, dynamic>> get scanLimitStream => _scanLimitController.stream;
   Stream<Map<String, dynamic>> get scanWarningStream => _scanWarningController.stream;
+  
+  // Order completion stream getter
+  Stream<Map<String, dynamic>> get orderCompletionStream => _orderCompletionController.stream;
 
   // Singleton pattern
   static SocketService get instance {
@@ -278,6 +285,18 @@ class SocketService {
         LoggingService.instance.error('Error handling customer scan warning event', e);
       }
     });
+
+    // Listen for order completion events
+    _socket!.on('order_completion_notification', (data) {
+      try {
+        LoggingService.instance.socket('Order completion notification', data);
+        if (!_orderCompletionController.isClosed) {
+          _orderCompletionController.add(Map<String, dynamic>.from(data));
+        }
+      } catch (e) {
+        LoggingService.instance.error('Error handling order completion notification event', e);
+      }
+    });
   }
 
   // Wait for socket connection to be established
@@ -341,6 +360,15 @@ class SocketService {
     if (!_promoDeletedController.isClosed) {
       _promoDeletedController.close();
     }
+    if (!_scanLimitController.isClosed) {
+      _scanLimitController.close();
+    }
+    if (!_scanWarningController.isClosed) {
+      _scanWarningController.close();
+    }
+    if (!_orderCompletionController.isClosed) {
+      _orderCompletionController.close();
+    }
     
     // Recreate stream controllers for fresh state
     _loyaltyPointController = StreamController<Map<String, dynamic>>.broadcast();
@@ -349,6 +377,9 @@ class SocketService {
     _promoUpdatedController = StreamController<Map<String, dynamic>>.broadcast();
     _newPromoCreatedController = StreamController<Map<String, dynamic>>.broadcast();
     _promoDeletedController = StreamController<Map<String, dynamic>>.broadcast();
+    _scanLimitController = StreamController<Map<String, dynamic>>.broadcast();
+    _scanWarningController = StreamController<Map<String, dynamic>>.broadcast();
+    _orderCompletionController = StreamController<Map<String, dynamic>>.broadcast();
     
     LoggingService.instance.socket('Socket service reset complete');
   }
@@ -455,6 +486,9 @@ class SocketService {
     }
     if (!_scanWarningController.isClosed) {
       _scanWarningController.close();
+    }
+    if (!_orderCompletionController.isClosed) {
+      _orderCompletionController.close();
     }
   }
 }

@@ -48,4 +48,9 @@ build/
 # Temporary files
 *.tmp
 *.temp
+
+# Large archives and backup folders
+*.zip
+02-mobile-client (OLD)/
+03-mobile-barista (OLD)/
 .cache/

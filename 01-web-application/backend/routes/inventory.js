@@ -137,7 +137,7 @@ router.get('/dashboard', authMiddleware, requireAdmin, async (req, res) => {
       InventoryItem.countDocuments({ 
         status: 'active',
         currentStock: { $gt: 0 },
-        $expr: { $lt: ['$currentStock', '$minimumThreshold'] }
+        $expr: { $lte: ['$currentStock', '$minimumThreshold'] }
       }),
       InventoryItem.countDocuments({ 
         status: 'active',
@@ -162,11 +162,11 @@ router.get('/dashboard', authMiddleware, requireAdmin, async (req, res) => {
       ])
     ]);
 
-    // Debug: Find actual low stock items
+    // Debug: Find actual low stock items (currentStock <= minimumThreshold, excluding out of stock)
     const actualLowStockItems = await InventoryItem.find({ 
       status: 'active',
       currentStock: { $gt: 0 },
-      $expr: { $lt: ['$currentStock', '$minimumThreshold'] }
+      $expr: { $lte: ['$currentStock', '$minimumThreshold'] }
     }).select('name currentStock minimumThreshold');
 
 
