@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'config.dart';
 import 'services/logging_service.dart';
 import 'services/openai_service.dart';
@@ -17,11 +15,9 @@ class HelpSupportPage extends StatefulWidget {
 
 class _HelpSupportPageState extends State<HelpSupportPage> {
   final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> _messages = [];
   bool _loading = false;
   String? _error;
-  bool _lastMessageWasQuickQuestion = false;
 
   Future<String> get backendUrl async {
     final base = await Config.apiBaseUrl;
@@ -34,240 +30,24 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     _fetchHistory();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
   Future<void> _fetchHistory() async {
-    // Check if history was cleared using SharedPreferences FIRST
-    final prefs = await SharedPreferences.getInstance();
-    final historyClearedKey = 'chat_history_cleared_${widget.userId}';
-    final isHistoryCleared = prefs.getBool(historyClearedKey) ?? false;
-    
-    if (isHistoryCleared) {
-      LoggingService.instance.info('Skipping history fetch - history was cleared for user ${widget.userId}');
-      setState(() {
-        _messages = [];
-        _loading = false;
-      });
-      return;
-    }
-    
     setState(() { _loading = true; _error = null; });
     try {
       final bu = await backendUrl;
       final res = await http.get(Uri.parse('$bu/api/chat/history/${widget.userId}'));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
-        final fetchedMessages = List<Map<String, dynamic>>.from(data['messages'] ?? []);
-        
-        // Double-check the cleared flag before setting messages
-        final stillCleared = prefs.getBool(historyClearedKey) ?? false;
-        if (stillCleared) {
-          LoggingService.instance.info('History was cleared during fetch, ignoring backend data');
-          setState(() {
-            _messages = [];
-          });
-          return;
-        }
-        
         setState(() {
-          _messages = fetchedMessages;
-        });
-        
-        // Scroll to bottom after loading history
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom();
+          _messages = List<Map<String, dynamic>>.from(data['messages'] ?? []);
         });
       } else {
         setState(() { _messages = []; });
       }
     } catch (e) {
-      LoggingService.instance.error('Failed to fetch chat history', e);
-      setState(() { 
-        _messages = [];
-        _error = null; // Don't show error for failed history fetch
-      });
+      setState(() { _error = 'Failed to load chat history.'; });
     } finally {
       setState(() { _loading = false; });
     }
-  }
-
-  Future<void> _clearChatHistory() async {
-    try {
-      // Clear locally first
-      setState(() {
-        _messages = [];
-      });
-      
-      // Save cleared state to SharedPreferences IMMEDIATELY and PERSISTENTLY
-      final prefs = await SharedPreferences.getInstance();
-      final historyClearedKey = 'chat_history_cleared_${widget.userId}';
-      await prefs.setBool(historyClearedKey, true);
-      LoggingService.instance.info('Saved cleared state to SharedPreferences for user ${widget.userId}');
-      
-      // Also try to clear from backend (but don't fail if this doesn't work)
-      try {
-        final bu = await backendUrl;
-        final endpoints = [
-          '$bu/api/chat/history/${widget.userId}',
-          '$bu/api/chat/${widget.userId}',
-          '$bu/api/chat/clear/${widget.userId}',
-        ];
-        
-        for (String endpoint in endpoints) {
-          try {
-            final res = await http.delete(Uri.parse(endpoint));
-            if (res.statusCode == 200 || res.statusCode == 204) {
-              LoggingService.instance.info('Successfully cleared chat history from: $endpoint');
-              break;
-            }
-          } catch (e) {
-            LoggingService.instance.warning('Failed to clear from $endpoint: $e');
-            continue;
-          }
-        }
-      } catch (e) {
-        LoggingService.instance.warning('Backend clear failed, but local clear succeeded', e);
-      }
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Chat history has been permanently cleared.',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF2E7D32),
-            duration: Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: EdgeInsets.all(16),
-          ),
-        );
-      }
-    } catch (e) {
-      // If there's an error, still clear locally and save state
-      setState(() {
-        _messages = [];
-      });
-      
-      final prefs = await SharedPreferences.getInstance();
-      final historyClearedKey = 'chat_history_cleared_${widget.userId}';
-      await prefs.setBool(historyClearedKey, true);
-      LoggingService.instance.info('Saved cleared state to SharedPreferences (error case) for user ${widget.userId}');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Chat history has been cleared.',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF2E7D32),
-            duration: Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: EdgeInsets.all(16),
-          ),
-        );
-      }
-    }
-  }
-
-  void _showClearHistoryDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(Icons.delete_forever, color: Colors.red[700], size: 24),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Clear Chat History',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[900],
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to permanently delete all your chat history? This action cannot be undone and your conversation will be cleared.',
-          style: TextStyle(fontSize: 15, color: Colors.grey[700], height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(fontSize: 15, color: Colors.grey[700]),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _clearChatHistory();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[600],
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              elevation: 2,
-            ),
-            child: Text(
-              'Clear History',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   bool _isAccountManagementQuery(String query) {
@@ -380,14 +160,6 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     final lowerQuery = query.toLowerCase();
     final menuKeywords = [
       'menu',
-      'show complete menu',
-      'show me the complete menu',
-      'what is the menu',
-      'show me the menu',
-      'full menu',
-      'complete menu',
-      'entire menu',
-      'all items',
       'food',
       'drink',
       'coffee',
@@ -429,129 +201,14 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       'medium',
       'large',
       'extra large',
-      'latte',
-      'milk tea',
-      'kumo',
-      'cream',
-      'americano',
-      'cappuccino',
-      'mocha',
-      'macchiato',
-      'croissant',
-      'calzone',
-      'neapolitan',
-      'hokkaido',
-      'truffle',
-      'carbonara',
-      'alfredo',
-      'guanciale',
-      'fiery',
-      'creamy',
-      'bacon',
-      'pepperoni',
-      'salame',
-      'piccante',
-      'savory',
-      'spinach',
-      'five cheese',
-      'black truffle',
-      'cheese',
-      'pain suisse',
-      'french butter',
-      'blueberry',
-      'mango',
-      'crookie',
-      'pain au chocolat',
-      'almond',
-      'hokkaido cheese',
-      'vanilla flan',
-      'brulee',
-      'tart',
-      'pistachio',
-      'strawberry',
-      'choco-berry',
-      'kunefe',
-      'garlic cream',
-      'ham',
-      'grilled',
-      'original milky',
-      'vanilla glaze',
-      'oreo',
-      'overload',
-      'white chocolate',
-      'dark chocolate',
-      'cashew',
-      'sprinkles',
-      'matcha',
-      'smores',
-      'nomu milk tea',
-      'wintermelon',
-      'taro',
-      'blue cotton candy',
-      'mixed fruit',
-      'tiger brown sugar',
-      'mixed berries',
-      'popping boba',
-      'strawberry lemonade',
-      'green tea',
-      'honey citron',
-      'ginger tea',
-      'sakura',
-      'honey lemon',
-      'chia',
-      'hot chocolate',
-      'hot mint',
-      'chiztill',
-      'oolong',
-      'jasmine',
-      'kumo wintermelon',
-      'kumo choco',
-      'kumo nomu',
-      'kumo taro',
-      'kumo milo',
-      'oreo',
-      'kumo matcha',
-      'kumo tiger',
-      'kumo sakura',
-      'kumo mixed',
-      'kumo fresh',
-      'cold brew',
-      'orange long black',
-      'flavored latte',
-      'vanilla',
-      'hazelnut',
-      'salted caramel',
-      'spanish latte',
-      'chai latte',
-      'ube vanilla',
-      'mazagran',
-      'lemon coffee',
-      'coconut vanilla',
-      'chocolate mocha',
-      'white',
-      'dark',
-      'caramel macchiato',
-      'macadamia',
-      'butterscotch',
-      'peachespresso',
-      'shakerato',
-      'mint latte',
-      'honey oatmilk',
     ];
-
+    
     return menuKeywords.any((keyword) => lowerQuery.contains(keyword));
   }
 
-  Future<void> _sendMessage({bool isQuickQuestion = false}) async {
+  Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-
-    // Do NOT clear the history-cleared flag when user sends a message. Keeping the flag
-    // ensures we never refetch old messages from the backend (e.g. when user reopens
-    // the chat), so cleared history stays gone permanently.
-
-    // Track if this is a quick question
-    _lastMessageWasQuickQuestion = isQuickQuestion;
     
     // Add user message to the chat immediately
     setState(() {
@@ -561,23 +218,15 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         'timestamp': DateTime.now().toIso8601String(),
       });
     });
-    
     _controller.clear();
-    
-    // Scroll to bottom after adding user message
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
     
     setState(() { _loading = true; _error = null; });
     
     try {
       String aiResponse;
-
-      // Menu query: always show the same complete menu as nomu.cafe (whether or not OpenAI is configured)
-      if (_isMenuQuery(text)) {
-        aiResponse = OpenAIService.getMenuHelp();
-      } else if (Config.isOpenAIConfigured) {
+      
+      // Check if OpenAI is configured, use it for AI responses
+      if (Config.isOpenAIConfigured) {
         // Check query type and provide specific responses
         if (_isAccountManagementQuery(text)) {
           aiResponse = OpenAIService.getAccountManagementHelp();
@@ -585,16 +234,16 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           aiResponse = OpenAIService.getBusinessHoursHelp();
         } else if (_isBestSellerQuery(text)) {
           aiResponse = OpenAIService.getBestSellerHelp();
+        } else if (_isMenuQuery(text)) {
+          aiResponse = OpenAIService.getMenuHelp();
         } else {
-          // Use OpenAI for AI responses with conversation history for context
+          // Use OpenAI for AI responses
           try {
             aiResponse = await OpenAIService.getCustomerSupportResponse(
               customerQuery: text,
-              conversationHistory: _messages,
             );
           } catch (e) {
             // If OpenAI fails, use fallback response
-            LoggingService.instance.error('OpenAI request failed', e);
             aiResponse = OpenAIService.getOutOfScopeResponse();
           }
         }
@@ -606,7 +255,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           headers: {'Content-Type': 'application/json'},
           body: json.encode({'userId': widget.userId, 'message': text}),
         );
-
+        
         if (res.statusCode == 200) {
           final data = json.decode(res.body);
           final chatMessages = List<Map<String, dynamic>>.from(data['chat']['messages'] ?? []);
@@ -619,24 +268,11 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
       }
       
       // Add AI response to the chat
-      print('Adding AI response to chat. Length: ${aiResponse.length} characters');
       setState(() {
         _messages.add({
           'sender': 'ai',
           'text': aiResponse,
           'timestamp': DateTime.now().toIso8601String(),
-        });
-      });
-      print('Message added. Total messages: ${_messages.length}');
-      
-      // Scroll to bottom after adding AI response to show it first
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          _scrollToBottom();
-          // Scroll again to ensure AI response is fully visible
-          Future.delayed(Duration(milliseconds: 200), () {
-            _scrollToBottom();
-          });
         });
       });
       
@@ -677,642 +313,181 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     final isUser = sender == 'user';
     final text = msg['text'] ?? '';
     
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isUser) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Color(0xFF242C5B), width: 1.5),
-              ),
-              child: Icon(Icons.smart_toy, color: Color(0xFF242C5B), size: 18),
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isUser
+              ? Colors.blue[100]
+              : Colors.green[100],
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isUser ? 'You' : 'AI Support',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             ),
-            SizedBox(width: 8),
+            const SizedBox(height: 4),
+            _buildMessageText(text),
           ],
-          Flexible(
-            child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                if (!isUser)
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 4, left: 4),
-                    child: Text(
-                      'Nomu Chatbot',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isUser 
-                        ? Color(0xFF242C5B).withValues(alpha: 0.1)
-                        : Color(0xFF242C5B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Color(0xFF242C5B),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                        spreadRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: _buildMessageText(text, isUser),
-                ),
-              ],
-            ),
-          ),
-          if (isUser) ...[
-            SizedBox(width: 8),
-            Padding(
-              padding: EdgeInsets.only(top: 20),
-              child: Text(
-                'User',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildWelcomeButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildWelcomeButton(
-          Icons.access_time,
-          'What are the business hours?',
-          Colors.blue,
-          () => _sendQuickMessage('What are the business hours?'),
-        ),
-        SizedBox(height: 10),
-        _buildWelcomeButton(
-          Icons.restaurant_menu,
-          'Show Complete Menu',
-          Colors.blue,
-          () => _sendQuickMessage('Show me the complete menu with all items and prices'),
-        ),
-        SizedBox(height: 10),
-        _buildWelcomeButton(
-          Icons.star,
-          'What are the best sellers?',
-          Colors.blue,
-          () => _sendQuickMessage('What are the best sellers?'),
-        ),
-        SizedBox(height: 10),
-        _buildWelcomeButton(
-          Icons.account_circle,
-          'Account help',
-          Colors.blue,
-          () => _sendQuickMessage('How do I change my password?'),
-        ),
-        SizedBox(height: 10),
-        _buildWelcomeButton(
-          Icons.language,
-          'Visit Nomu Cafe Website',
-          Colors.blue,
-          () => _openWebsite(),
-        ),
-        SizedBox(height: 10),
-        _buildWelcomeButton(
-          Icons.local_cafe,
-          'Coffee recommendations',
-          Colors.blue,
-          () => _sendQuickMessage('Can you recommend a coffee for me?'),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildWelcomeButton(IconData icon, String text, Color textColor, VoidCallback onTap, {Color? borderColor}) {
-    final effectiveBorderColor = borderColor ?? const Color(0xFF242C5B);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: effectiveBorderColor,
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF242C5B).withValues(alpha: 0.1),
-                      Color(0xFF3A4A7A).withValues(alpha: 0.1),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Color(0xFF242C5B).withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: Color(0xFF242C5B),
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    color: Color(0xFF242C5B),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  static const Color _msgUserFg = Color(0xFF242C5B);
-  static const Color _msgBotFg = Colors.white;
-
-  /// Splits message text into logical lines for list/paragraph formatting.
-  /// Converts run-on "1. ... 2. ..." and " - item" into separate lines.
-  List<String> _messageToLines(String text) {
-    if (text.trim().isEmpty) return [];
-    String s = text
-        .replaceAll('https://www.nomu.ph', 'https://nomu.cafe');
-    // Break numbered list run-ons: " 1. ", " 2. ", ... " 9. "
-    for (int i = 1; i <= 9; i++) {
-      s = s.replaceAll(' $i. ', '\n$i. ');
-    }
-    // Break bullet run-ons: " - " -> newline + bullet
-    s = s.replaceAll(' - ', '\n• ');
-    final lines = s.split('\n').map((e) => e.trim()).toList();
-    return lines;
-  }
-
-  /// Builds formatted message content (lists, headers, paragraphs) for readability.
-  Widget _buildFormattedContent(String text, bool isUser) {
-    final color = isUser ? _msgUserFg : _msgBotFg;
-    final lines = _messageToLines(text);
-    if (lines.isEmpty) {
-      return SelectableText(
-        text,
-        style: TextStyle(fontSize: 14, color: color, height: 1.5, fontWeight: FontWeight.w500),
-      );
-    }
-
-    final list = <Widget>[];
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      // Blank line: add vertical spacing (e.g. between menu and website message)
-      if (line.isEmpty) {
-        list.add(const SizedBox(height: 16));
-        continue;
-      }
-      // Numbered list: "1. ...", "2. ..."
-      final numMatch = RegExp(r'^(\d+)\.\s*(.*)$').firstMatch(line);
-      if (numMatch != null) {
-        list.add(Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${numMatch.group(1)}. ',
-                style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.w700, height: 1.5),
-              ),
-              Expanded(
-                child: SelectableText(
-                  numMatch.group(2) ?? '',
-                  style: TextStyle(fontSize: 14, color: color, height: 1.5, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ));
-        continue;
-      }
-      // Bullet: "• ..." or "- ..."
-      if (line.startsWith('•') || (line.startsWith('-') && line.length > 1)) {
-        final content = line.replaceFirst(RegExp(r'^[•\-]\s*'), '').trim();
-        list.add(Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8, top: 2),
-                child: Text('•', style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.w700)),
-              ),
-              Expanded(
-                child: SelectableText(
-                  content,
-                  style: TextStyle(fontSize: 14, color: color, height: 1.5, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ));
-        continue;
-      }
-      // Section header: menu category line (——— CATEGORY ———), ALL CAPS, or category-like
-      final isMenuCategoryLine = line.startsWith('———');
-      final isCaps = line.length >= 2 && line.length <= 50 && line == line.toUpperCase();
-      final isCategory = line.startsWith('PASTAS') || line.startsWith('PIZZAS') ||
-          line.startsWith('DONUTS') || line.startsWith('DRINKS') || line.startsWith('CALZONE') ||
-          line.startsWith('COFFEE') || line.startsWith('Add-Ons') || line.startsWith('Coffee Series') ||
-          line.startsWith('Pizza Add-Ons') || line.startsWith('Drink Add-Ons') || line.startsWith('Coffee Add-Ons') ||
-          line.startsWith('Milk Tea') || line.startsWith('Hot & Iced') || line.startsWith('Kumo Cream') ||
-          line.startsWith('🍕') || line.startsWith('🍝') || line.startsWith('🍩') || line.startsWith('🥤');
-      if (isMenuCategoryLine || isCaps || isCategory) {
-        list.add(Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
-          child: SelectableText(
-            line,
-            style: TextStyle(
-              fontSize: 15,
-              color: color,
-              fontWeight: FontWeight.w700,
-              height: 1.4,
-            ),
-          ),
-        ));
-        continue;
-      }
-      // Paragraph
-      list.add(Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: SelectableText(
-          line,
-          style: TextStyle(fontSize: 14, color: color, height: 1.5, fontWeight: FontWeight.w500),
-        ),
-      ));
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: list,
-    );
-  }
-
-  Widget _buildMessageText(String text, bool isUser) {
-    // Check if the message contains website URLs
-    if (text.contains('https://www.nomu.ph') || text.contains('https://nomu.cafe')) {
-      String updatedText = text.replaceAll('https://www.nomu.ph', 'https://nomu.cafe');
-      final parts = updatedText.split('https://nomu.cafe');
+  Widget _buildMessageText(String text) {
+    // Check if the message contains the website URL
+    if (text.contains('https://www.nomu.ph')) {
+      final parts = text.split('https://www.nomu.ph');
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildFormattedContent(parts[0], isUser),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: Center(
-              child: GestureDetector(
-                onTap: _openWebsite,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF242C5B), width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                        spreadRadius: 0,
-                      ),
-                    ],
+          Text(parts[0]),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () {
+              // Open website in browser
+              // You can use url_launcher package for this
+              LoggingService.instance.info('Opening NOMU website: https://www.nomu.ph');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF242C5B),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.language, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Visit NOMU Website',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.language, color: const Color(0xFF242C5B), size: 18),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Visit Nomu Cafe Website',
-                        style: TextStyle(
-                          color: const Color(0xFF242C5B),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
             ),
           ),
           if (parts.length > 1) ...[
-            const SizedBox(height: 12),
-            _buildFormattedContent(parts[1], isUser),
+            const SizedBox(height: 8),
+            Text(parts[1]),
           ],
         ],
       );
     }
-
-    return _buildFormattedContent(text, isUser);
+    
+    return Text(text);
   }
 
-  Widget _buildWelcomeMessage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
+  Widget _buildRecommendationButtons() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.black, width: 1.5),
+          const Text(
+            'Quick Questions',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
-            child: Icon(Icons.smart_toy, color: Colors.black, size: 18),
           ),
-          SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(bottom: 4, left: 4),
-                  child: Text(
-                    'Nomu Chatbot',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildRecommendationButton(
+                  'What are the business hours?',
+                  Icons.access_time,
+                  Colors.blue[600]!,
+                  () => _sendQuickMessage('What are the business hours?'),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!, width: 1),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Hi there! I\'m your Nomu Chatbot. How can I help you today?',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[800],
-                          height: 1.5,
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      _buildWelcomeButtons(),
-                    ],
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildRecommendationButton(
+                  'What is the menu?',
+                  Icons.restaurant_menu,
+                  Colors.green[600]!,
+                  () => _sendQuickMessage('What is the menu?'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _buildRecommendationButton(String text, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _sendQuickMessage(String message) {
     _controller.text = message;
-    _sendMessage(isQuickQuestion: true);
-  }
-
-  Future<void> _openWebsite() async {
-    const url = 'https://nomu.cafe';
-    final uri = Uri.parse(url);
-    try {
-      // Try to open in external browser (works when manifest has <queries> for https on Android 11+)
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (launched) {
-        LoggingService.instance.info('Opened Nomu website: $url');
-      } else {
-        _showWebsiteError(url);
-      }
-    } catch (e) {
-      LoggingService.instance.error('Error opening website', e);
-      _showWebsiteError(url);
-    }
-  }
-
-  void _showWebsiteError(String url) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Could not open browser. Please visit $url manually.',
-          style: TextStyle(fontSize: 14),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-        ),
-        backgroundColor: Colors.red[600],
-      ),
-    );
+    _sendMessage();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        leading: Container(
-          margin: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: IconButton(
-            icon: Icon(Icons.close, color: Colors.black87, size: 20),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-          ),
-        ),
-        title: Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!, width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF242C5B), Color(0xFF3A4A7A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0xFF242C5B).withValues(alpha: 0.3),
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(Icons.smart_toy, size: 18, color: Colors.white),
-              ),
-              SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Nomu Chatbot',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: Colors.green[500],
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withValues(alpha: 0.5),
-                              blurRadius: 4,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Online',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          if (_messages.isNotEmpty)
-            Container(
-              margin: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: Icon(Icons.delete_outline, color: Colors.black87, size: 20),
-                onPressed: _showClearHistoryDialog,
-                tooltip: 'Clear Chat History',
-                padding: EdgeInsets.zero,
-              ),
-            ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.grey[200]!,
-                  Colors.grey[100]!,
-                  Colors.transparent,
-                ],
-              ),
-            ),
-            height: 1,
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('AI Support')),
       body: Stack(
         children: [
-          // Clean white background
+          // Background image
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/istetik.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+          // Semi-transparent overlay for readability
           Positioned.fill(
             child: Container(
-              color: Colors.grey[50],
             ),
           ),
           // Chat content
@@ -1326,158 +501,38 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
                 ),
               Expanded(
                 child: ListView.builder(
-                  controller: _scrollController,
                   reverse: false,
-                  padding: EdgeInsets.only(top: 16, bottom: 16),
-                  itemCount: _messages.isEmpty ? 1 : _messages.length + (_lastMessageWasQuickQuestion && !_loading ? 1 : 0),
-                  itemBuilder: (context, idx) {
-                    if (_messages.isEmpty) {
-                      // Show welcome message when no messages
-                      return _buildWelcomeMessage();
-                    }
-                    if (!_loading && _lastMessageWasQuickQuestion && idx == _messages.length) {
-                      // Show quick questions after quick question responses
-                      return Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Quick Questions',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey[700],
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            SizedBox(height: 12),
-                            _buildWelcomeButtons(),
-                          ],
-                        ),
-                      );
-                    }
-                    return _buildMessage(_messages[idx]);
-                  },
+                  itemCount: _messages.length,
+                  itemBuilder: (context, idx) => _buildMessage(_messages[idx]),
                 ),
               ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 15,
-                      offset: Offset(0, -3),
-                      spreadRadius: 0,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color: Colors.grey[300]!,
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                              spreadRadius: 0,
-                            ),
-                          ],
+              // Recommendation buttons
+              if (_messages.isEmpty) _buildRecommendationButtons(),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      style: const TextStyle(color: Colors.black),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'Type your message...',
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.black12),
                         ),
-                        child: TextField(
-                          controller: _controller,
-                          style: TextStyle(
-                            color: Colors.grey[900],
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Send a message...',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 14,
-                              fontWeight: FontWeight.normal,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 14,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.edit_outlined,
-                              color: Colors.grey[600],
-                              size: 20,
-                            ),
-                            prefixIconConstraints: BoxConstraints(
-                              minWidth: 40,
-                              minHeight: 40,
-                            ),
-                          ),
-                          maxLines: null,
-                          textCapitalization: TextCapitalization.sentences,
-                          onSubmitted: (_) => _sendMessage(),
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
+                      onSubmitted: (_) => _sendMessage(),
                     ),
-                    SizedBox(width: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF242C5B), Color(0xFF3A4A7A)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0xFF242C5B).withValues(alpha: 0.4),
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _loading ? null : _sendMessage,
-                          borderRadius: BorderRadius.circular(50),
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            padding: EdgeInsets.all(12),
-                            child: _loading
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.send_rounded,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendMessage,
+                  ),
+                ],
               ),
             ],
           ),

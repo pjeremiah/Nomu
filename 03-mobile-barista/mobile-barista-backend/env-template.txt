@@ -1,0 +1,47 @@
+# Mobile Barista Backend Environment Variables
+# Copy this file to .env and update with your actual values
+
+# MongoDB Connection
+MONGO_URI=mongodb://localhost:27017/nomu_cafe_barista
+
+# JWT Secret (32+ characters recommended)
+JWT_SECRET=dev_jwt_secret_32_characters_minimum_for_barista_backend
+
+# Email Configuration for OTP and Notifications
+# Use a Gmail account with App Password (not regular password)
+EMAIL_USER=your_gmail_address@gmail.com
+EMAIL_PASS=your_gmail_app_password
+
+# Server Configuration
+PORT=5002
+NODE_ENV=development
+
+# High-Volume Security Configuration
+# IP-based Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+RATE_LIMIT_SKIP_SUCCESSFUL_REQUESTS=false
+RATE_LIMIT_SKIP_FAILED_REQUESTS=false
+
+# Employee Rate Limiting (for barista app)
+EMPLOYEE_MAX_SCANS_PER_HOUR=100
+EMPLOYEE_MAX_SCANS_PER_DAY=500
+EMPLOYEE_COOLDOWN_BETWEEN_SCANS=5
+
+# Customer Rate Limiting (for mobile client)
+CUSTOMER_MAX_SCANS_PER_DAY=10
+CUSTOMER_MAX_POINTS_PER_DAY=50
+
+# JWT Security Configuration
+JWT_QR_EXPIRY=24h
+JWT_ADMIN_EXPIRY=24h
+
+# Monitoring and Abuse Detection
+ENABLE_REAL_TIME_ALERTS=true
+ENABLE_SUSPICIOUS_PATTERN_DETECTION=true
+ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER=5
+ABUSE_DETECTION_THRESHOLD_RAPID_SCANS=20
+
+# Security Headers
+ENABLE_SECURITY_HEADERS=true
+ENABLE_CORS_SECURITY=true

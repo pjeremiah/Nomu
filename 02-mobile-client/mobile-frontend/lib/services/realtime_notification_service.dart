@@ -46,34 +46,24 @@ class RealtimeNotificationService {
   void _handleLoyaltyPointUpdate(Map<String, dynamic> data) {
     final newPoints = data['points'] as int?;
     final message = data['message'] as String?;
-    final customerMessage = data['customerMessage'] as String?;
-    final messageType = data['messageType'] as String?;
-    final drink = data['itemName'] as String?;
-    final pointsAdded = data['pointsAdded'] as int? ?? 0;
-    final isEligibleForPoints = data['isEligibleForPoints'] as bool? ?? true;
-    final orderPrice = data['orderPrice'] as num?;
-    final minimumSpending = data['minimumSpending'] as num?;
+    final drink = data['drink'] as String?;
     
-    // Create notification data with customer message
-    final notificationData = {
-      'type': 'loyalty_points',
-      'points': newPoints,
-      'pointsAdded': pointsAdded,
-      'message': customerMessage ?? message, // Use customer message if available
-      'customerMessage': customerMessage,
-      'messageType': messageType ?? (isEligibleForPoints ? 'success' : 'warning'),
-      'drink': drink,
-      'isEligibleForPoints': isEligibleForPoints,
-      'orderPrice': orderPrice,
-      'minimumSpending': minimumSpending,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-      'isMilestone': newPoints != null && (newPoints == 5 || newPoints == 10),
-    };
-    
-    // Emit notification
-    _notificationController.add(notificationData);
-    
-    LoggingService.instance.info('Emitted loyalty point notification', notificationData);
+    if (newPoints != null) {
+      // Create notification data
+      final notificationData = {
+        'type': 'loyalty_points',
+        'points': newPoints,
+        'message': message,
+        'drink': drink,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'isMilestone': newPoints == 5 || newPoints == 10,
+      };
+      
+      // Emit notification
+      _notificationController.add(notificationData);
+      
+      LoggingService.instance.info('Emitted loyalty point notification', notificationData);
+    }
   }
 
   // Show notification in UI
@@ -89,88 +79,47 @@ class RealtimeNotificationService {
   void _showLoyaltyPointsNotification(BuildContext context, Map<String, dynamic> data) {
     final points = data['points'] as int?;
     final message = data['message'] as String?;
-    final customerMessage = data['customerMessage'] as String?;
-    final messageType = data['messageType'] as String? ?? 'info';
     final drink = data['drink'] as String?;
     final isMilestone = data['isMilestone'] as bool? ?? false;
-    final isEligibleForPoints = data['isEligibleForPoints'] as bool? ?? true;
     
-    // Use customer message if available, otherwise fallback to default message
-    String notificationMessage;
-    if (customerMessage != null && customerMessage.isNotEmpty) {
-      notificationMessage = customerMessage;
-    } else if (message != null && message.isNotEmpty) {
-      notificationMessage = message;
-    } else if (points != null) {
-      notificationMessage = drink != null 
-          ? 'New order: $drink! You now have $points stamps'
-          : 'Points updated! You now have $points stamps';
-    } else {
-      notificationMessage = 'Scan processed';
-    }
+    if (points == null) return;
     
-    // Determine icon and color based on message type
-    IconData icon;
-    Color backgroundColor;
-    Color iconColor;
-    
-    if (messageType == 'success' || isEligibleForPoints) {
-      if (isMilestone) {
-        icon = Icons.celebration;
-        backgroundColor = const Color(0xFF4CAF50); // Green for milestones
-        iconColor = Colors.amber;
-      } else {
-        icon = Icons.check_circle;
-        backgroundColor = const Color(0xFF4CAF50); // Green for success
-        iconColor = Colors.white;
-      }
-    } else if (messageType == 'warning') {
-      icon = Icons.warning;
-      backgroundColor = Colors.orange;
-      iconColor = Colors.white;
-    } else {
-      icon = Icons.info;
-      backgroundColor = const Color(0xFF242C5B);
-      iconColor = Colors.yellow;
-    }
+    final notificationMessage = drink != null 
+        ? 'New order: $drink! You now have $points stamps'
+        : message ?? 'Points updated! You now have $points stamps';
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
-              icon,
-              color: iconColor,
+              isMilestone ? Icons.celebration : Icons.star,
+              color: isMilestone ? Colors.amber : Colors.yellow,
               size: 20,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 notificationMessage,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
           ],
         ),
-        backgroundColor: backgroundColor,
-        duration: Duration(seconds: isMilestone ? 6 : (messageType == 'warning' ? 5 : 4)),
+        backgroundColor: isMilestone ? const Color(0xFF4CAF50) : const Color(0xFF242C5B),
+        duration: Duration(seconds: isMilestone ? 5 : 3),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-        action: points != null && isEligibleForPoints
-            ? SnackBarAction(
-                label: 'View',
-                textColor: Colors.white,
-                onPressed: () {
-                  // Navigate to loyalty page or refresh
-                  // This could be customized based on your navigation structure
-                },
-              )
-            : null,
+        action: SnackBarAction(
+          label: 'View',
+          textColor: Colors.white,
+          onPressed: () {
+            // Navigate to loyalty page or refresh
+            // This could be customized based on your navigation structure
+          },
+        ),
       ),
     );
   }

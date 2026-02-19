@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'usermodel.dart';
 import 'map_page.dart';
 import 'loyalty_page.dart';
 import 'profile_page.dart';
 import 'screens/promos_screen.dart';
-import 'theme/app_theme.dart';
 import 'services/promo_service.dart';
 import 'models/promo.dart';
 import 'widgets/promo_card.dart';
@@ -90,10 +88,9 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
   List<Promo> _activePromos = [];
   bool _isLoadingPromos = true;
   String? _promoError;
-
-  // What's new banner (one-time after login)
-  bool _whatsNewBannerDismissed = false;
-
+  
+  
+  
   // Animation controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -110,7 +107,6 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
   late Animation<double> _scaleAnimation;
 
   final List<String> _labels = ['Home', 'Maps', 'Loyalty', 'Profile'];
-  static const String _keyWhatsNewBannerDismissed = 'whats_new_banner_dismissed';
 
   // Lazy load screens to improve performance
   Widget _getScreen(int index) {
@@ -118,20 +114,19 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
       case 0:
         return const MapPage();
       case 1:
-        if (_user.qrToken.isEmpty) {
-          _fetchQrTokenIfNeeded();
-          return const Center(child: CircularProgressIndicator());
-        }
         return LoyaltyPage(
           key: _loyaltyPageKey,
           qrToken: _user.qrToken,
           initialPoints: points,
           onPointsUpdated: fetchPoints,
           onPointsChanged: (newPoints) {
+            // Update homepage points when loyalty page points change
             if (mounted) {
-              setState(() => points = newPoints);
+              setState(() {
+                points = newPoints;
+              });
             }
-          },
+          }
         );
       case 2:
         return ProfilePage(
@@ -140,7 +135,9 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
             LoggingService.instance.homepage('User updated from ProfilePage', {
               'newProfilePictureLength': updatedUser.profilePicture.length,
             });
-            setState(() => _user = updatedUser);
+            setState(() {
+              _user = updatedUser;
+            });
           },
         );
       default:
@@ -208,39 +205,11 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
     // Initialize socket service for real-time updates (only once)
     _initializeSocketService();
     
-    // Load "what's new" banner state
-    SharedPreferences.getInstance().then((prefs) {
-      if (mounted) setState(() => _whatsNewBannerDismissed = prefs.getBool(_keyWhatsNewBannerDismissed) ?? false);
-    });
-
     // Defer data fetching until after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       fetchPoints();
       fetchActivePromos();
-      _fetchQrTokenIfNeeded();
     });
-  }
-
-  // Fetch qrToken from server if it's empty
-  Future<void> _fetchQrTokenIfNeeded() async {
-    if (_user.qrToken.isNotEmpty) return;
-    
-    try {
-      LoggingService.instance.homepage('qrToken is empty, fetching from server...');
-      final userInfo = await ApiService.getUserInfo(_user.username);
-      if (userInfo != null && userInfo.qrToken.isNotEmpty) {
-        if (mounted) {
-          setState(() {
-            _user = _user.copyWith(qrToken: userInfo.qrToken);
-          });
-          LoggingService.instance.homepage('qrToken fetched from server successfully');
-        }
-      } else {
-        LoggingService.instance.warning('Could not fetch qrToken from server');
-      }
-    } catch (e) {
-      LoggingService.instance.error('Error fetching qrToken from server', e);
-    }
   }
 
   // Initialize socket service for real-time updates
@@ -303,103 +272,64 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
         final newPoints = data['points'] as int?;
         final qrToken = data['qrToken'] as String?;
         final userId = data['userId'] as String?;
-        final customerMessage = data['customerMessage'] as String?;
-        final messageType = data['messageType'] as String? ?? 'info';
-        final isEligibleForPoints = data['isEligibleForPoints'] as bool? ?? true;
         
         // Only update if this is for the current user
-        if (mounted && (qrToken == _user.qrToken || userId == _user.id)) {
+        if (mounted && newPoints != null && 
+            (qrToken == _user.qrToken || userId == _user.id)) {
           LoggingService.instance.homepage('Updating points immediately to: $newPoints');
           
           // Clear cache to ensure fresh data on next fetch
           await CacheService.clearCache('user_qr_${_user.qrToken}');
           
-          if (newPoints != null) {
-            setState(() {
-              points = newPoints;
-              isLoadingPoints = false;
-            });
-            
-            // Also update the LoyaltyPage directly if it exists
-            if (_loyaltyPageKey.currentState != null) {
-              (_loyaltyPageKey.currentState as dynamic).updatePointsFromExternal(newPoints);
-            }
+          setState(() {
+            points = newPoints;
+            isLoadingPoints = false;
+          });
+          
+          // Also update the LoyaltyPage directly if it exists
+          if (_loyaltyPageKey.currentState != null) {
+            (_loyaltyPageKey.currentState as dynamic).updatePointsFromExternal(newPoints);
           }
           
-          // Show notification with customer message
-          String notificationMessage;
-          IconData icon;
-          Color backgroundColor;
-          Color iconColor;
-          
-          if (customerMessage != null && customerMessage.isNotEmpty) {
-            notificationMessage = customerMessage;
-          } else {
-            final drink = data['itemName'] as String?;
-            notificationMessage = drink != null 
-                ? 'New order: $drink! You now have ${newPoints ?? points ?? 0} stamps'
-                : 'Points updated! You now have ${newPoints ?? points ?? 0} stamps';
-          }
-          
-          // Determine icon and color based on message type
-          if (messageType == 'success' || isEligibleForPoints) {
-            if (newPoints != null && (newPoints == 5 || newPoints == 10)) {
-              icon = Icons.celebration;
-              backgroundColor = const Color(0xFF4CAF50); // Green for milestones
-              iconColor = Colors.amber;
-            } else {
-              icon = Icons.check_circle;
-              backgroundColor = const Color(0xFF4CAF50); // Green for success
-              iconColor = Colors.white;
-            }
-          } else if (messageType == 'warning') {
-            icon = Icons.warning;
-            backgroundColor = Colors.orange;
-            iconColor = Colors.white;
-          } else {
-            icon = Icons.info;
-            backgroundColor = const Color(0xFF242C5B);
-            iconColor = Colors.yellow;
-          }
+          // Show notification
+          final drink = data['drink'] as String?;
+          final message = drink != null 
+              ? 'New order: $drink! You now have $newPoints stamps'
+              : 'Points updated! You now have $newPoints stamps';
               
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    Icon(icon, color: iconColor, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        notificationMessage,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      ),
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.yellow, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
-                  ],
-                ),
-                backgroundColor: backgroundColor,
-                duration: Duration(seconds: messageType == 'warning' ? 5 : 4),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                action: isEligibleForPoints && newPoints != null
-                    ? SnackBarAction(
-                        label: 'View',
-                        textColor: Colors.white,
-                        onPressed: () {
-                          fetchPoints();
-                          if (_loyaltyPageKey.currentState != null) {
-                            (_loyaltyPageKey.currentState as dynamic).forceRefreshPoints();
-                          }
-                        },
-                      )
-                    : null,
+                  ),
+                ],
               ),
-            );
+              backgroundColor: const Color(0xFF242C5B),
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              action: SnackBarAction(
+                label: 'Refresh',
+                textColor: Colors.white,
+                onPressed: () {
+                  fetchPoints();
+                  if (_loyaltyPageKey.currentState != null) {
+                    (_loyaltyPageKey.currentState as dynamic).forceRefreshPoints();
+                  }
+                },
+              ),
+            ),
+          );
           }
         } else {
           LoggingService.instance.homepage('Update not for current user, ignoring');
@@ -684,13 +614,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(height: screen.height * 0.02),
-                          // What's new banner (one-time)
-                          if (!_whatsNewBannerDismissed) ...[
-                            _buildWhatsNewBanner(),
-                            SizedBox(height: screen.height * 0.02),
-                          ],
-                          SizedBox(height: screen.height * 0.01),
+                          SizedBox(height: screen.height * 0.03),
                           // Animated Greeting
                           FadeTransition(
                             opacity: _fadeAnimation,
@@ -746,59 +670,14 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
           ),
         ),
         bottomNavigationBar: _buildEnhancedBottomNavBar(screen),
-        floatingActionButton: const SizedBox.shrink(),
       );
     } else {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: _getScreen(_currentIndex - 1),
         bottomNavigationBar: _buildEnhancedBottomNavBar(screen),
-        // Avoid "Cannot hit test a render box that has never been laid out" on Loyalty (FAB slot gets layout)
-        floatingActionButton: const SizedBox.shrink(),
       );
     }
-  }
-
-  Widget _buildWhatsNewBanner() {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.accentLight.withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.info_outline_rounded, color: AppTheme.primary, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'You can now see your order history in the Loyalty tab.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.neutral800,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            IconButton(
-              onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool(_keyWhatsNewBannerDismissed, true);
-                if (mounted) setState(() => _whatsNewBannerDismissed = true);
-              },
-              icon: Icon(Icons.close, size: 20, color: AppTheme.neutral600),
-              style: IconButton.styleFrom(
-                minimumSize: Size(AppTheme.minTouchTarget, AppTheme.minTouchTarget),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildAnimatedGreeting(Size screen) {
@@ -1052,7 +931,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => PromosScreen()),
+                          MaterialPageRoute(builder: (context) => const PromosScreen()),
                         );
                       },
                       child: Text(
@@ -1156,7 +1035,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
             onPromoTap: (promo) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => PromosScreen()),
+                MaterialPageRoute(builder: (context) => const PromosScreen()),
               );
             },
           ),
@@ -1235,10 +1114,10 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
         ? pastOrders.sublist(pastOrders.length - 5)
         : pastOrders;
     
-    // Adaptive sizing (reduced font sizes for better fit and readability)
-    final titleFontSize = screen.width < 400 ? screen.width * 0.048 : screen.width * 0.052;
-    final headerPadding = screen.width < 400 ? 14.0 : 18.0;
-    final contentPadding = screen.width < 400 ? 14.0 : 18.0;
+    // Adaptive sizing
+    final titleFontSize = screen.width < 400 ? screen.width * 0.055 : screen.width * 0.06;
+    final headerPadding = screen.width < 400 ? 16.0 : 20.0;
+    final contentPadding = screen.width < 400 ? 16.0 : 20.0;
     final emptyStateIconSize = screen.height < 600 ? 60.0 : 80.0;
     final emptyStateFontSize = screen.width < 400 ? screen.width * 0.045 : screen.width * 0.05;
     final emptyStateSubFontSize = screen.width < 400 ? screen.width * 0.035 : screen.width * 0.04;
@@ -1280,81 +1159,62 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.receipt_long,
-                              color: Colors.white,
-                              size: 18,
-                            ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Recent Orders',
-                                style: TextStyle(
-                                  fontSize: titleFontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 1,
-                              ),
-                            ),
+                          child: const Icon(
+                            Icons.receipt_long,
+                            color: Colors.white,
+                            size: 20,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Recent Orders',
+                          style: TextStyle(
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
-                    if (pastOrders.length > 5) ...[
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: GestureDetector(
-                          onTap: () => _showPastOrdersPopup(context, pastOrders),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: screen.width < 400 ? 8 : 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'View All',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: screen.width < 400 ? 10 : 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.arrow_forward_ios,
+                    if (pastOrders.length > 5)
+                      GestureDetector(
+                        onTap: () => _showPastOrdersPopup(context, pastOrders),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'View All',
+                                style: TextStyle(
                                   color: Colors.white,
-                                  size: 12,
+                                  fontSize: screen.width < 400 ? 12 : 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.arrow_forward_ios,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -1511,7 +1371,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                             : itemName,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 16,
                           color: isRecent ? const Color(0xFF242C5B) : Colors.grey[700],
                         ),
                         maxLines: 1,
@@ -1520,7 +1380,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                     ),
                     if (isRecent)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -1528,7 +1388,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                         child: const Text(
                           'Recent',
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: Colors.green,
                           ),
@@ -1551,7 +1411,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                             ? '${items.length} items'
                             : _getItemTypeDisplayName(itemType),
                         style: const TextStyle(
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF242C5B),
                         ),
@@ -1575,7 +1435,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                         Text(
                           'Items in this order:',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: Colors.grey[700],
                           ),
@@ -1598,7 +1458,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                                 child: Text(
                                   '${item['itemName']} (${_getItemTypeDisplayName(item['itemType'] ?? 'item')})',
                                   style: TextStyle(
-                                    fontSize: 9,
+                                    fontSize: 10,
                                     color: Colors.grey[600],
                                   ),
                                 ),
@@ -1610,7 +1470,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                           Text(
                             '... and ${items.length - 3} more items',
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: 10,
                               fontStyle: FontStyle.italic,
                               color: Colors.grey[500],
                             ),
@@ -1632,7 +1492,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                       Text(
                         _formatOrderDate(date),
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: Colors.grey[600],
                         ),
                       ),
@@ -1779,14 +1639,6 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                                           fontWeight: FontWeight.w600,
                                           color: Color(0xFF242C5B),
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Cycle ${order['cycle'] ?? 1}',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey[600],
                                       ),
                                     ),
                                   ],

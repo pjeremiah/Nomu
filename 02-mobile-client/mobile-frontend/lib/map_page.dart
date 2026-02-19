@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(const MaterialApp(
@@ -44,28 +44,6 @@ final List<Branch> branches = [
   ),
 ];
 
-/// Opens the branch location in Google Maps with the store name (latest Google Maps).
-Future<void> _openInGoogleMaps(BuildContext context, Branch branch) async {
-  final lat = branch.location.latitude;
-  final lng = branch.location.longitude;
-  // Show store name in search so the map displays the name, not raw coordinates
-  final query = '${Uri.encodeComponent(branch.name)} $lat,$lng';
-  final url = Uri.parse(
-    'https://www.google.com/maps/search/?api=1&query=$query',
-  );
-  if (await canLaunchUrl(url)) {
-    await launchUrl(url, mode: LaunchMode.externalApplication);
-  } else {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open Google Maps. Please install the app or try again.'),
-        ),
-      );
-    }
-  }
-}
-
 class MapPage extends StatelessWidget {
   const MapPage({super.key});
 
@@ -92,7 +70,7 @@ class MapPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 5),
-        // Visit Store button with fixed width (not wide) — opens Google Maps
+        // Visit Store button with fixed width (not wide)
         Align(
           alignment: Alignment.center,
           child: Container(
@@ -106,7 +84,19 @@ class MapPage extends StatelessWidget {
               ),
             ),
             child: ElevatedButton(
-              onPressed: () => _openInGoogleMaps(context, branch),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MapScreen(
+                      title: branch.name,
+                      location: branch.location,
+                      markerText: branch.markerText,
+                      titleColor: Colors.white,
+                    ),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
@@ -136,6 +126,59 @@ class MapPage extends StatelessWidget {
           itemCount: branches.length,
           itemBuilder: (context, index) => storeCard(context, branches[index]),
         ),
+      ),
+    );
+  }
+}
+
+class MapScreen extends StatelessWidget {
+  final String title;
+  final LatLng location;
+  final String markerText;
+  final Color titleColor;
+
+  const MapScreen({
+    super.key,
+    required this.title,
+    required this.location,
+    required this.markerText,
+    this.titleColor = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          title,
+          style: TextStyle(color: titleColor),
+        ),
+        iconTheme: IconThemeData(color: titleColor),
+        backgroundColor: const Color(0xFF242C5B),
+      ),
+      body: FlutterMap(
+        options: MapOptions(center: location, zoom: 17),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            subdomains: const ['a', 'b', 'c'],
+            userAgentPackageName: 'com.example.nomu',
+          ),
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: location,
+                width: 80,
+                height: 80,
+                child: const Icon(
+                  Icons.location_pin,
+                  size: 40,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
