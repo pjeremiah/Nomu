@@ -97,9 +97,17 @@ router.post('/', authMiddleware, promoUpload.single('image'), async (req, res) =
       return res.status(400).json({ message: 'Discount value is required for this promo type' });
     }
 
-    // Validate dates
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Parse dates (expect ISO strings so exact admin time is preserved)
+    const parseDate = (str) => {
+      if (!str || typeof str !== 'string') return null;
+      const d = new Date(str);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
+    if (!start || !end) {
+      return res.status(400).json({ message: 'Invalid start or end date format; use ISO date/time.' });
+    }
     if (start >= end) {
       return res.status(400).json({ message: 'End date must be after start date' });
     }
@@ -170,10 +178,18 @@ router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res)
       return res.status(404).json({ message: 'Promo not found' });
     }
 
-    // Validate dates if provided
+    // Parse and validate dates: expect ISO strings (with Z or offset) so exact admin time is preserved
+    const parseDate = (str) => {
+      if (!str || typeof str !== 'string') return null;
+      const d = new Date(str);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      const start = parseDate(startDate);
+      const end = parseDate(endDate);
+      if (!start || !end) {
+        return res.status(400).json({ message: 'Invalid start or end date format; use ISO date/time.' });
+      }
       if (start >= end) {
         return res.status(400).json({ message: 'End date must be after start date' });
       }
@@ -194,8 +210,14 @@ router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res)
       promo.discountValue = parseFloat(discountValue);
     }
     if (minOrderAmount !== undefined) promo.minOrderAmount = parseFloat(minOrderAmount);
-    if (startDate) promo.startDate = new Date(startDate);
-    if (endDate) promo.endDate = new Date(endDate);
+    if (startDate) {
+      const parsed = parseDate(startDate);
+      if (parsed) promo.startDate = parsed;
+    }
+    if (endDate) {
+      const parsed = parseDate(endDate);
+      if (parsed) promo.endDate = parsed;
+    }
     if (usageLimit !== undefined) promo.usageLimit = usageLimit ? parseInt(usageLimit) : null;
     if (status) promo.status = status;
     

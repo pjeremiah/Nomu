@@ -30,6 +30,20 @@ const toDatetimeLocal = (isoOrDate) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+// Convert datetime-local string (yyyy-MM-ddTHH:mm, admin's local time) to ISO for API.
+// Build from local parts so "current date/time" is never misinterpreted across timezones.
+const datetimeLocalToISO = (localStr) => {
+  if (!localStr || typeof localStr !== 'string') return '';
+  const [datePart, timePart] = localStr.split('T');
+  if (!datePart || !timePart) return '';
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [hh, mm] = timePart.split(':').map(Number);
+  if ([y, m, d, hh, mm].some((n) => Number.isNaN(n))) return '';
+  const localDate = new Date(y, m - 1, d, hh, mm, 0, 0);
+  if (Number.isNaN(localDate.getTime())) return '';
+  return localDate.toISOString();
+};
+
 const AddEditPromoModal = ({ show, onHide, onSave, editing, initialData, modalError, saving }) => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -695,8 +709,17 @@ const PromoManagement = () => {
       formData.append('description', promoData.description);
       formData.append('promoType', promoData.promoType);
       formData.append('discountValue', promoData.discountValue);
-      formData.append('startDate', promoData.startDate);
-      formData.append('endDate', promoData.endDate);
+      // Send dates as ISO (UTC) from admin's local date/time so exact time is preserved
+      // (datetimeLocalToISO builds from local parts so "current date/time" stays accurate)
+      const startISO = datetimeLocalToISO(promoData.startDate);
+      const endISO = datetimeLocalToISO(promoData.endDate);
+      if (!startISO || !endISO) {
+        setModalError('Invalid start or end date/time.');
+        setIsSavingPromo(false);
+        return;
+      }
+      formData.append('startDate', startISO);
+      formData.append('endDate', endISO);
       formData.append('status', promoData.status);
       if (promoData.image) formData.append('image', promoData.image);
       const url = editing ? `${API_BASE}/api/promos/${currentPromo._id}` : `${API_BASE}/api/promos`;
@@ -812,12 +835,18 @@ const PromoManagement = () => {
 
   const statusCounts = getStatusCounts();
 
+  // Month, Day, Year with time (local timezone) so exact admin-set time is visible
   const formatDate = (dateString) => {
     if (!dateString) return 'No date set';
-    const opts = { year: 'numeric', month: 'short', day: 'numeric' };
     const d = new Date(dateString);
     if (Number.isNaN(d.getTime())) return dateString;
-    return d.toLocaleDateString('en-US', opts);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+  const formatDateTime = (dateString) => {
+    if (!dateString) return 'No date set';
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return dateString;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
   const getDiscountText = (promo) => {
@@ -1245,10 +1274,10 @@ const PromoManagement = () => {
                     lineHeight: '1.4'
                   }}>
                     <div style={{ marginBottom: '0.25rem' }}>
-                      <strong style={{ color: '#212c59' }}>Start:</strong> {formatDate(promo.startDate)}
+                      <strong style={{ color: '#212c59' }}>Start:</strong> {formatDateTime(promo.startDate)}
                     </div>
                     <div>
-                      <strong style={{ color: '#212c59' }}>End:</strong> {formatDate(promo.endDate)}
+                      <strong style={{ color: '#212c59' }}>End:</strong> {formatDateTime(promo.endDate)}
                     </div>
                   </div>
 
