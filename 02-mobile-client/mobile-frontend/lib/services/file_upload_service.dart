@@ -489,60 +489,52 @@ class FileUploadService {
     }
   }
 
-  /// Upload profile picture bytes to GridFS
+  /// Upload profile picture bytes to GridFS (database). Uses the profile-picture
+  /// endpoint so the image is stored in GridFS and the user's profilePicture
+  /// is set to /api/images/profile/<id> (served from DB).
   static Future<Map<String, dynamic>> uploadProfilePictureBytesToGridFS({
     required String userId,
     required Uint8List bytes,
     required String fileName,
   }) async {
     try {
-      LoggingService.instance.info('Starting GridFS profile picture bytes upload...', {
+      LoggingService.instance.info('Starting profile picture upload (GridFS / database)...', {
         'userId': userId,
         'fileName': fileName,
         'bytesLength': bytes.length
       });
 
-      // Try the generic GridFS upload first
+      // Use direct profile-picture endpoint first so image is stored in GridFS (DB), not on disk
       try {
-        final result = await uploadImageBytesToGridFS(
-          imageType: 'profile',
-          bytes: bytes,
-          fileName: fileName,
-        );
-
-        if (result['success'] == true) {
-          // Update user profile with new image URL
-          final imageUrl = result['imageUrl'];
-          // Convert generic image URL to profile picture URL format
-          final profilePictureUrl = imageUrl.replaceFirst('/api/images/profile/', '/api/profile-picture/');
-          final updateResult = await ApiService.updateUser(userId, {
-            'profilePicture': profilePictureUrl,
-          });
-
-          if (updateResult != null) {
-            LoggingService.instance.info('Profile picture updated in user record', {
-              'userId': userId,
-              'imageUrl': profilePictureUrl
-            });
-          }
-
-          // Update result with correct profile picture URL
-          result['profilePicture'] = profilePictureUrl;
-          return result;
-        } else {
-          LoggingService.instance.warning('Generic GridFS upload failed, trying fallback method', {
-            'error': result['error'],
-            'message': result['message']
-          });
-        }
+        return await _uploadProfilePictureDirect(userId, bytes, fileName);
       } catch (e) {
-        LoggingService.instance.warning('Generic GridFS upload failed with exception, trying fallback method', e);
+        LoggingService.instance.warning('Direct profile picture upload failed, trying generic upload', e);
       }
 
-      // Fallback: Try direct profile picture upload
-      LoggingService.instance.info('Trying fallback profile picture upload method...');
-      return await _uploadProfilePictureDirect(userId, bytes, fileName);
+      // Fallback: generic image upload (may store on disk depending on server)
+      final result = await uploadImageBytesToGridFS(
+        imageType: 'profile',
+        bytes: bytes,
+        fileName: fileName,
+      );
 
+      if (result['success'] == true) {
+        final imageUrl = result['imageUrl'] as String? ?? '';
+        // Only save to user if we got a GridFS-style URL (database), not /uploads/ (disk)
+        if (imageUrl.startsWith('/api/images/profile/')) {
+          final updateResult = await ApiService.updateUser(userId, {
+            'profilePicture': imageUrl,
+          });
+          if (updateResult != null) {
+            LoggingService.instance.info('Profile picture updated in user record (GridFS)', {
+              'userId': userId,
+              'imageUrl': imageUrl
+            });
+          }
+          result['profilePicture'] = imageUrl;
+        }
+      }
+      return result;
     } catch (e) {
       LoggingService.instance.error('Exception during GridFS profile picture bytes upload', e);
       rethrow;

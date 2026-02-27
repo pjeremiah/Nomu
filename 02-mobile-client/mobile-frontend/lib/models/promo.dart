@@ -101,15 +101,24 @@ class Promo {
   bool get hasImage => (imageId != null && imageId!.isNotEmpty) || 
                       (imageUrl != null && imageUrl!.isNotEmpty);
 
-  /// Get formatted discount text
+  /// Get formatted discount text (supports both admin "Percentage Discount" and legacy "percentage")
   String get discountText {
     switch (promoType) {
       case 'percentage':
+      case 'Percentage Discount':
         return '${discountValue.toInt()}% OFF';
       case 'fixed':
+      case 'Fixed Amount Discount':
         return '₱${discountValue.toInt()} OFF';
       case 'buy_one_get_one':
+      case 'Buy One Get One':
         return 'Buy 1 Get 1';
+      case 'free_item':
+      case 'Free Item':
+        return 'Free Item';
+      case 'loyalty_bonus':
+      case 'Loyalty Points Bonus':
+        return '${discountValue.toInt()}x Points';
       default:
         return 'Special Offer';
     }

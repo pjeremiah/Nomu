@@ -44,6 +44,8 @@ build/
 *.aab
 *.ipa
 *.app
+# Allow the Nomu mobile APK in web frontend public (for download on the site)
+!01-web-application/frontend/public/Nomu-Mobile-Application.apk
 
 # Temporary files
 *.tmp

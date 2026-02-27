@@ -6,6 +6,7 @@ import 'usermodel.dart';
 import 'api/api.dart';
 import 'homepage.dart';
 import 'services/logging_service.dart';
+import 'theme/app_theme.dart';
 
 
 
@@ -13,10 +14,10 @@ class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
   @override
-  SignupPageState createState() => SignupPageState();
+  _SignupPageState createState() => _SignupPageState();
 }
 
-class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
+class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   final _fullnameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -39,9 +40,7 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
 
   // Animation controllers
   late AnimationController _fadeController;
-  late AnimationController _slideController;
   late Animation<double> _fadeInAnimation;
-  late Animation<Offset> _slideInAnimation;
 
   String? _fullnameError;
   String? _usernameError;
@@ -62,21 +61,12 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
     
     _fadeInAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
     );
-    _slideInAnimation = Tween<Offset>(
-      begin: const Offset(0, 1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
 
     _fadeController.forward();
-    _slideController.forward();
   }
 
   bool _isValidEmail(String email) {
@@ -85,8 +75,12 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   }
 
   bool _isValidPassword(String password) {
-    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*\W).{8,}$');
-    return passwordRegex.hasMatch(password);
+    final hasMinLength = password.length >= 8;
+    final hasUpper = password.contains(RegExp(r'[A-Z]'));
+    final hasLower = password.contains(RegExp(r'[a-z]'));
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
+    final hasSpecial = password.contains(RegExp(r'[!@#\$%^&*(),.?\":{}|<>]'));
+    return hasMinLength && hasUpper && hasLower && hasDigit && hasSpecial;
   }
 
   Future<void> _sendOTP() async {
@@ -110,21 +104,32 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     setState(() => _isSendingOtp = true);
     
     try {
-      String? error = await ApiService.sendOTP(email, fullname);
+      final result = await ApiService.sendOTP(email, fullname);
       setState(() => _isSendingOtp = false);
       
-      if (error == null) {
+      if (result['error'] == null) {
         if (mounted) {
+          AppHaptics.light();
           setState(() => _otpSent = true);
           _startResendTimer();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP sent to your email!')),
-          );
+          final devOtp = result['devOtp']?.toString();
+          if (devOtp != null && devOtp.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('OTP (use this if email not received): $devOtp'),
+                duration: const Duration(seconds: 30),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('OTP sent to your email!')),
+            );
+          }
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to send OTP: $error')),
+            SnackBar(content: Text('Failed to send OTP: ${result['error']}')),
           );
         }
       }
@@ -288,28 +293,6 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
               
               _showSuccessDialog();
             } else {
-              if (mounted) {
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Registration Successful'),
-                    content: const Text('Account created! Please log in manually.'),
-                    actions: [
-                      TextButton(
-                        child: const Text('OK'),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              }
-            }
-          } catch (loginError) {
-            // If auto-login fails, show success message and ask to login manually
-            if (mounted) {
               showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
@@ -327,33 +310,31 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                 ),
               );
             }
-          }
-        } else {
-          if (mounted) {
+          } catch (loginError) {
+            // If auto-login fails, show success message and ask to login manually
             showDialog(
               context: context,
               builder: (_) => AlertDialog(
-                title: const Text('Registration Failed'),
-                content: Text(error),
+                title: const Text('Registration Successful'),
+                content: const Text('Account created! Please log in manually.'),
                 actions: [
                   TextButton(
                     child: const Text('OK'),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pop();
+                    },
                   ),
                 ],
               ),
             );
           }
-        }
-      } catch (e) {
-        setState(() => _isLoading = false);
-        LoggingService.instance.error("Signup error", e);
-        if (mounted) {
+        } else {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
-              title: const Text('Error'),
-              content: Text(e.toString()),
+              title: const Text('Registration Failed'),
+              content: Text(error),
               actions: [
                 TextButton(
                   child: const Text('OK'),
@@ -363,12 +344,29 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
             ),
           );
         }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        LoggingService.instance.error("Signup error", e);
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Error'),
+            content: Text(e.toString()),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
       }
     }
   }
 
   Future<void> _resendOTP() async {
     final email = _emailController.text.trim();
+    final fullname = _fullnameController.text.trim();
     
     if (email.isEmpty || !_isValidEmail(email)) {
       if (mounted) {
@@ -380,19 +378,30 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     }
 
     try {
-      String? error = await ApiService.requestOTP(email);
+      // Use sendOTP (signup flow), not requestOTP (existing-user flow)
+      final result = await ApiService.sendOTP(email, fullname.isNotEmpty ? fullname : null);
       
-      if (error == null) {
+      if (result['error'] == null) {
         _startResendTimer();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP resent to your email!')),
-          );
+          final devOtp = result['devOtp']?.toString();
+          if (devOtp != null && devOtp.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('OTP (use this if email not received): $devOtp'),
+                duration: const Duration(seconds: 30),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('OTP resent to your email!')),
+            );
+          }
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to resend OTP: $error')),
+            SnackBar(content: Text('Failed to resend OTP: ${result['error']}')),
           );
         }
       }
@@ -509,64 +518,83 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
   }
 
   Widget _buildEmailField() {
-    return TextField(
-      controller: _emailController,
-      keyboardType: TextInputType.emailAddress,
-      decoration: InputDecoration(
-        hintText: "Enter your email address",
-        errorText: _emailError,
-        prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
-        suffixIcon: Container(
-          margin: const EdgeInsets.all(8),
-          child: ElevatedButton(
-            onPressed: _otpSent ? null : _sendOTP,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _otpSent ? Colors.grey[400] : Colors.blue[600],
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            hintText: "Enter your email address",
+            errorText: _emailError,
+            prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
             ),
-            child: _isSendingOtp
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(
-                    _otpSent ? 'Sent' : 'Send OTP',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF212c59), width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            filled: true,
+            fillColor: Colors.grey[50],
           ),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+        const SizedBox(height: 12),
+        _buildSendOtpButton(),
+      ],
+    );
+  }
+
+  Widget _buildSendOtpButton() {
+    return Container(
+      height: 50,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        image: const DecorationImage(
+          image: AssetImage("assets/images/istetik.png"),
+          fit: BoxFit.cover,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      child: ElevatedButton(
+        onPressed: (_otpSent || _isSendingOtp) ? null : _sendOTP,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF212c59), width: 2), // Dark blue when focused
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        filled: true,
-        fillColor: Colors.grey[50],
+        child: _isSendingOtp
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                _otpSent ? 'OTP SENT' : 'SEND OTP',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
       ),
     );
   }
@@ -774,7 +802,7 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
 
   Widget _buildGenderField() {
     return DropdownButtonFormField<String>(
-      initialValue: _selectedGender,
+      value: _selectedGender,
       items: ['Male', 'Female', 'Prefer not to say']
           .map((gender) => DropdownMenuItem(
                 value: gender,
@@ -847,63 +875,95 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
       ),
       child: Column(
         children: [
-          CheckboxListTile(
-            value: _acceptedTerms,
-            onChanged: (value) => setState(() => _acceptedTerms = value ?? false),
-            title: GestureDetector(
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Privacy Policy'),
-                    content: const SingleChildScrollView(
-                      child: Text(
-                        "Privacy Policy for Nomu Cafe\n\n"
-                        "Effective Date: May 11, 2024\n\n"
-                        "At Nomu Cafe, we are committed to protecting your personal information. "
-                        "This privacy policy explains what data we collect, how we use it, and your rights.\n\n"
-                        "1. Information We Collect:\n"
-                        "- Name, email address, birthday, and other details you provide.\n\n"
-                        "2. How We Use Your Information:\n"
-                        "- To provide and improve our services.\n"
-                        "- To contact you about your account or promotions.\n\n"
-                        "3. Data Protection:\n"
-                        "- We use industry-standard security to protect your data.\n\n"
-                        "4. Your Rights:\n"
-                        "- You can request access or deletion of your information at any time.\n\n"
-                        "5. Third Parties:\n"
-                        "- We do not share your information with third parties without consent.\n\n"
-                        "By using our services, you agree to this Privacy Policy.\n\n"
-                        "For inquiries, contact us at support@nomucafe.com.",
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Checkbox(
+                value: _acceptedTerms,
+                onChanged: (value) => setState(() => _acceptedTerms = value ?? false),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        title: const Text('Privacy Policy'),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Privacy Policy for Nomu Cafe\n\n"
+                                "Effective Date: May 11, 2024\n\n"
+                                "At Nomu Cafe, we are committed to protecting your personal information. "
+                                "This privacy policy explains what data we collect, how we use it, and your rights.\n\n"
+                                "1. Information We Collect:\n"
+                                "- Name, email address, birthday, and other details you provide.\n\n"
+                                "2. How We Use Your Information:\n"
+                                "- To provide and improve our services.\n"
+                                "- To contact you about your account or promotions.\n\n"
+                                "3. Data Protection:\n"
+                                "- We use industry-standard security to protect your data.\n\n"
+                                "4. Your Rights:\n"
+                                "- You can request access or deletion of your information at any time.\n\n"
+                                "5. Third Parties:\n"
+                                "- We do not share your information with third parties without consent.\n\n"
+                                "By using our services, you agree to this Privacy Policy.\n\n"
+                                "For inquiries, contact us at nomucafe1@gmail.com.",
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: AppTheme.primary,
+                                    side: BorderSide(color: AppTheme.primary, width: 2),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text('Close'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                    );
+                  },
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: const Text(
+                      'I accept the terms and conditions',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Close'),
-                      ),
-                    ],
                   ),
-                );
-              },
-              child: const Text(
-                'I accept the terms and conditions',
-                style: TextStyle(
-                  decoration: TextDecoration.underline,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            controlAffinity: ListTileControlAffinity.leading,
-            subtitle: _termsError != null
-                ? Text(
-                    _termsError!,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  )
-                : null,
-            contentPadding: EdgeInsets.zero,
+            ],
           ),
+          if (_termsError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _termsError!,
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
         ],
       ),
     );
@@ -949,6 +1009,28 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildSignInLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          "Already have an account? ",
+          style: TextStyle(color: Colors.black),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: const Text(
+            "Sign In",
+            style: TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     _fullnameController.dispose();
@@ -960,7 +1042,6 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     _otpController.dispose();
     _resendTimerTimer?.cancel();
     _fadeController.dispose();
-    _slideController.dispose();
     super.dispose();
   }
 
@@ -991,12 +1072,9 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 20),
                   Expanded(
-                    child: SlideTransition(
-                      position: _slideInAnimation,
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: _buildBottom(mediaSize),
-                      ),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: _buildBottom(mediaSize),
                     ),
                   ),
                 ],
@@ -1021,7 +1099,7 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           const Text(
-            "NOMU CAFE",
+            "Nomu Cafe",
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -1123,6 +1201,8 @@ class SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
           
           // Sign Up Button
           _buildSignUpButton(),
+          SizedBox(height: mediaSize.height * 0.02),
+          _buildSignInLink(),
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'login.dart';
 import 'account_settings_page.dart';
 import 'usermodel.dart';
 import 'help_support.dart';
+import 'theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -14,6 +15,23 @@ import 'services/logging_service.dart';
 import 'services/file_upload_service.dart';
 import 'services/image_processing_service.dart';
 import 'api/api.dart';
+
+/// Same open animation for Account Settings and Nomu Chatbot (fade in, show in front).
+PageRoute<T> _slideAndFadeRoute<T>(Widget page) {
+  return PageRouteBuilder<T>(
+    pageBuilder: (context, animation, secondaryAnimation) => page,
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+    opaque: false,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      return FadeTransition(
+        opacity: curve,
+        child: child,
+      );
+    },
+  );
+}
 
 class ProfilePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -29,6 +47,7 @@ class _ProfilePageState extends State<ProfilePage> {
   late UserModel _user;
   late Future<String> _originFuture;
   int _profilePictureRefreshKey = 0;
+  bool _obscureEmail = true;
 
   @override
   void initState() {
@@ -236,6 +255,16 @@ class _ProfilePageState extends State<ProfilePage> {
         
         // Handle different URL types
         String url;
+        
+        // Check if user has a profile picture set
+        if (_user.profilePicture.isEmpty || _user.profilePicture.trim().isEmpty) {
+          // No profile picture set - use default avatar
+          LoggingService.instance.info('User has no profile picture set - using default avatar', {
+            'userId': _user.id,
+          });
+          return _buildDefaultAvatar(radius, iconSize);
+        }
+        
         if (_user.profilePicture.startsWith('/uploads/')) {
           // Direct file URL
           url = '$origin${_user.profilePicture}?v=$_profilePictureRefreshKey';
@@ -243,10 +272,13 @@ class _ProfilePageState extends State<ProfilePage> {
           // API endpoint URL
           url = '$origin${_user.profilePicture}?v=$_profilePictureRefreshKey';
         } else if (_user.id.isNotEmpty) {
-          // Fallback to user profile endpoint
+          // Fallback to user profile endpoint (only if profilePicture field has some value)
           url = '$origin/api/user/${_user.id}/profile-picture?${DateTime.now().millisecondsSinceEpoch}';
         } else {
-          _logError('Cannot construct URL for profile picture', null);
+          LoggingService.instance.warning('Cannot construct URL for profile picture', {
+            'userId': _user.id,
+            'profilePicture': _user.profilePicture,
+          });
           return _buildDefaultAvatar(radius, iconSize);
         }
         
@@ -282,12 +314,27 @@ class _ProfilePageState extends State<ProfilePage> {
             return _buildLoadingWidget(width, height, loadingProgress);
           },
           errorBuilder: (context, error, stackTrace) {
-            _logError('Error loading network profile picture', error);
-            LoggingService.instance.error('Network image load failed', {
-              'url': url,
-              'error': error.toString(),
-              'stackTrace': stackTrace.toString()
-            });
+            // Check if error is a 404 (expected when user has no profile picture)
+            final errorString = error.toString().toLowerCase();
+            final is404Error = errorString.contains('404') || 
+                             errorString.contains('not found') ||
+                             (errorString.contains('http') && errorString.contains('failed'));
+            
+            if (is404Error) {
+              // 404 is expected when user doesn't have a profile picture - log as info, not error
+              LoggingService.instance.info('Profile picture not found (404) - using default avatar', {
+                'url': url,
+                'userId': _user.id,
+              });
+            } else {
+              // Log actual errors (network failures, etc.)
+              _logError('Error loading network profile picture', error);
+              LoggingService.instance.error('Network image load failed', {
+                'url': url,
+                'error': error.toString(),
+                'stackTrace': stackTrace.toString()
+              });
+            }
             return _buildDefaultAvatar(radius, iconSize);
           },
         );
@@ -660,13 +707,12 @@ class _ProfilePageState extends State<ProfilePage> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refreshProfile,
-                color: const Color(0xFF1B2A59),
-                backgroundColor: Colors.white,
+                color: AppTheme.primary,
+                backgroundColor: AppTheme.neutral0,
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
                     _buildProfileCard(),
-                    const SizedBox(height: 24),
                     const SizedBox(height: 24),
                     _buildMenuSection(context),
                   ],
@@ -702,7 +748,7 @@ class _ProfilePageState extends State<ProfilePage> {
             'Profile',
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
           ),
@@ -711,128 +757,192 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// Returns a masked email (e.g. "je***@gmail.com") so the full address is not exposed.
+  static String _maskEmail(String email) {
+    if (email.isEmpty) return '•••@•••';
+    final atIndex = email.indexOf('@');
+    if (atIndex <= 0) return '•••@•••';
+    final local = email.substring(0, atIndex);
+    final domain = email.substring(atIndex + 1);
+    if (local.length <= 2) return '${local}***@$domain';
+    return '${local.substring(0, 2)}***@$domain';
+  }
+
   Widget _buildProfileCard() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    final displayEmail = _obscureEmail ? _maskEmail(_user.email) : _user.email;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.neutral0,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.neutral200),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: _showProfilePictureDialog,
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: _showProfilePictureDialog,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.primary, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primary.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: _buildProfilePicture(88, 88, 40, 44),
+                  ),
+                ),
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: Container(
                     decoration: BoxDecoration(
+                      color: AppTheme.neutral0,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF242C5B),
-                        width: 2,
-                      ),
+                      border: Border.all(color: AppTheme.primary),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
-                    child: ClipOval(
-                      child: _buildProfilePicture(80, 80, 36, 40),
+                    padding: const EdgeInsets.all(6),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      size: 18,
+                      color: AppTheme.primary,
                     ),
                   ),
-                  Positioned(
-                    bottom: 4,
-                    right: 4,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 2,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _user.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primary,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        displayEmail,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.neutral600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _obscureEmail = !_obscureEmail),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(
+                          _obscureEmail ? 'Reveal' : 'Hide',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primary,
                           ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        size: 20,
-                        color: Color(0xFF242C5B),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildProfileRow('Username', _user.username),
+                const SizedBox(height: 6),
+                _buildProfileRow('Birthday', _user.birthday),
+                const SizedBox(height: 6),
+                _buildProfileRow('Gender', _user.gender),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _user.fullName,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF242C5B),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _user.email,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  Text(
-                    'Username: ${_user.username}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  Text(
-                    'Birthday: ${_user.birthday}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  Text(
-                    'Gender: ${_user.gender}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileRow(String label, String value) {
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontSize: 14,
+          height: 1.4,
+          color: AppTheme.neutral600,
         ),
+        children: [
+          TextSpan(
+            text: '$label: ',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: AppTheme.neutral700,
+            ),
+          ),
+          TextSpan(text: value.isNotEmpty ? value : '—'),
+        ],
       ),
     );
   }
 
   Widget _buildMenuSection(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.neutral0,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.neutral200),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          const Divider(height: 1),
           _buildMenuItem(
             'Account Settings',
-            Icons.settings_outlined,
+            Icons.settings_rounded,
             onTap: () async {
               final updatedUser = await Navigator.push<UserModel?>(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => AccountSettingsPage(
+                _slideAndFadeRoute<UserModel?>(
+                  AccountSettingsPage(
                     user: _user,
                     onSave: (user) {
                       Navigator.pop(context, user);
@@ -845,23 +955,21 @@ class _ProfilePageState extends State<ProfilePage> {
               }
             },
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: AppTheme.neutral200),
           _buildMenuItem(
-            'Smart Assistant',
-            Icons.support_agent,
+            'Nomu Chatbot',
+            Icons.support_agent_rounded,
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => HelpSupportPage(userId: _user.id),
-                ),
+                _slideAndFadeRoute<void>(HelpSupportPage(userId: _user.id)),
               );
             },
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: AppTheme.neutral200),
           _buildMenuItem(
             'Log Out',
-            Icons.logout,
+            Icons.logout_rounded,
             onTap: () {
               _showLogoutDialog(context);
             },
@@ -874,58 +982,155 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildMenuItem(String title, IconData icon,
       {required VoidCallback onTap, bool isLogout = false}) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isLogout ? Colors.red : const Color(0xFF242C5B),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                color: isLogout ? Colors.red : const Color(0xFF242C5B),
+    final color = isLogout ? AppTheme.error : AppTheme.primary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: color,
               ),
-            ),
-            const Spacer(),
-            const Icon(
-              Icons.chevron_right,
-              size: 24,
-              color: Color(0xFF242C5B),
-            ),
-          ],
+              const SizedBox(width: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 24,
+                color: AppTheme.neutral400,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   void _showLogoutDialog(BuildContext context) {
+    const darkBlue = Color(0xFF1B2A59);
+    const goldishBrown = Color(0xFFB8860B);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Log Out'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 340),
+          decoration: BoxDecoration(
+            color: AppTheme.neutral0,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.neutral900.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              
-              // Perform logout immediately - no loading dialog needed
-              LogoutService.performLogout(context, const LoginPage());
-            },
-            child: const Text('Log Out'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 28),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: darkBlue.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: darkBlue,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Log Out',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.neutral900,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Are you sure you want to log out? You will need to sign in again to access your account.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                    color: AppTheme.neutral600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppTheme.neutral0,
+                          foregroundColor: goldishBrown,
+                          side: const BorderSide(color: goldishBrown),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          LogoutService.performLogout(context, const LoginPage());
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppTheme.neutral0,
+                          foregroundColor: darkBlue,
+                          side: const BorderSide(color: darkBlue),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Log Out'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

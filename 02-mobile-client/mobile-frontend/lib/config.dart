@@ -112,44 +112,44 @@ class Config {
 
   // Internals
   static Future<String> _resolveHost() async {
-    LoggingService.instance.info('Resolving host...', {
+    LoggingService.instance.debug('Resolving host...', {
       'platform': defaultTargetPlatform.toString(),
       'isWeb': kIsWeb,
     });
-    
+
     final prefs = await SharedPreferences.getInstance();
     final overrideHost = prefs.getString(_prefHostKey);
     if (overrideHost != null && overrideHost.trim().isNotEmpty) {
-      LoggingService.instance.info('Using override host: $overrideHost');
+      LoggingService.instance.debug('Using override host: $overrideHost');
       return overrideHost.trim();
     }
 
-    // Check .env file first
-    if (_envHost.isNotEmpty) {
-      LoggingService.instance.info('Using .env host: $_envHost');
+    // Check .env file first (ignore 0.0.0.0 — that's for server bind only; client must connect to a real host)
+    if (_envHost.isNotEmpty && _envHost != '0.0.0.0') {
+      LoggingService.instance.debug('Using .env host: $_envHost');
       return _envHost;
     }
 
     if (_definedHost.isNotEmpty) {
-      LoggingService.instance.info('Using defined host: $_definedHost');
+      LoggingService.instance.debug('Using defined host: $_definedHost');
       return _definedHost;
     }
 
     if (kIsWeb) {
       // For web browser, use the current host or localhost
       final String host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-      LoggingService.instance.info('Web detected - using host: $host');
+      LoggingService.instance.debug('Web detected - using host: $host');
       return host;
     }
-    
+
     // Production backend for mobile app
     if (defaultTargetPlatform == TargetPlatform.android) {
       // For production, use the deployed backend
-      LoggingService.instance.info('Android detected - using production backend: nomu-backend.onrender.com');
+      LoggingService.instance.debug('Android detected - using production backend: nomu-backend.onrender.com');
       return 'nomu-backend.onrender.com';
     }
-    
-    LoggingService.instance.info('Fallback to localhost');
+
+    LoggingService.instance.debug('Fallback to localhost');
     return 'localhost';
   }
 

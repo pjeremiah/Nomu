@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/promo.dart';
 import '../services/promo_service.dart';
 import '../widgets/promo_card.dart';
@@ -223,7 +224,7 @@ class _PromosScreenState extends State<PromosScreen> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return DateFormat('MMM d, y').format(date);
   }
 
 

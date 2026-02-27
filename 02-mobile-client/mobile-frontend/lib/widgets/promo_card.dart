@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/promo.dart';
 
 class PromoCard extends StatelessWidget {
@@ -20,6 +21,7 @@ class PromoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 400;
+    final cardRadius = isSmallScreen ? 12.0 : 16.0;
     
     return Container(
       width: double.infinity, // Take full width of parent container
@@ -30,7 +32,7 @@ class PromoCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: borderRadius ?? BorderRadius.circular(isSmallScreen ? 12 : 16),
+        borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF242C5B).withOpacity(0.3),
@@ -41,7 +43,7 @@ class PromoCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: borderRadius ?? BorderRadius.circular(isSmallScreen ? 12 : 16),
+        borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
         child: _buildContentSection(context),
       ),
     );
@@ -53,25 +55,33 @@ class PromoCard extends StatelessWidget {
     final isSmallScreen = screenSize.width < 400;
     final isMediumScreen = screenSize.width < 600;
     
-    // Responsive sizing
+    // Responsive sizing – taller cards so promo image is more visible
     final padding = isSmallScreen ? 12.0 : (isMediumScreen ? 14.0 : 16.0);
+    final cardRadius = isSmallScreen ? 12.0 : 16.0;
     final titleSize = isSmallScreen ? 16.0 : (isMediumScreen ? 17.0 : 18.0);
     final descSize = isSmallScreen ? 12.0 : (isMediumScreen ? 13.0 : 14.0);
     final badgeSize = isSmallScreen ? 11.0 : (isMediumScreen ? 12.0 : 14.0);
     final iconSize = isSmallScreen ? 14.0 : (isMediumScreen ? 15.0 : 16.0);
     
+    // Fixed height for white description block – same for every promo regardless of text length
+    final whiteBlockHeight = isSmallScreen ? 125.0 : (isMediumScreen ? 135.0 : 145.0);
+    
     return Container(
-      height: isSmallScreen ? 160 : (isMediumScreen ? 180 : 200),
-      child: Stack(
-        children: [
-          // Background image if available
+      height: isSmallScreen ? 220 : (isMediumScreen ? 250 : 280),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(cardRadius),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+          // Background image – primary focus, minimal obstruction
           if (promo.imageUrl != null && promo.imageUrl!.isNotEmpty)
             Positioned.fill(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                borderRadius: BorderRadius.circular(cardRadius),
                 child: Image.network(
                   promo.imageUrl!,
                   fit: BoxFit.cover,
+                  alignment: Alignment.center,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       decoration: BoxDecoration(
@@ -87,153 +97,154 @@ class PromoCard extends StatelessWidget {
               ),
             ),
           
-          // Gradient overlay for better text readability
+          // Light gradient only on upper area so image stays visible; no dark overlay on bottom (white block will cover it)
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+                borderRadius: BorderRadius.circular(cardRadius),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.3),
-                    Colors.black.withOpacity(0.7),
+                    Colors.black.withOpacity(0.08),
+                    Colors.black.withOpacity(0.05),
+                    Colors.transparent,
                   ],
+                  stops: const [0.0, 0.35, 0.65],
                 ),
               ),
             ),
           ),
           
-          // Content
-          Positioned.fill(
+          // Badge over image (top right)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
             child: Padding(
               padding: EdgeInsets.all(padding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Top row with badge
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 8 : 12, 
-                          vertical: isSmallScreen ? 4 : 6,
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 8 : 12,
+                      vertical: isSmallScreen ? 4 : 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFB08D57).withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB08D57).withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          _formatDiscountValue(),
-                          style: TextStyle(
-                            fontSize: badgeSize,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                      ],
+                    ),
+                    child: Text(
+                      _formatDiscountValue(),
+                      style: TextStyle(
+                        fontSize: badgeSize,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                    ],
+                    ),
                   ),
-                  
-                  // Bottom content
-                  Column(
+                ],
+              ),
+            ),
+          ),
+          
+          // White background block for description – fixed height and consistent curve
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                height: whiteBlockHeight,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.85),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(cardRadius),
+                    bottomRight: Radius.circular(cardRadius),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  clipBehavior: Clip.antiAlias,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(cardRadius),
+                    bottomRight: Radius.circular(cardRadius),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(padding, isSmallScreen ? 14 : 18, padding, isSmallScreen ? 14 : 18),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Title
                       Text(
                         promo.title,
                         style: TextStyle(
                           fontSize: titleSize,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
+                          color: const Color(0xFF2C2C2C),
+                          height: 1.25,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       SizedBox(height: isSmallScreen ? 4 : 6),
-                      
-                      // Description
-                      if (promo.description.isNotEmpty)
-                        Text(
-                          promo.description,
-                          style: TextStyle(
-                            fontSize: descSize,
-                            color: Colors.white.withOpacity(0.9),
-                            height: 1.3,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.5),
-                                blurRadius: 1,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          maxLines: isSmallScreen ? 2 : 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Expanded(
+                        child: promo.description.isNotEmpty
+                            ? Text(
+                                promo.description,
+                                style: TextStyle(
+                                  fontSize: descSize,
+                                  color: const Color(0xFF555555),
+                                  height: 1.35,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                       SizedBox(height: isSmallScreen ? 6 : 8),
-                      
-                      // Date and minimum order
                       Row(
                         children: [
-                          Icon(Icons.calendar_today, size: iconSize, color: Colors.white),
+                          Icon(Icons.calendar_today, size: iconSize, color: const Color(0xFF666666)),
                           SizedBox(width: isSmallScreen ? 4 : 6),
                           Expanded(
                             child: Text(
                               '${_formatDate(promo.startDate)} - ${_formatDate(promo.endDate)}',
                               style: TextStyle(
                                 fontSize: isSmallScreen ? 10 : 11,
-                                color: Colors.white.withOpacity(0.9),
+                                color: const Color(0xFF666666),
                                 fontWeight: FontWeight.w500,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.5),
-                                    blurRadius: 1,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
                               ),
                             ),
                           ),
                         ],
                       ),
-                      
-                      // Minimum order amount
                       if (promo.minOrderAmount > 0) ...[
                         SizedBox(height: isSmallScreen ? 4 : 6),
                         Row(
                           children: [
-                            Icon(Icons.shopping_cart, size: iconSize, color: Colors.white),
+                            Icon(Icons.shopping_cart, size: iconSize, color: const Color(0xFF666666)),
                             SizedBox(width: isSmallScreen ? 4 : 6),
                             Text(
                               'Min. order: ₱${promo.minOrderAmount.toStringAsFixed(0)}',
                               style: TextStyle(
                                 fontSize: isSmallScreen ? 10 : 11,
-                                color: Colors.white.withOpacity(0.9),
+                                color: const Color(0xFF666666),
                                 fontWeight: FontWeight.w500,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.5),
-                                    blurRadius: 1,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
                               ),
                             ),
                           ],
@@ -241,26 +252,34 @@ class PromoCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
+        ),
         ],
       ),
+    ),
     );
   }
 
   String _formatDiscountValue() {
-    switch (promo.promoType) {
+    final t = promo.promoType;
+    switch (t) {
       case 'percentage':
+      case 'Percentage Discount':
         return '${promo.discountValue.toInt()}% OFF';
       case 'fixed':
+      case 'Fixed Amount Discount':
         return '₱${promo.discountValue.toInt()} OFF';
       case 'buy_one_get_one':
+      case 'Buy One Get One':
         return 'BOGO';
       case 'free_item':
+      case 'Free Item':
         return 'FREE';
       case 'loyalty_bonus':
+      case 'Loyalty Points Bonus':
         return '${promo.discountValue.toInt()}x Points';
       default:
         return 'Special';
@@ -269,7 +288,7 @@ class PromoCard extends StatelessWidget {
 
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return DateFormat('MMM d, y').format(date);
   }
 }
 
@@ -290,7 +309,7 @@ class PromoCarousel extends StatefulWidget {
     this.onPromoTap,
     this.padding,
     this.autoPlay = true,
-    this.autoPlayInterval = const Duration(seconds: 3),
+    this.autoPlayInterval = const Duration(seconds: 5),
   }) : super(key: key);
 
   @override
@@ -305,7 +324,7 @@ class _PromoCarouselState extends State<PromoCarousel> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _pageController = PageController(viewportFraction: 1.0);
     if (widget.autoPlay && widget.promos.length > 1) {
       _startAutoPlay();
     }
@@ -324,8 +343,8 @@ class _PromoCarouselState extends State<PromoCarousel> {
         int nextIndex = (_currentIndex + 1) % widget.promos.length;
         _pageController.animateToPage(
           nextIndex,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOutCubic,
         );
       }
     });
@@ -343,14 +362,15 @@ class _PromoCarouselState extends State<PromoCarousel> {
     final isSmallScreen = screenSize.width < 400;
     final isMediumScreen = screenSize.width < 600;
     
-    // Responsive height calculation
+    // Responsive height – taller so promo images are more visible
     final responsiveHeight = isSmallScreen 
-        ? screenSize.height * 0.28  // 28% of screen height for small screens
+        ? screenSize.height * 0.36
         : isMediumScreen 
-            ? screenSize.height * 0.30  // 30% for medium screens
-            : screenSize.height * 0.32; // 32% for large screens
+            ? screenSize.height * 0.38
+            : screenSize.height * 0.40;
     
     final actualHeight = widget.height > 0 ? widget.height : responsiveHeight;
+    final cardRadius = isSmallScreen ? 12.0 : 16.0;
     
     if (widget.promos.isEmpty) {
       return Container(
@@ -363,7 +383,7 @@ class _PromoCarouselState extends State<PromoCarousel> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+          borderRadius: BorderRadius.circular(cardRadius),
         ),
         child: const Center(
           child: Column(
@@ -389,10 +409,14 @@ class _PromoCarouselState extends State<PromoCarousel> {
       );
     }
 
+    // Extra space at bottom so the card's drop shadow can draw with its curved shape (not clipped)
+    final shadowPadding = 20.0;
+    final contentHeight = actualHeight + shadowPadding;
+    
     return Column(
       children: [
         SizedBox(
-          height: actualHeight,
+          height: contentHeight,
           width: widget.width,
           child: Stack(
             children: [
@@ -401,107 +425,32 @@ class _PromoCarouselState extends State<PromoCarousel> {
                 onPageChanged: _onPageChanged,
                 itemCount: widget.promos.length,
                 padEnds: false,
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                 itemBuilder: (context, index) {
                   final promo = widget.promos[index];
-                  return Container(
-                    width: screenSize.width * 0.70, // Further reduced to 70% of screen width for better mobile fit
-                    margin: EdgeInsets.symmetric(
-                      horizontal: isSmallScreen ? 12.0 : (isMediumScreen ? 16.0 : 20.0),
-                    ),
-                    child: PromoCard(
-                      promo: promo,
-                      onTap: widget.onPromoTap != null ? () => widget.onPromoTap!(promo) : null,
-                    ),
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final contentWidth = constraints.maxWidth;
+                      return AnimatedOpacity(
+                        opacity: _currentIndex == index ? 1.0 : 0.95,
+                        duration: const Duration(milliseconds: 200),
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: shadowPadding),
+                          child: SizedBox(
+                            width: contentWidth,
+                            height: actualHeight,
+                            child: PromoCard(
+                              promo: promo,
+                              onTap: widget.onPromoTap != null ? () => widget.onPromoTap!(promo) : null,
+                              margin: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
-              
-              // Navigation arrows (only show if there are multiple promos)
-              if (widget.promos.length > 1) ...[
-                // Left arrow
-                Positioned(
-                  left: 4,
-                  top: actualHeight / 2 - 20,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (_currentIndex > 0) {
-                        _pageController.previousPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      } else {
-                        _pageController.animateToPage(
-                          widget.promos.length - 1,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.chevron_left,
-                        color: Color(0xFF242C5B),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-                
-                // Right arrow
-                Positioned(
-                  right: 4,
-                  top: actualHeight / 2 - 20,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (_currentIndex < widget.promos.length - 1) {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      } else {
-                        _pageController.animateToPage(
-                          0,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.chevron_right,
-                        color: Color(0xFF242C5B),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -511,24 +460,17 @@ class _PromoCarouselState extends State<PromoCarousel> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
               widget.promos.length,
-              (index) => Container(
+              (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOutCubic,
                 margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 4 : 6),
-                width: _currentIndex == index 
-                    ? (isSmallScreen ? 24 : (isMediumScreen ? 28 : 32)) 
-                    : (isSmallScreen ? 8 : (isMediumScreen ? 10 : 12)),
-                height: isSmallScreen ? 8 : (isMediumScreen ? 10 : 12),
+                width: isSmallScreen ? 8 : 10,
+                height: isSmallScreen ? 8 : 10,
                 decoration: BoxDecoration(
-                  color: _currentIndex == index 
-                    ? const Color(0xFFB08D57)  // Use brand color for active indicator
-                    : const Color(0xFFB08D57).withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(isSmallScreen ? 4 : 6),
-                  boxShadow: _currentIndex == index ? [
-                    BoxShadow(
-                      color: const Color(0xFFB08D57).withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ] : null,
+                  color: _currentIndex == index
+                      ? const Color(0xFFB08D57)
+                      : Colors.grey[300],
+                  shape: BoxShape.circle,
                 ),
               ),
             ),

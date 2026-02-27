@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:carousel_slider/carousel_slider.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'usermodel.dart';
 import 'map_page.dart';
 import 'loyalty_page.dart';
 import 'profile_page.dart';
-import 'screens/promos_screen.dart';
 import 'services/promo_service.dart';
 import 'models/promo.dart';
 import 'widgets/promo_card.dart';
@@ -13,7 +12,26 @@ import 'services/socket_service.dart';
 import 'services/logging_service.dart';
 import 'services/cache_service.dart';
 import 'dart:async';
+import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+import 'past_orders_page.dart';
+import 'theme/app_theme.dart';
+
+/// Formats an order date as "Xm ago", "Xh ago", "Xd ago", or "MMM d, y".
+String formatOrderDate(DateTime date) {
+  final now = DateTime.now();
+  final difference = now.difference(date);
+  if (difference.inMinutes < 60) {
+    return '${difference.inMinutes}m ago';
+  } else if (difference.inHours < 24) {
+    return '${difference.inHours}h ago';
+  } else if (difference.inDays < 7) {
+    return '${difference.inDays}d ago';
+  } else {
+    return DateFormat('MMM d, y').format(date);
+  }
+}
 
 // Helper function to get appropriate icon for different item types
 String _getItemIcon(String itemType, String category) {
@@ -74,7 +92,7 @@ class WidgetBot extends StatefulWidget {
   State<WidgetBot> createState() => _WidgetBotState();
 }
 
-class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
+class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
   int? points;
   bool isLoadingPoints = true;
@@ -83,19 +101,22 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
   
   // Stream subscriptions for real-time updates
   StreamSubscription<Map<String, dynamic>>? _loyaltyPointSubscription;
+  StreamSubscription<Map<String, dynamic>>? _promosUpdatedSubscription;
+  StreamSubscription<Map<String, dynamic>>? _newPromoCreatedSubscription;
+  StreamSubscription<Map<String, dynamic>>? _promoDeletedSubscription;
   
   // Promo state
   List<Promo> _activePromos = [];
   bool _isLoadingPromos = true;
   String? _promoError;
-  
-  
+  Timer? _promoRefreshTimer;
+  Timer? _greetingRefreshTimer;
+  int? _lastPhilippinesHour;
   
   // Animation controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _scaleController;
-  final CarouselSliderController _carouselController = CarouselSliderController();
   late AnimationController _coffeeIconRotationController;
   
   // Global key for LoyaltyPage to access its methods
@@ -107,6 +128,13 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
   late Animation<double> _scaleAnimation;
 
   final List<String> _labels = ['Home', 'Maps', 'Loyalty', 'Profile'];
+
+  // UI theme from image: dark blue, white, light gray, lighter blue highlight, gold accent
+  static const Color _kDarkBlue = Color(0xFF242C5B);
+  static const Color _kLightBlueHighlight = Color(0xFF5B7FB5);
+  static const Color _kGoldAccent = Color(0xFFB08D57);
+  // Good Morning section icon container – boxed look, same curve for both icons
+  static const double _kGreetingIconRadius = 6.0;
 
   // Lazy load screens to improve performance
   Widget _getScreen(int index) {
@@ -202,6 +230,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
     _scaleController.forward();
     _coffeeIconRotationController.value = 0.0;
     
+    WidgetsBinding.instance.addObserver(this);
     // Initialize socket service for real-time updates (only once)
     _initializeSocketService();
     
@@ -209,7 +238,36 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       fetchPoints();
       fetchActivePromos();
+      _startPromoRefreshTimer();
+      _startGreetingRefreshTimer();
     });
+  }
+
+  void _startGreetingRefreshTimer() {
+    _greetingRefreshTimer?.cancel();
+    _lastPhilippinesHour = _hourInPhilippines();
+    _greetingRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (!mounted) return;
+      final hour = _hourInPhilippines();
+      if (hour != _lastPhilippinesHour) {
+        _lastPhilippinesHour = hour;
+        setState(() {});
+      }
+    });
+  }
+
+  void _startPromoRefreshTimer() {
+    _promoRefreshTimer?.cancel();
+    _promoRefreshTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (mounted) fetchActivePromos();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      fetchActivePromos();
+    }
   }
 
   // Initialize socket service for real-time updates
@@ -336,6 +394,18 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
         }
       });
       
+      // Listen for promo updates from admin (add/update/delete/expire) so Special Offers stays in sync
+      void onPromoEvent(Map<String, dynamic> data) {
+        if (!mounted) return;
+        LoggingService.instance.homepage('Promo change from admin, refreshing list', data);
+        fetchActivePromos();
+      }
+      _promosUpdatedSubscription?.cancel();
+      _promosUpdatedSubscription = SocketService.instance.promoUpdatedStream.listen(onPromoEvent);
+      _newPromoCreatedSubscription?.cancel();
+      _newPromoCreatedSubscription = SocketService.instance.newPromoCreatedStream.listen(onPromoEvent);
+      _promoDeletedSubscription?.cancel();
+      _promoDeletedSubscription = SocketService.instance.promoDeletedStream.listen(onPromoEvent);
       
       LoggingService.instance.homepage('Socket listeners set up successfully');
     } catch (e) {
@@ -345,10 +415,16 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     LoggingService.instance.homepage('Disposing homepage resources...');
     
     // Cancel all stream subscriptions
     _loyaltyPointSubscription?.cancel();
+    _promosUpdatedSubscription?.cancel();
+    _newPromoCreatedSubscription?.cancel();
+    _promoDeletedSubscription?.cancel();
+    _promoRefreshTimer?.cancel();
+    _greetingRefreshTimer?.cancel();
     
     // Dispose animation controllers
     _fadeController.dispose();
@@ -575,308 +651,396 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
 
 
 
+  /// Home tab body (extracted for use with AnimatedSwitcher).
+  /// All sections use the same horizontal padding so widths are consistent.
+  static const double _kHomeHorizontalPaddingFraction = 0.05;
+
+  Widget _buildHomeBody(Size screen, EdgeInsets padding) {
+    String lastOrder = _user.lastOrder;
+    List<Map<String, dynamic>> pastOrders = _user.pastOrders;
+    const double sectionSpacing = 24.0;
+    final double contentPadding = screen.width * _kHomeHorizontalPaddingFraction;
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFF8F6F3),
+            Color(0xFFF2F0EB),
+            Color(0xFFEBE8E3),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return RefreshIndicator(
+              onRefresh: _handleRefresh,
+              color: const Color(0xFF242C5B),
+              backgroundColor: Colors.white,
+              strokeWidth: 2.0,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: contentPadding),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - padding.top - padding.bottom - 80,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: screen.height * 0.028),
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: _buildAnimatedGreeting(screen),
+                        ),
+                      ),
+                      SizedBox(height: sectionSpacing),
+                      ScaleTransition(
+                        scale: _scaleAnimation,
+                        child: _buildHighlightVideo(screen),
+                      ),
+                      SizedBox(height: sectionSpacing),
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: _buildEnhancedStatsSection(),
+                      ),
+                      SizedBox(height: sectionSpacing),
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: _buildPromosSection(screen),
+                      ),
+                      SizedBox(height: sectionSpacing),
+                      SlideTransition(
+                        position: _slideAnimation,
+                        child: _buildEnhancedLastOrderCard(screen, lastOrder, pastOrders),
+                      ),
+                      SizedBox(height: sectionSpacing),
+                      SizedBox(height: screen.height * 0.028),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Current tab content keyed by index so AnimatedSwitcher runs the same transition every time.
+  Widget _getCurrentScreen(Size screen, EdgeInsets padding) {
+    if (_currentIndex == 0) {
+      return KeyedSubtree(
+        key: const ValueKey<int>(0),
+        child: _buildHomeBody(screen, padding),
+      );
+    }
+    return KeyedSubtree(
+      key: ValueKey<int>(_currentIndex),
+      child: _getScreen(_currentIndex - 1),
+    );
+  }
+
+  // Same as Nomu Chatbot & Account Settings: 280 ms fade-in (easeOutCubic), 220 ms fade-out
+  static const _kTabTransitionDurationIn = Duration(milliseconds: 280);
+  static const _kTabTransitionDurationOut = Duration(milliseconds: 220);
+  static const _kTabTransitionCurve = Curves.easeOutCubic;
+
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
     final padding = MediaQuery.of(context).padding;
 
-    if (_currentIndex == 0) {
-      String lastOrder = _user.lastOrder;
-      List<Map<String, dynamic>> pastOrders = _user.pastOrders;
-      return Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFF8F9FA),
-                Color(0xFFE9ECEF),
-                Color(0xFFDEE2E6),
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return RefreshIndicator(
-                  onRefresh: _handleRefresh,
-                  color: const Color(0xFF242C5B),
-                  backgroundColor: Colors.white,
-                  strokeWidth: 2.0,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - padding.top - padding.bottom - 80, // Account for bottom nav
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: screen.height * 0.03),
-                          // Animated Greeting
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: SlideTransition(
-                              position: _slideAnimation,
-                              child: _buildAnimatedGreeting(screen),
-                            ),
-                          ),
-                          SizedBox(height: screen.height * 0.02),
-                          // Animated Carousel
-                          ScaleTransition(
-                            scale: _scaleAnimation,
-                            child: _buildEnhancedCarousel(screen),
-                          ),
-                          SizedBox(height: screen.height * 0.02),
-                          // Animated Stats
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: _buildEnhancedStatsSection(),
-                          ),
-                          SizedBox(height: screen.height * 0.02),
-                          // What's New Section
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: _buildWhatsNewSection(screen),
-                          ),
-                          SizedBox(height: screen.height * 0.02),
-                          // Promos Section
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: _buildPromosSection(screen),
-                          ),
-                          SizedBox(height: screen.height * 0.02),
-                          // Animated Last Order
-                          SlideTransition(
-                            position: _slideAnimation,
-                            child: _buildEnhancedLastOrderCard(screen, lastOrder, pastOrders),
-                          ),
-                          SizedBox(height: screen.height * 0.02),
-                          // Animated Thank You Message
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: _buildEnhancedThankYouMessage(screen),
-                          ),
-                          SizedBox(height: screen.height * 0.03),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        bottomNavigationBar: _buildEnhancedBottomNavBar(screen),
-      );
-    } else {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: _getScreen(_currentIndex - 1),
-        bottomNavigationBar: _buildEnhancedBottomNavBar(screen),
-      );
-    }
+    return Scaffold(
+      backgroundColor: _currentIndex == 0
+          ? null
+          : Theme.of(context).scaffoldBackgroundColor,
+      body: AnimatedSwitcher(
+        duration: _kTabTransitionDurationIn,
+        reverseDuration: _kTabTransitionDurationOut,
+        switchInCurve: _kTabTransitionCurve,
+        switchOutCurve: _kTabTransitionCurve,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        child: _getCurrentScreen(screen, padding),
+      ),
+      bottomNavigationBar: _buildEnhancedBottomNavBar(screen),
+    );
   }
 
   Widget _buildAnimatedGreeting(Size screen) {
-    final currentTime = DateTime.now();
-    final hour = currentTime.hour;
+    final hour = _hourInPhilippines();
     final isMorning = hour < 12;
     final isAfternoon = hour >= 12 && hour < 17;
-    
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: EdgeInsets.zero,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF242C5B), Color(0xFF3A4A8C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF242C5B).withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+        image: const DecorationImage(
+          image: AssetImage('assets/images/istetik.png'),
+          fit: BoxFit.cover,
+        ),
       ),
-      child: Row(
-        children: [
-          // Time-based icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isMorning 
-                  ? Icons.wb_sunny_rounded
-                  : isAfternoon 
-                      ? Icons.wb_sunny_outlined
-                      : Icons.nightlight_round,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Greeting text
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getGreeting(),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _user.fullName.isNotEmpty ? _user.fullName : 'Guest',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.3,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          // Animated coffee icon
-          AnimatedBuilder(
-            animation: _coffeeIconRotationController,
-            builder: (context, child) {
-              return Container(
-                width: 40,
-                height: 40,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          // Inset so icon boxes clear the card’s 20px corners – both get same curve
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.all(Radius.circular(_kGreetingIconRadius)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                 ),
-                child: Center(
-                  child: Transform.rotate(
-                    angle: _coffeeIconRotationController.value * 2 * 3.14159,
-                    child: const Icon(
-                      Icons.coffee_rounded,
-                      color: Colors.white,
-                      size: 22,
+                child: Icon(
+                  isMorning
+                      ? Icons.wb_sunny_rounded
+                      : isAfternoon
+                          ? Icons.brightness_6_rounded
+                          : Icons.nightlight_round,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _getGreeting(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _user.username.isNotEmpty
+                          ? _user.username
+                          : (_user.fullName.isNotEmpty ? _user.fullName : 'Guest'),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-              );
-            },
+              ),
+              AnimatedBuilder(
+                animation: _coffeeIconRotationController,
+                builder: (context, child) {
+                  return Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.all(Radius.circular(_kGreetingIconRadius)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                    ),
+                    child: Center(
+                      child: Transform.rotate(
+                        angle: _coffeeIconRotationController.value * 2 * 3.14159,
+                        child: const Icon(
+                          Icons.coffee_rounded,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
+  /// Current hour in Philippines (Asia/Manila) for greeting and icon.
+  int _hourInPhilippines() {
+    try {
+      final manila = tz.getLocation('Asia/Manila');
+      return tz.TZDateTime.now(manila).hour;
+    } catch (_) {
+      return DateTime.now().hour;
+    }
+  }
+
   String _getGreeting() {
-    final hour = DateTime.now().hour;
+    final hour = _hourInPhilippines();
     if (hour < 12) return 'Good Morning';
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
   }
 
   Widget _buildEnhancedStatsSection() {
+    final pts = points ?? 0;
+    final earned = pts > 10 ? 10 : pts;
+    final progress = (pts > 10 ? 10.0 : pts.toDouble()) / 10.0;
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: MediaQuery.of(context).size.width * 0.05),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: EdgeInsets.zero,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF242C5B).withValues(alpha: 0.1)),
+        color: const Color(0xFFFAF9F7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _kDarkBlue.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: _kDarkBlue.withValues(alpha: 0.04),
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 1),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF242C5B), Color(0xFF3A4A8C)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Image.asset(
-                'assets/images/iskor.png',
-                width: 18,
-                height: 18,
-                fit: BoxFit.contain,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Loyalty Stamps',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isLoadingPoints
-                      ? 'Loading...'
-                      : pointsError != null
-                          ? 'Error loading'
-                          : '${points ?? 0} of 10 stamps',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF242C5B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Progress indicator
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: (points ?? 0) / 10,
-              child: Container(
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF242C5B), Color(0xFF3A4A8C)],
+                  color: const Color(0xFFFAF9F7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _kGoldAccent,
+                    width: 2,
                   ),
-                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _kGoldAccent.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Image.asset(
+                    'assets/images/iskor.png',
+                    width: 26,
+                    height: 26,
+                    fit: BoxFit.contain,
+                    color: _kGoldAccent,
+                    errorBuilder: (_, __, ___) => Icon(Icons.card_giftcard_rounded, color: _kGoldAccent, size: 26),
+                  ),
                 ),
               ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Loyalty Stamps',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      isLoadingPoints
+                          ? 'Loading...'
+                          : pointsError != null
+                              ? 'Error loading'
+                              : '$earned of 10 stamps',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: _kGoldAccent,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(10, (index) {
+              final filled = index < earned;
+              return Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: filled ? _kGoldAccent : Colors.grey[300],
+                  border: Border.all(
+                    color: filled ? _kGoldAccent : Colors.grey[400]!,
+                    width: filled ? 0 : 1.5,
+                  ),
+                  boxShadow: filled
+                      ? [
+                          BoxShadow(
+                            color: _kGoldAccent.withValues(alpha: 0.35),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: filled
+                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                    : null,
+              );
+            }),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: Colors.grey[200],
+              valueColor: const AlwaysStoppedAnimation<Color>(_kGoldAccent),
             ),
           ),
         ],
@@ -885,72 +1049,34 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
   }
 
 
-
-  Widget _buildWhatsNewSection(Size screen) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
-      child: Text(
-        "What's New",
-        style: TextStyle(
-          fontSize: screen.width < 400 ? 18 : 20,
-          fontWeight: FontWeight.bold,
-          color: const Color(0xFF242C5B),
-          letterSpacing: -0.5,
-        ),
-      ),
-    );
-  }
 
   Widget _buildPromosSection(Size screen) {
     final isSmallScreen = screen.width < 400;
     final isMediumScreen = screen.width < 600;
-    
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Section Header
-        Container(
-          margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Special Offers",
-                    style: TextStyle(
-                      fontSize: isSmallScreen ? 20 : (isMediumScreen ? 22 : 24),
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF242C5B),
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  if (_activePromos.isNotEmpty)
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const PromosScreen()),
-                        );
-                      },
-                      child: Text(
-                        'View All',
-                        style: TextStyle(
-                          color: const Color(0xFF242C5B),
-                          fontWeight: FontWeight.w600,
-                          fontSize: isSmallScreen ? 14 : 16,
-                        ),
-                      ),
-                    ),
-                ],
+              Text(
+                "Special Offers",
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 20 : (isMediumScreen ? 22 : 24),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFB08D57),
+                  letterSpacing: -0.5,
+                ),
               ),
-              SizedBox(height: isSmallScreen ? 4 : 6),
+              SizedBox(height: isSmallScreen ? 6 : 8),
               Text(
                 "Discover our latest promotions and exclusive deals",
                 style: TextStyle(
-                  fontSize: isSmallScreen ? 12 : 14,
+                  fontSize: isSmallScreen ? 13 : 14,
                   color: Colors.grey[600],
+                  height: 1.35,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -963,24 +1089,24 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
         if (_isLoadingPromos)
           Container(
             height: screen.height * 0.25,
-            margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
+            margin: EdgeInsets.zero,
             decoration: BoxDecoration(
               color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+              borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 18),
             ),
             child: const Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB08D57)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF242C5B)),
               ),
             ),
           )
         else if (_promoError != null)
           Container(
             height: screen.height * 0.25,
-            margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
+            margin: EdgeInsets.zero,
             decoration: BoxDecoration(
               color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+              borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 18),
             ),
             child: Center(
               child: Column(
@@ -1008,10 +1134,10 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
         else if (_activePromos.isEmpty)
           Container(
             height: screen.height * 0.25,
-            margin: EdgeInsets.symmetric(horizontal: screen.width * 0.05),
+            margin: EdgeInsets.zero,
             decoration: BoxDecoration(
               color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+              borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 18),
             ),
             child: const Center(
               child: Column(
@@ -1031,13 +1157,8 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
           PromoCarousel(
             promos: _activePromos,
             height: 0, // Let it use responsive height
-            padding: EdgeInsets.symmetric(horizontal: screen.width * 0.02), // Reduced padding for more card space
-            onPromoTap: (promo) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const PromosScreen()),
-              );
-            },
+            padding: EdgeInsets.zero, // Full width to match other sections
+            onPromoTap: null, // Special offers are not clickable; no navigation to Promotions page
           ),
       ],
     );
@@ -1049,57 +1170,36 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
 
 
 
-  Widget _buildEnhancedCarousel(Size screen) {
-    final carouselHeight = screen.height < 600 ? screen.height * 0.25 : screen.height * 0.3;
+  /// Highlight video section – height matches 16:9 so no top/bottom black bars, video 100% visible.
+  Widget _buildHighlightVideo(Size screen) {
+    final contentWidth = screen.width * (1 - 2 * _kHomeHorizontalPaddingFraction);
+    final videoHeight = contentWidth * 9 / 16;
 
     return Container(
+      margin: EdgeInsets.zero,
+      width: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 25,
-            offset: const Offset(0, 15),
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: _kDarkBlue.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(24),
         child: SizedBox(
-          width: screen.width * 0.9,
-          height: carouselHeight,
-          child: CarouselSlider(
-            carouselController: _carouselController,
-            items: [
-              CarouselVideo(
-                videoAsset: 'assets/videos/dap.mp4',
-              ),
-              CarouselImage(
-                imageAsset: 'assets/images/nomudisplay.jpg',
-              ),
-              CarouselImage(
-                imageAsset: 'assets/images/nomudisplay2.jpg',
-              ),
-              CarouselImage(
-                imageAsset: 'assets/images/nomudisplay3.jpg',
-              ),
-            ],
-            options: CarouselOptions(
-              height: carouselHeight,
-              enlargeCenterPage: true,
-              autoPlay: true, // Always enable autoplay
-              autoPlayInterval: Duration(seconds: 5),
-              autoPlayAnimationDuration: Duration(milliseconds: 800),
-              aspectRatio: 16 / 9,
-              viewportFraction: screen.width < 400 ? 0.9 : 0.85,
-              enableInfiniteScroll: true,
-              pauseAutoPlayOnTouch: true,
-              pauseAutoPlayOnManualNavigate: true,
-              onPageChanged: (index, reason) {
-                // Animate coffee icon rotation on page change
-                _coffeeIconRotationController.forward(from: 0.0);
-              },
-            ),
+          width: double.infinity,
+          height: videoHeight,
+          child: CarouselVideo(
+            videoAsset: 'assets/videos/dap.mp4',
           ),
         ),
       ),
@@ -1109,36 +1209,44 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
 
 
   Widget _buildEnhancedLastOrderCard(Size screen, String lastOrder, List<Map<String, dynamic>> pastOrders) {
-    // Show only the last 5 orders on the home page for better UX
-    final List<Map<String, dynamic>> last5Orders = pastOrders.length > 5
-        ? pastOrders.sublist(pastOrders.length - 5)
+    // Show only the last 3 orders on the home page; "View All" shows full past orders
+    final List<Map<String, dynamic>> last3Orders = pastOrders.length > 3
+        ? pastOrders.sublist(pastOrders.length - 3)
         : pastOrders;
     
-    // Adaptive sizing
+    // Adaptive sizing – one vertical spacing for all gaps (header→first, between cards, after last)
     final titleFontSize = screen.width < 400 ? screen.width * 0.055 : screen.width * 0.06;
     final headerPadding = screen.width < 400 ? 16.0 : 20.0;
     final contentPadding = screen.width < 400 ? 16.0 : 20.0;
+    const double cardSpacing = 16.0;
     final emptyStateIconSize = screen.height < 600 ? 60.0 : 80.0;
     final emptyStateFontSize = screen.width < 400 ? screen.width * 0.045 : screen.width * 0.05;
     final emptyStateSubFontSize = screen.width < 400 ? screen.width * 0.035 : screen.width * 0.04;
     
     return Container(
+      margin: EdgeInsets.zero,
+      width: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: const Color(0xFF242C5B).withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.white, Color(0xFFFAFBFC)],
+              colors: [Color(0xFFFAF9F7), Color(0xFFF5F3F0)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -1146,14 +1254,16 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
+              // Header – same background image as My Loyalty Card
               Container(
                 padding: EdgeInsets.all(headerPadding),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF242C5B), Color(0xFF3A4A8C)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                decoration: BoxDecoration(
+                  image: const DecorationImage(
+                    image: AssetImage('assets/images/istetik.png'),
+                    fit: BoxFit.cover,
+                  ),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                   ),
                 ),
                 child: Row(
@@ -1166,6 +1276,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                           ),
                           child: const Icon(
                             Icons.receipt_long,
@@ -1184,7 +1295,8 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                         ),
                       ],
                     ),
-                    if (pastOrders.length > 5)
+                    // View All – right-aligned; show when user has any past orders
+                    if (pastOrders.isNotEmpty)
                       GestureDetector(
                         onTap: () => _showPastOrdersPopup(context, pastOrders),
                         child: Container(
@@ -1218,16 +1330,22 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-              // Content
+              // Content – equal gap everywhere: use cardSpacing below header and after every card (including last)
               Container(
-                padding: EdgeInsets.all(contentPadding),
-                child: last5Orders.isEmpty
+                padding: EdgeInsets.fromLTRB(contentPadding, cardSpacing, contentPadding, 0),
+                child: last3Orders.isEmpty
                     ? _buildEmptyOrderState(screen, emptyStateIconSize, emptyStateFontSize, emptyStateSubFontSize)
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (int i = last5Orders.length - 1; i >= 0; i--)
-                            _buildEnhancedOrderListTile(last5Orders[i], i == last5Orders.length - 1),
+                          for (int i = last3Orders.length - 1; i >= 0; i--)
+                            Padding(
+                              padding: EdgeInsets.only(bottom: cardSpacing),
+                              child: _buildEnhancedOrderListTile(
+                                last3Orders[i],
+                                onTap: () => _showOrderDetails(context, last3Orders[i]),
+                              ),
+                            ),
                         ],
                       ),
               ),
@@ -1281,7 +1399,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildEnhancedOrderListTile(Map<String, dynamic> order, bool isLast) {
+  Widget _buildEnhancedOrderListTile(Map<String, dynamic> order, {VoidCallback? onTap}) {
     final date = DateTime.tryParse(order['date'].toString());
     final isRecent = date != null && DateTime.now().difference(date).inHours < 24;
     
@@ -1295,21 +1413,28 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
     final itemType = firstItem['itemType'] ?? order['itemType'] ?? 'drink';
     final category = firstItem['category'] ?? order['category'] ?? 'coffee';
     
-    return Container(
-      margin: EdgeInsets.only(bottom: isLast ? 0 : 16),
-      padding: const EdgeInsets.all(16),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isRecent ? const Color(0xFF242C5B).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+          color: isRecent ? const Color(0xFF242C5B).withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.08),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
+            blurRadius: 10,
             offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: const Color(0xFF242C5B).withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -1401,17 +1526,21 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF242C5B).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFF242C5B).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFF242C5B).withValues(alpha: 0.15),
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         isMultipleItems 
                             ? '${items.length} items'
                             : _getItemTypeDisplayName(itemType),
                         style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF242C5B),
                         ),
@@ -1490,7 +1619,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _formatOrderDate(date),
+                        formatOrderDate(date),
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey[600],
@@ -1504,270 +1633,199 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
           ),
           // Arrow
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFF242C5B).withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF242C5B).withValues(alpha: 0.1),
+                width: 1,
+              ),
             ),
             child: Icon(
               Icons.arrow_forward_ios,
-              size: 14,
-              color: Colors.grey[600],
+              size: 12,
+              color: const Color(0xFF242C5B).withValues(alpha: 0.7),
             ),
           ),
         ],
       ),
+    ),
     );
   }
 
-  String _formatOrderDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
-  }
+  void _showOrderDetails(BuildContext context, Map<String, dynamic> order) {
+    final date = DateTime.tryParse(order['date'].toString());
+    final items = order['items'] as List<dynamic>?;
+    final isMultipleItems = items != null && items.isNotEmpty;
+    final firstItem = isMultipleItems ? items.first : order;
+    final itemName = firstItem['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
+    final itemType = firstItem['itemType'] ?? order['itemType'] ?? 'drink';
+    final category = firstItem['category'] ?? order['category'] ?? 'coffee';
 
-  void _showPastOrdersPopup(BuildContext context, List<Map<String, dynamic>> pastOrders) {
-    final screen = MediaQuery.of(context).size;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Container(
-              padding: EdgeInsets.all(screen.width < 400 ? 6 : 8),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF242C5B), Color(0xFF3A4A8C)],
+            Icon(Icons.receipt_long, color: const Color(0xFF242C5B), size: 24),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Order details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF242C5B),
                 ),
-                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.history, color: Colors.white, size: screen.width < 400 ? 18 : 20),
             ),
-            SizedBox(width: screen.width < 400 ? 8 : 10),
-            const Text('Past Orders'),
           ],
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          // Constrain the height to avoid overflow
-          height: screen.height * 0.6,
-          child: pastOrders.isEmpty
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.coffee_outlined, size: screen.height < 600 ? 40 : 50, color: Colors.grey[400]),
-                    SizedBox(height: screen.height < 600 ? 8 : 10),
-                    const Text('No past orders.'),
-                  ],
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: pastOrders.length,
-                  itemBuilder: (context, index) {
-                    // Show most recent first
-                    final order = pastOrders[pastOrders.length - 1 - index];
-                    final date = DateTime.tryParse(order['date'].toString());
-                    
-                    // Support both old and new order structure for backward compatibility
-                    final items = order['items'] as List<dynamic>?;
-                    final isMultipleItems = items != null && items.isNotEmpty;
-                    
-                    // For multiple items, use the first item for main display
-                    final firstItem = isMultipleItems ? items.first : order;
-                    final itemName = firstItem['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
-                    final itemType = firstItem['itemType'] ?? order['itemType'] ?? 'drink';
-                    final category = firstItem['category'] ?? order['category'] ?? 'coffee';
-                    
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF242C5B),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Image.asset(
-                              _getItemIcon(itemType, category),
-                              width: 16,
-                              height: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isMultipleItems 
-                                      ? '${itemName} +${items.length - 1} more'
-                                      : itemName,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF242C5B).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        isMultipleItems 
-                                            ? '${items.length} items'
-                                            : _getItemTypeDisplayName(itemType),
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF242C5B),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                // Show item breakdown for multiple items in past orders
-                                if (isMultipleItems && items.length > 1) ...[
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Items:',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.grey[700],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        ...items.take(2).map((item) => Padding(
-                                          padding: const EdgeInsets.only(bottom: 1),
-                                          child: Text(
-                                            '• ${item['itemName']} (${_getItemTypeDisplayName(item['itemType'] ?? 'item')})',
-                                            style: TextStyle(
-                                              fontSize: 9,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        )).toList(),
-                                        if (items.length > 2)
-                                          Text(
-                                            '• ... and ${items.length - 2} more',
-                                            style: TextStyle(
-                                              fontSize: 9,
-                                              fontStyle: FontStyle.italic,
-                                              color: Colors.grey[500],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                if (date != null)
-                                  Text(
-                                    '${date.toLocal()}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isMultipleItems ? '${itemName} +${items!.length - 1} more' : itemName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF242C5B),
                 ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+              ),
+              if (date != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Text(
+                      DateFormat('MMM d, y').format(date),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              Text(
+                'Items in this order',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...(isMultipleItems && items != null
+                  ? items.asMap().entries.map((e) {
+                      final item = e.value;
+                      final name = item['itemName'] ?? item['name'] ?? 'Item';
+                      final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+                      final type = _getItemTypeDisplayName(item['itemType'] ?? 'item');
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              margin: const EdgeInsets.only(top: 6),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF242C5B),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '$name${qty > 1 ? ' × $qty' : ''} ($type)',
+                                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList()
+                  : [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              margin: const EdgeInsets.only(top: 6),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF242C5B),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '$itemName (${_getItemTypeDisplayName(itemType)})',
+                                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primary,
+                    side: BorderSide(color: AppTheme.primary, width: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildEnhancedThankYouMessage(Size screen) {
-    // Adaptive sizing
-    final padding = screen.width < 400 ? 16.0 : 20.0;
-    final fontSize = screen.width < 400 ? screen.width * 0.035 : screen.width * 0.04;
-    final iconSize = screen.width < 400 ? 18.0 : 20.0;
-    final spacing = screen.width < 400 ? 8.0 : 10.0;
-    
-    return Container(
-      padding: EdgeInsets.all(padding),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF242C5B), Color(0xFF3A4A8C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  void _showPastOrdersPopup(BuildContext context, List<Map<String, dynamic>> pastOrders) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PastOrdersPage(
+          pastOrders: pastOrders,
+          getItemIcon: _getItemIcon,
+          getItemTypeDisplayName: _getItemTypeDisplayName,
+          onOrderTap: _showOrderDetails,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF242C5B).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.favorite,
-            color: Colors.white,
-            size: iconSize,
-          ),
-          SizedBox(width: spacing),
-          Flexible(
-            child: Text(
-              'Thank you for choosing Nomu Cafe ☕',
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
       ),
     );
   }
 
   Widget _buildEnhancedBottomNavBar(Size screen) {
-    // Adaptive height and sizing
-    final navHeight = screen.height < 600 ? 48.0 : 60.0;
-    final iconSize = screen.height < 600 ? 18.0 : 22.0;
-    final selectedIconSize = screen.height < 600 ? 22.0 : 26.0;
-    final fontSize = screen.height < 600 ? 8.0 : 10.0;
-    final padding = screen.height < 600 ? 2.0 : 6.0;
-    
+    // Keep nav compact to avoid overflow; highlight only the icon with minimal padding
+    final navHeight = screen.height < 600 ? 50.0 : 56.0;
+    final iconSize = screen.height < 600 ? 20.0 : 22.0;
+    final selectedIconSize = screen.height < 600 ? 22.0 : 24.0;
+    final fontSize = screen.height < 600 ? 9.0 : 10.0;
+    final verticalPadding = screen.height < 600 ? 4.0 : 6.0;
+    // Subtle white/transparent highlight so user can see which page is selected
+    const double iconHighlightPadding = 2.0;
+
     return SafeArea(
       bottom: true,
       top: false,
@@ -1785,79 +1843,76 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.zero,
-                child: Image.asset(
-                  'assets/images/istetik.png',
-                  fit: BoxFit.cover,
-                ),
-              ),
+        child: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/istetik.png'),
+              fit: BoxFit.cover,
             ),
-            Container(
-              padding: EdgeInsets.symmetric(vertical: padding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(_labels.length, (index) {
-                  final isSelected = _currentIndex == index;
-                  final iconPath = _getCustomIconPath(index);
-                  return GestureDetector(
-                    onTap: () {
-                      LoggingService.instance.homepage('Switching to tab $index: ${_labels[index]}', {
-                        'profilePictureLength': _user.profilePicture.length,
-                      });
-                      setState(() => _currentIndex = index);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screen.width < 400 ? 4 : 8, 
-                        vertical: screen.height < 600 ? 0 : 2
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.white.withValues(alpha: 0.3) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(15),
-                        border: isSelected
-                            ? Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1)
-                            : null,
-                      ),
-                      child: SizedBox(
-                        height: navHeight - (2 * padding),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
+          ),
+          padding: EdgeInsets.symmetric(vertical: verticalPadding),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(_labels.length, (index) {
+              final isSelected = _currentIndex == index;
+              final iconPath = _getCustomIconPath(index);
+              final size = isSelected ? selectedIconSize : iconSize;
+              final highlightSize = size + (2 * iconHighlightPadding);
+              return GestureDetector(
+                onTap: () {
+                  LoggingService.instance.homepage('Switching to tab $index: ${_labels[index]}', {
+                    'profilePictureLength': _user.profilePicture.length,
+                  });
+                  setState(() => _currentIndex = index);
+                },
+                child: SizedBox(
+                  height: navHeight - (2 * verticalPadding),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Same circular icon + highlight for Home, Maps, Loyalty, Profile
+                      SizedBox(
+                        width: highlightSize,
+                        height: highlightSize,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.white.withValues(alpha: 0.25)
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: ClipOval(
+                            child: SizedBox(
+                              width: size,
+                              height: size,
                               child: Image.asset(
                                 iconPath,
-                                height: isSelected ? selectedIconSize : iconSize,
-                                width: isSelected ? selectedIconSize : iconSize,
                                 fit: BoxFit.cover,
                               ),
                             ),
-                            SizedBox(height: screen.height < 600 ? 0 : 2),
-                            Text(
-                              _labels[index],
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.white70,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                fontSize: fontSize,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ],
+                      SizedBox(height: screen.height < 600 ? 2 : 3),
+                      Text(
+                        _labels[index],
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          fontSize: fontSize,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
       ),
     );
@@ -1899,7 +1954,6 @@ class _CarouselImageState extends State<CarouselImage> {
 
   @override
   Widget build(BuildContext context) {
-    LoggingService.instance.homepage('Building asset image: ${widget.imageAsset}');
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
@@ -1957,9 +2011,11 @@ class CarouselVideo extends StatefulWidget {
 }
 
 class _CarouselVideoState extends State<CarouselVideo> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
+  bool _hadValidSize = false;
+  bool _isVisible = false; // Start false; only play when VisibilityDetector says visible
 
   @override
   void initState() {
@@ -1967,21 +2023,34 @@ class _CarouselVideoState extends State<CarouselVideo> {
     _initializeVideo();
   }
 
+  void _onVisibilityChanged(VisibilityInfo info) {
+    final visible = info.visibleFraction >= 0.5;
+    if (visible != _isVisible && mounted && _controller != null) {
+      setState(() => _isVisible = visible);
+      if (_isVisible) {
+        _controller!.play();
+      } else {
+        _controller!.pause();
+      }
+    }
+  }
+
   Future<void> _initializeVideo() async {
     try {
-      _controller = VideoPlayerController.asset(widget.videoAsset);
-      await _controller.initialize();
-      
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-        
-        // Start playing the video (muted)
-        _controller.setVolume(0.0); // Mute the video
-        _controller.play();
-        _controller.setLooping(true);
+      final controller = VideoPlayerController.asset(widget.videoAsset);
+      await controller.initialize();
+      if (!mounted) {
+        controller.dispose();
+        return;
       }
+      _controller = controller;
+      controller.setVolume(0.0);
+      controller.setLooping(true);
+      controller.addListener(_onVideoUpdate);
+      setState(() {
+        _isInitialized = true;
+      });
+      // Do not auto-play here: only play when VisibilityDetector reports visible (see _onVisibilityChanged)
     } catch (e) {
       LoggingService.instance.error('Error initializing video: ${widget.videoAsset}', e);
       if (mounted) {
@@ -1992,33 +2061,68 @@ class _CarouselVideoState extends State<CarouselVideo> {
     }
   }
 
+  void _onVideoUpdate() {
+    if (mounted && _controller != null && !_hadValidSize) {
+      final size = _controller!.value.size;
+      if (size.width > 0 && size.height > 0) {
+        _hadValidSize = true;
+        setState(() {});
+      }
+    }
+  }
+
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.removeListener(_onVideoUpdate);
+    _controller?.dispose();
+    _controller = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Container(
-          width: constraints.maxWidth,
-          height: constraints.maxHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(25),
-            child: _hasError
-                ? _buildErrorWidget()
-                : !_isInitialized
-                    ? _buildLoadingWidget()
-                    : VideoPlayer(_controller),
-          ),
-        );
-      },
+    return VisibilityDetector(
+      key: Key('carousel_video_${widget.videoAsset}'),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Container(
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: Colors.black,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: _hasError
+                  ? _buildErrorWidget()
+                  : !_isInitialized
+                      ? _buildLoadingWidget()
+                      : _buildVideoContent(),
+            ),
+          );
+        },
+      ),
     );
+  }
+
+  Widget _buildVideoContent() {
+    final c = _controller!;
+    final size = c.value.size;
+    final hasValidSize = size.width > 0 && size.height > 0;
+    if (hasValidSize) {
+      return FittedBox(
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: VideoPlayer(c),
+        ),
+      );
+    }
+    return Center(child: VideoPlayer(c));
   }
 
   Widget _buildErrorWidget() {

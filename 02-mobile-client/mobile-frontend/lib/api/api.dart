@@ -352,17 +352,18 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> getUserByQrToken(String qrToken) async {
+  static Future<Map<String, dynamic>?> getUserByQrToken(String qrToken, {bool forceRefresh = false}) async {
     try {
-      // Check cache first
+      // Check cache first unless forcing refresh (so loyalty page gets fresh currentCycle after claims)
       final cacheKey = 'user_qr_$qrToken';
-      final cachedData = await CacheService.getCache<Map<String, dynamic>>(cacheKey);
-      
-      if (cachedData != null) {
-        if (kDebugMode) {
-          _log('Using cached user data for QR token: $qrToken');
+      if (!forceRefresh) {
+        final cachedData = await CacheService.getCache<Map<String, dynamic>>(cacheKey);
+        if (cachedData != null) {
+          if (kDebugMode) {
+            _log('Using cached user data for QR token: $qrToken');
+          }
+          return cachedData;
         }
-        return cachedData;
       }
       
       final apiBaseUrl = await Config.apiBaseUrl;
@@ -388,9 +389,8 @@ class ApiService {
           _log('Parsed data: $data');
         }
         
-        // Cache the result for 30 seconds only (shorter cache for real-time updates)
+        // Cache the result for 30 seconds so next load gets this fresh data
         await CacheService.setCache(cacheKey, data, duration: const Duration(seconds: 30));
-        
         return data;
       } else if (response.statusCode == 429) {
         // Handle rate limiting
@@ -437,6 +437,29 @@ class ApiService {
     } catch (e) {
       if (kDebugMode) {
         _log('Exception during getUserByQrToken: $e', level: 'error');
+      }
+      return null;
+    }
+  }
+
+  /// Fetches a short-lived scan token for the QR dialog (new token each time = QR changes every open).
+  static Future<String?> getScanToken(String qrToken) async {
+    if (qrToken.isEmpty) return null;
+    try {
+      final apiBaseUrl = await Config.apiBaseUrl;
+      final response = await http.post(
+        Uri.parse('$apiBaseUrl/customer/scan-token'),
+        headers: _headers,
+        body: jsonEncode({'qrToken': qrToken}),
+      ).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>?;
+        return data?['scanToken'] as String?;
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        _log('getScanToken failed: $e', level: 'error');
       }
       return null;
     }
@@ -606,7 +629,7 @@ class ApiService {
         Uri.parse('$apiBaseUrl/user/$userId/claim-reward'),
         headers: _headers,
         body: jsonEncode({'type': type, 'description': description}),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 10));
       
       if (kDebugMode) {
         _log('Claim reward response status: ${response.statusCode}');
@@ -727,7 +750,9 @@ class ApiService {
       ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List<dynamic>;
+        final decoded = jsonDecode(response.body);
+        if (decoded is! List<dynamic>) return [];
+        final data = decoded;
         return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       } else if (response.statusCode == 429) {
         // Handle rate limiting
@@ -798,7 +823,9 @@ class ApiService {
       }
       
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List<dynamic>;
+        final decoded = jsonDecode(response.body);
+        if (decoded is! List<dynamic>) return [];
+        final data = decoded;
         return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       } else {
         if (kDebugMode) {
@@ -838,8 +865,8 @@ class ApiService {
   }
 
 
-  // Send OTP to email
-  static Future<String?> sendOTP(String email, [String? name]) async {
+  // Send OTP to email. Returns map: { 'error': String? }, and in dev when email fails: { 'devOtp': String }.
+  static Future<Map<String, dynamic>> sendOTP(String email, [String? name]) async {
     try {
       final otpUrl = await Config.sendOtp;
       final response = await http
@@ -853,29 +880,33 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
 
+      final data = response.statusCode == 200
+          ? (jsonDecode(response.body) as Map<String, dynamic>? ?? {})
+          : null;
+
       if (response.statusCode == 200) {
-        return null; // Success
+        return {'error': null, 'devOtp': data?['devOtp']};
       } else {
         String errorMsg = "Failed to send OTP";
         try {
-          final data = jsonDecode(response.body);
-          if (data['error'] != null) errorMsg = data['error'];
+          final errData = jsonDecode(response.body);
+          if (errData is Map && errData['error'] != null) errorMsg = errData['error'].toString();
         } catch (_) {}
         if (kDebugMode) {
           _log("Send OTP failed: $errorMsg", level: 'error');
         }
-        return null;
+        return {'error': errorMsg};
       }
     } catch (e) {
       if (kDebugMode) {
         _log("Exception during send OTP: $e", level: 'error');
       }
-      return e.toString();
+      return {'error': e.toString()};
     }
   }
 
-  // Request new OTP (for resending)
-  static Future<String?> requestOTP(String email) async {
+  // Request new OTP (for resending). Returns { 'error': String? }, and in dev: { 'devOtp': String }.
+  static Future<Map<String, dynamic>> requestOTP(String email) async {
     try {
       final apiBaseUrl = await Config.apiBaseUrl;
       final response = await http
@@ -886,24 +917,28 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
 
+      final data = response.statusCode == 200
+          ? (jsonDecode(response.body) as Map<String, dynamic>? ?? {})
+          : null;
+
       if (response.statusCode == 200) {
-        return null; // Success
+        return {'error': null, 'devOtp': data?['devOtp']};
       } else {
         String errorMsg = "Failed to request OTP";
         try {
-          final data = jsonDecode(response.body);
-          if (data['error'] != null) errorMsg = data['error'];
+          final errData = jsonDecode(response.body);
+          if (errData is Map && errData['error'] != null) errorMsg = errData['error'].toString();
         } catch (_) {}
         if (kDebugMode) {
           _log("Request OTP failed: $errorMsg", level: 'error');
         }
-        return null;
+        return {'error': errorMsg};
       }
     } catch (e) {
       if (kDebugMode) {
         _log("Exception during request OTP: $e", level: 'error');
       }
-      return e.toString();
+      return {'error': e.toString()};
     }
   }
 
@@ -942,7 +977,7 @@ class ApiService {
         if (kDebugMode) {
           _log("OTP verification failed: $errorMsg", level: 'error');
         }
-        return null;
+        return errorMsg;
       }
     } catch (e) {
       if (kDebugMode) {

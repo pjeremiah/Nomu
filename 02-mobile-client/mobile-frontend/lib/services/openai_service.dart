@@ -10,7 +10,7 @@ class OpenAIService {
     required String message,
     String model = 'gpt-3.5-turbo',
     double temperature = 0.7,
-    int maxTokens = 150,
+    int maxTokens = 4000, // Increased default limit
   }) async {
     if (!Config.isOpenAIConfigured) {
       throw Exception('OpenAI API key not configured');
@@ -57,7 +57,7 @@ class OpenAIService {
     required String prompt,
     String model = 'gpt-3.5-turbo',
     double temperature = 0.7,
-    int maxTokens = 150,
+    int maxTokens = 4000, // Increased default limit
   }) async {
     final response = await sendChatCompletion(
       message: prompt,
@@ -90,7 +90,7 @@ class OpenAIService {
     final response = await generateText(
       prompt: prompt,
       temperature: 0.8,
-      maxTokens: 200,
+      maxTokens: 4000, // Increased limit
     );
     
     // Remove star symbols from the response
@@ -100,30 +100,64 @@ class OpenAIService {
   /// Generate a response for customer support
   static Future<String> getCustomerSupportResponse({
     required String customerQuery,
+    List<Map<String, dynamic>>? conversationHistory,
   }) async {
-    final prompt = '''
-    You are a helpful customer support representative for NOMU coffee shop. 
-    A customer is asking: "$customerQuery"
+    // Check if this is actually a menu query that fell through
+    final lowerQuery = customerQuery.toLowerCase();
+    if (lowerQuery.contains('menu') || lowerQuery.contains('what do you have') || 
+        lowerQuery.contains('food') || lowerQuery.contains('drink') ||
+        lowerQuery.contains('coffee') || lowerQuery.contains('pizza') ||
+        lowerQuery.contains('pasta') || lowerQuery.contains('donut') ||
+        lowerQuery.contains('pastry') || lowerQuery.contains('price')) {
+      return getMenuHelp();
+    }
     
-    Please provide a helpful, friendly response. If you need more information, 
-    ask clarifying questions. Keep it concise and professional.
+    // Build conversation context if history is provided
+    String conversationContext = '';
+    if (conversationHistory != null && conversationHistory.isNotEmpty) {
+      // Get last 6 messages for context (3 exchanges)
+      final recentMessages = conversationHistory.length > 6 
+          ? conversationHistory.sublist(conversationHistory.length - 6)
+          : conversationHistory;
+      
+      conversationContext = '\n\nPrevious conversation:\n';
+      for (var msg in recentMessages) {
+        final sender = msg['sender'] == 'user' ? 'Customer' : 'Assistant';
+        final text = msg['text'] ?? '';
+        conversationContext += '$sender: $text\n';
+      }
+      conversationContext += '\nCurrent question: ';
+    }
+    
+    final prompt = '''
+    You are a professional customer support assistant for Nomu Cafe, a premium coffee shop and cafe. 
+    You represent the Nomu brand with professionalism, courtesy, and expertise.
+    ${conversationContext}${conversationContext.isNotEmpty ? customerQuery : 'A customer is asking: "$customerQuery"'}
+    
+    Please provide a formal, professional, and helpful response. Maintain a courteous and respectful tone throughout.
+    Use proper grammar and complete sentences. Address the customer as "you" in a respectful manner.
+    If you need more information, ask clarifying questions politely.
+    Keep responses concise but comprehensive, maintaining a professional business communication style.
+    ${conversationContext.isNotEmpty ? 'Consider the previous conversation context when responding. If this is a follow-up question, reference the previous discussion appropriately.' : ''}
     
     ACCOUNT MANAGEMENT HELP:
-    - To change personal information: Go to Profile page → Edit Profile → Update your details
-    - To change password: Go to Profile page → Account Settings → Change Password  
-    - For password reset: Use "Forgot Password" on login page
-    - For account issues: Contact support via our website
+    - To change personal information: Navigate to the Profile page → Select "Edit Profile" → Update your details → Save changes
+    - To change password: Navigate to the Profile page → Access "Account Settings" → Select "Change Password" → Follow the prompts
+    - For password reset: Utilize the "Forgot Password" option on the login page
+    - For account issues: Please contact our support team via our official website
     
-    IMPORTANT: If the customer's question is outside of cafe operations, menu items, 
-    store hours, locations, loyalty program, account management, or general customer service, 
-    politely redirect them to contact NOMU Cafe directly via our website at 
-    https://www.nomu.ph for more detailed assistance.
+    IMPORTANT: If the customer's question is outside the scope of cafe operations, menu items, 
+    store hours, locations, loyalty program, account management, or general customer service inquiries, 
+    please politely and professionally redirect them to contact Nomu Cafe directly via our official website at 
+    https://nomu.cafe for more detailed assistance.
+    
+    Always maintain a formal, professional tone appropriate for a premium cafe establishment.
     ''';
 
     final response = await generateText(
       prompt: prompt,
       temperature: 0.7,
-      maxTokens: 150,
+      maxTokens: 4000, // Increased to allow complete responses
     );
     
     // Remove star symbols from the response
@@ -132,231 +166,235 @@ class OpenAIService {
 
   /// Generate a fallback response for out-of-scope queries
   static String getOutOfScopeResponse() {
-    return '''I understand you have a question that's outside my area of expertise. 
+    return '''Thank you for your inquiry. I understand that your question falls outside my current area of expertise.
 
-For more detailed assistance with complex inquiries, special requests, or topics beyond our cafe operations, please contact NOMU Cafe directly:
+For more detailed assistance with complex inquiries, special requests, or topics beyond our standard cafe operations, I would recommend contacting Nomu Cafe directly through our official channels:
 
-🌐 Website: https://www.nomu.ph
-☕ Our team will be happy to help you with any specific questions!
+Website: https://nomu.cafe
 
-Is there anything else I can help you with regarding our menu, store hours, or loyalty program?''';
+Our dedicated support team will be pleased to assist you with any specific questions or concerns you may have.
+
+Is there anything else I can assist you with regarding our menu, store hours, loyalty program, or general cafe information?''';
   }
 
-  /// Generate account management help response
   static String getAccountManagementHelp() {
-    return '''🔐 **Account Management Help**
+    return '''Here’s how to manage your account settings in the Nomu app:
 
-Here's how to manage your NOMU Cafe account:
+1. Go to the Profile page (tap Profile in the bottom navigation).
 
-**📝 Change Personal Information:**
-1. Go to your Profile page
-2. Tap "Edit Profile" 
-3. Update your details (name, email, etc.)
-4. Save changes
+2. Tap Account Settings.
 
-**🔑 Change Password:**
-1. Go to Profile page
-2. Tap "Account Settings"
-3. Select "Change Password"
-4. Enter current password
-5. Enter new password
-6. Confirm new password
+3. To change your profile picture: Tap the profile picture area (or “Tap to change profile picture”), then tap Edit Picture. Choose Camera or Gallery, then select the photo you want to use.
 
-**🆘 Forgot Password:**
-1. On login page, tap "Forgot Password"
-2. Enter your email
-3. Check email for reset link
-4. Follow instructions to reset
+4. To edit personal information: Update any fields (e.g. Full Name, Username, Birthday, Gender). Scroll down and tap Save Changes to keep your updates.
 
-**❓ Need More Help?**
-Contact us via our website: https://www.nomu.ph
+5. To change your password: In the Change Password section, enter your current password, then enter and confirm your new password. Tap Send OTP to receive a code by email, enter the OTP in the field provided, then tap Verify OTP. When verification succeeds, tap Save Changes to complete the password change.
 
-Is there anything specific about your account you'd like help with?''';
+Need to reset your password from the login screen? Use “Forgot Password” on the login page and follow the link sent to your email.
+
+Visit our website to explore our menu, locations, and discover more about Nomu Cafe: https://nomu.cafe''';
   }
 
-  /// Generate business hours help response
+  /// Business hours synced with Nomu Cafe website Location page (https://nomu.cafe).
   static String getBusinessHoursHelp() {
-    return '''🕒 **NOMU Cafe Business Hours**
+    return '''The opening and closing hours vary per branch.
 
-**📍 UST Branch:**
-- **Monday - Sunday:** 7:00 AM - 10:00 PM
-- **Last Service:** 9:45 PM
+Nomu Café – Dapitan
+Dapitan St., Sampaloc, Manila
+8:00 AM – 10:00 PM
 
-**⏰ General Hours:**
-- **Opening:** 7:00 AM daily
-- **Closing:** 10:00 PM daily
-- **Peak Hours:** 8:00 AM - 10:00 AM, 12:00 PM - 2:00 PM, 6:00 PM - 8:00 PM
+Nomu Café – Jupiter
+Jupiter St, Bel-Air, Makati 
+7:00 AM – 8:00 PM
 
-**📱 Real-time Status:**
-- Check our app for live updates
-- Check our website for any schedule changes
-- Call ahead for large purchases or special requests
+Nomu Café – UPD
+University Ave, Diliman, Quezon City 
+7:00 AM – 9:00 PM
 
-**🎉 Special Hours:**
-- **Holidays:** See our website for announcements and adjusted hours
-- **Events:** Extended hours during special occasions
-- **Weather:** May close early during severe weather
+Visit our website to explore our menu, locations, and discover more about Nomu Cafe.
 
-**📢 Holiday Updates:**
-For the most current holiday hours and special announcements, please check our website: https://www.nomu.ph
-
-**❓ Need More Info?**
-Contact us via our website: https://www.nomu.ph
-
-Is there anything else about our hours you'd like to know?''';
+https://nomu.cafe''';
   }
 
-  /// Generate best seller help response
   static String getBestSellerHelp() {
-    String bestSellerResponse = '''⭐ **NOMU Cafe Best Sellers**
+    String bestSellerResponse = '''Nomu Cafe Best Sellers
 
-**🥐 PASTRIES**
-- French Butter Croissant ₱120
+We are pleased to present our most popular menu items, selected based on customer preferences and reviews:
 
-**🍩 DONUTS**
-- Original Milky Vanilla Glaze ₱40
+PASTRIES
+French Butter Croissant - ₱120
 
-**🧋 NON-COFFEE DRINKS**
-- Wintermelon Milk Tea ₱120/₱140
-- Kumo Nomu Milk Tea ₱130/₱150
-- Kumo Milo with Oreo ₱130/₱150
-- Kumo Fresh Strawberry ₱160/₱180
+DONUTS
+Original Milky Vanilla Glaze - ₱40
 
-**☕ COFFEE SERIES**
-- Nomu Latte ₱130
-- Kumo Coffee ₱130/₱140
-- Salted Caramel Latte ₱140/₱150
-- Spanish Latte ₱140/₱150
+NON-COFFEE DRINKS
+Wintermelon Milk Tea - ₱120 (Medium) / ₱140 (Large)
+Kumo Nomu Milk Tea - ₱130 (Medium) / ₱150 (Large)
+Kumo Milo with Oreo - ₱130 (Medium) / ₱150 (Large)
+Kumo Fresh Strawberry - ₱160 (Medium) / ₱180 (Large)
 
-**💡 Why These Are Popular:**
-- Made with premium ingredients
-- Customer favorites with great reviews
-- Perfect balance of flavor and quality
-- Great value for money
+COFFEE SERIES
+Nomu Latte - ₱130
+Kumo Coffee - ₱130 (Iced) / ₱140 (Hot)
+Salted Caramel Latte - ₱140 (Iced) / ₱150 (Hot)
+Spanish Latte - ₱140 (Iced) / ₱150 (Hot)
 
-**❓ Need More Recommendations?**
-Tell me your preferences (sweet, strong, hot/cold) and I'll suggest the perfect drink or food for you!
+Why These Items Are Popular:
+These selections are crafted with premium ingredients and represent customer favorites with excellent reviews. They offer a perfect balance of flavor and quality, providing exceptional value for money.
 
-**📞 Contact Ahead:**
-Contact us via our website: https://www.nomu.ph''';
+Additional Recommendations:
+If you would like personalized recommendations, please share your preferences regarding sweetness level, coffee strength, and temperature preference (hot or cold), and we will be pleased to suggest the perfect beverage or food item for you.
+
+Contact Information:
+For further inquiries or to place orders, please contact us via our official website: https://nomu.cafe''';
     
     // Remove star symbols from the response
     return _removeStarSymbols(bestSellerResponse);
   }
 
-  /// Generate menu help response
+  /// Complete menu shown when user taps "Show Complete Menu" or asks for the menu.
+  /// Button is placed at the bottom so users read the menu first, then get the CTA to visit the site.
   static String getMenuHelp() {
-    String menuResponse = '''🍽️ **NOMU Cafe Menu Overview**
+    String menuResponse = '''Here are the menus available at Nomu Cafe.
 
-**🍝 PASTAS – 250**
-- Guanciale Alfredo, Fiery Carbonara, Truffle Cream Pasta
+——— 🍝 PASTAS ——— 
+• Guanciale Alfredo - ₱250
+• Fiery Carbonara - ₱250
+• Truffle Cream Pasta - ₱250
 
-**🥟 CALZONE – 170**
-- Creamy Bacon Calzone, Pepperoni Calzone
+——— 🥟 CALZONE ——— 
+• Creamy Bacon Calzone - ₱170
+• Pepperoni Calzone - ₱170
 
-**🍕 PIZZAS**
-- Creamy Pesto 220/400
-- Salame Piccante 220/400
-- Savory Spinach 220/400
-- The Five Cheese 280/440
-- Black Truffle 280/440
-- Cheese 200/350
+——— 🍕 PIZZAS ———
+• Creamy Pesto — ₱220 / ₱400
+• Salame Piccante — ₱220 / ₱400
+• Savory Spinach — ₱220 / ₱400
+• The Five Cheese — ₱280 / ₱440
+• Black Truffle — ₱280 / ₱440
+• Cheese — ₱200 / ₱350
 
-**Add-Ons:**
-- Pesto +50, Salami +50, Spinach +50
-- Spicy Honey +25, Chilli Flakes +25
+Pizza Add-Ons:
+- Pesto – +₱50
+- Salami – +₱50
+- Spinach – +₱50
+- Spicy Honey – +₱25
+- Chilli Flakes – +₱25
 
-**🥐 PASTRIES**
-- Pain Suisse 120
-- French Butter Croissant ★ 120
-- Blueberry Cheesecake Danish 120
-- Mango Cheesecake Danish 120
-- Crookie 130
-- Pain Au Chocolat 140
-- Almond Croissant 150
-- Pain Suisse Chocolate 150
-- Hokkaido Cheese Danish 150
-- Vanilla Flan Brulee Tart 150
-- Pain Au Pistachio 180
-- Strawberry Cream Croissant 180
-- Choco-Berry Pain Suisse 180
-- Kunefe Pistachio Croissant 200
-- Garlic Cream Cheese Croissant 160
-- Pain Au Ham & Cheese 180
-- Grilled Cheese 190
+——— 🥐 PASTRIES ———
+• Pain Suisse — ₱120
+• French Butter Croissant — ₱120
+• Blueberry Cheesecake Danish — ₱120
+• Mango Cheesecake Danish — ₱120
+• Crookie — ₱130
+• Pain Au Chocolat — ₱140
+• Almond Croissant — ₱150
+• Pain Suisse Chocolate — ₱150
+• Hokkaido Cheese Danish — ₱150
+• Vanilla Flan Brulee Tart — ₱150
+• Pain Au Pistachio — ₱180
+• Strawberry Cream Croissant — ₱180
+• Choco-Berry Pain Suisse — ₱180
+• Kunefe Pistachio Croissant — ₱200
+• Garlic Cream Cheese Croissant — ₱160
+• Pain Au Ham & Cheese — ₱180
+• Grilled Cheese — ₱190
 
-**🍩 DONUTS** (Made fresh daily using Hokkaido Milk Bread)
-- Original Milky Vanilla Glaze ★ 40
-- Oreo Overload 45
-- White Chocolate with Almonds 45
-- Dark Chocolate with Cashew Nuts 45
-- Dark Chocolate with Sprinkles 45
-- Matcha 45
-- Strawberry with Sprinkles 45
-- Smores 50
+——— 🍩 DONUTS ———
+• Original Milky Vanilla Glaze — ₱40
+• Oreo Overload — ₱45
+• White Chocolate with Almonds — ₱45
+• Dark Chocolate with Cashew Nuts — ₱45
+• Dark Chocolate with Sprinkles — ₱45
+• Matcha — ₱45
+• Strawberry with Sprinkles — ₱45
+• Smores — ₱50
+• Box of 6 (Classic) — ₱200
+• Box of 6 (Assorted) — ₱250
 
-**Donut Boxes:**
-- Box of 6 (Classic) – 200
-- Box of 6 (Assorted) – 250
+——— 🧋 DRINKS ———
 
-**🧋 DRINKS - Non-Coffee Series**
-- Nomu Milk Tea 120/140
-- Wintermelon Milk Tea ★ 120/140
-- Taro Milk Tea w/ Taro Paste 120/140
-- Blue Cotton Candy 130/150
-- Mixed Fruit Tea 130/150
-- Tiger Brown Sugar 140/160
-- Mixed Berries w/ Popping Boba 150/170
-- Strawberry Lemonade Green Tea 150/170
+Milk Tea (Medium / Large)
+• Nomu Milk Tea — ₱120 / ₱140
+• Wintermelon Milk Tea — ₱120 / ₱140
+• Taro Milk Tea w/ Taro Paste — ₱120 / ₱140
+• Blue Cotton Candy — ₱130 / ₱150
+• Mixed Fruit Tea — ₱130 / ₱150
+• Tiger Brown Sugar — ₱140 / ₱160
+• Mixed Berries w/ Popping Boba — ₱150 / ₱170
+• Strawberry Lemonade Green Tea — ₱150 / ₱170
 
-**☕ Coffee Series**
-- Americano 120
-- Cold Brew 130
-- Nomu Latte ☆ 130
-- Kumo Coffee ☆ 130/140
-- Orange Long Black 130/140
-- Cappuccino 130/140
-- Flavored Latte (Vanilla/Hazelnut) 140
-- Salted Caramel Latte ☆ 140/150
-- Spanish Latte ☆ 140/150
-- Chai Latte 140/150
-- Ube Vanilla Latte 140/160
-- Caramel Macchiato 160/170
-- Chocolate Mocha 160/170
-- Macadamia Latte 160/170
-- Butterscotch Latte 160/170
-- Honey Oatmilk Latte 200
+Hot & Iced
+• Honey Citron Ginger Tea — ₱120 / ₱130
+• Matcha Latte — ₱140 / ₱150
+• Sakura Latte — ₱140 / ₱150
+• Honey Lemon Chia — ₱180 / ₱190
+• Hot Chocolate — ₱130
+• Hot Mint Chocolate — ₱150
 
-**🥤 Kumo Cream Series** (Topped with salty cream cheese)
-- Chiztill (Black/Oolong/Jasmine) 100/120
-- Kumo Wintermelon 120/140
-- Kumo Nomu Milk Tea ★ 130/150
-- Kumo Matcha 140/160
-- Kumo Taro Milk Tea 130/150
-- Kumo Choco 120/140
-- Kumo Tiger Brown Sugar 140/160
-- Kumo Sakura Latte 140/160
-- Kumo Milo with Oreo ★ 130/150
-- Kumo Mixed Berries 140/160
-- Kumo Fresh Strawberry ★ 160/180
-- Kumo Fresh Mango 160/180
+Kumo Cream (Medium / Large)
+• Chiztill (Black/Oolong/Jasmine) — ₱100 / ₱120
+• Kumo Wintermelon — ₱120 / ₱140
+• Kumo Nomu Milk Tea — ₱130 / ₱150
+• Kumo Matcha — ₱140 / ₱160
+• Kumo Taro Milk Tea — ₱130 / ₱150
+• Kumo Choco — ₱120 / ₱140
+• Kumo Tiger Brown Sugar — ₱140 / ₱160
+• Kumo Sakura Latte — ₱140 / ₱160
+• Kumo Milo with Oreo — ₱130 / ₱150
+• Kumo Mixed Berries — ₱140 / ₱160
+• Kumo Fresh Strawberry — ₱160 / ₱180
+• Kumo Fresh Mango — ₱160 / ₱180
 
-**Add-Ons:**
-- Black/White Pearls +10
-- Pudding +15
-- Grass Jelly/Nata +15
-- Popping Boba +15
-- Espresso Shot +30
-- Kumo Cream +40
-- Oatmilk/Soymilk +40
+Drink Add-Ons:
+- Pearls – +₱10
+- Pudding – +₱15
+- Grass Jelly / Nata – +₱15
+- Popping Boba – +₱15
+- Espresso Shot – +₱30
+- Kumo Cream – +₱40
 
-**❓ Need Recommendations?**
-Tell me your preferences and I'll suggest the perfect drink or food for you!
+——— ☕ COFFEE SERIES ——— (Iced / Hot)
+• Americano — ₱120 / ₱120
+• Cold Brew — ₱130
+• Nomu Latte — ₱130 / ₱130
+• Kumo Coffee — ₱130 / ₱140
+• Orange Long Black — ₱130 / ₱140
+• Cappuccino — ₱130 / ₱140
+• Flavored Latte (Vanilla/Hazelnut) — ₱140 / ₱140
+• Salted Caramel Latte — ₱140 / ₱150
+• Spanish Latte — ₱140 / ₱150
+• Chai Latte — ₱140 / ₱150
+• Ube Vanilla Latte — ₱140 / ₱160
+• Mazagran (Lemon Coffee) — ₱160
+• Coconut Vanilla Latte — ₱160 / ₱170
+• Chocolate Mocha (White or Dark) — ₱160 / ₱170
+• Caramel Macchiato — ₱160 / ₱170
+• Macadamia Latte — ₱160 / ₱170
+• Butterscotch Latte — ₱160 / ₱170
+• Peachespresso — ₱160
+• Shakerato (Caramel/Spanish/Dark Choco) — ₱180
+• Mint Latte — ₱180
+• Honey Oatmilk Latte — ₱200
 
-**📞 Contact Ahead:**
-Contact us via our website: https://www.nomu.ph''';
+Coffee Add-Ons:
+- Medium (Upsize) – +₱10
+- Large (Upsize) – +₱20
+- Espresso Shot – +₱30
+- Kumo Cream – +₱40
+- Oatmilk / Soymilk – +₱40
+- Pearls – +₱15
+- Pudding – +₱15
+- Grass Jelly / Nata – +₱15
+- Popping Boba – +₱15
+
+
+Visit our website to explore our menu, locations, and discover more about Nomu Cafe. https://nomu.cafe''';
     
-    // Remove star symbols from the response
+    // Debug: Log the menu length
+    print('Menu response length: ${menuResponse.length} characters');
+    
+    // Remove star symbols from the response (but preserve spacing for menu tables)
     return _removeStarSymbols(menuResponse);
   }
   
@@ -368,10 +406,11 @@ Contact us via our website: https://www.nomu.ph''';
     // Remove the word "order" (case insensitive)
     cleaned = cleaned.replaceAll(RegExp(r'\border\b', caseSensitive: false), '');
     
-    // Clean up multiple spaces but preserve line breaks and structure
-    cleaned = cleaned.replaceAll(RegExp(r'[ \t]+'), ' '); // Replace multiple spaces/tabs with single space
-    cleaned = cleaned.replaceAll(RegExp(r'\n[ \t]+'), '\n'); // Remove leading spaces after line breaks
-    cleaned = cleaned.replaceAll(RegExp(r'[ \t]+\n'), '\n'); // Remove trailing spaces before line breaks
+    // For menu responses, preserve tabs for table formatting
+    // Only clean up excessive spaces/tabs, but keep single tabs for alignment
+    cleaned = cleaned.replaceAll(RegExp(r' {2,}'), ' '); // Replace multiple spaces with single space (but keep tabs)
+    cleaned = cleaned.replaceAll(RegExp(r'\n[ ]+'), '\n'); // Remove leading spaces after line breaks
+    cleaned = cleaned.replaceAll(RegExp(r'[ ]+\n'), '\n'); // Remove trailing spaces before line breaks
     cleaned = cleaned.replaceAll(RegExp(r'\n{3,}'), '\n\n'); // Replace 3+ line breaks with 2
     
     return cleaned.trim();

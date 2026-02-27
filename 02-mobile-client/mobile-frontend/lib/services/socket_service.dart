@@ -30,6 +30,10 @@ class SocketService {
   StreamController<Map<String, dynamic>> _scanWarningController = 
       StreamController<Map<String, dynamic>>.broadcast();
 
+  // Order completion notification stream
+  StreamController<Map<String, dynamic>> _orderCompletionController = 
+      StreamController<Map<String, dynamic>>.broadcast();
+
   // Getters for streams
   Stream<Map<String, dynamic>> get loyaltyPointStream => _loyaltyPointController.stream;
   Stream<Map<String, dynamic>> get otpSentStream => _otpSentController.stream;
@@ -43,6 +47,8 @@ class SocketService {
   // Scan limit stream getters
   Stream<Map<String, dynamic>> get scanLimitStream => _scanLimitController.stream;
   Stream<Map<String, dynamic>> get scanWarningStream => _scanWarningController.stream;
+
+  Stream<Map<String, dynamic>> get orderCompletionStream => _orderCompletionController.stream;
 
   // Singleton pattern
   static SocketService get instance {
@@ -278,6 +284,18 @@ class SocketService {
         LoggingService.instance.error('Error handling customer scan warning event', e);
       }
     });
+
+    // Listen for order completion notifications
+    _socket!.on('order_completion_notification', (data) {
+      try {
+        LoggingService.instance.socket('Order completion notification', data);
+        if (!_orderCompletionController.isClosed) {
+          _orderCompletionController.add(Map<String, dynamic>.from(data is Map ? data : <String, dynamic>{}));
+        }
+      } catch (e) {
+        LoggingService.instance.error('Error handling order completion notification', e);
+      }
+    });
   }
 
   // Wait for socket connection to be established
@@ -341,6 +359,9 @@ class SocketService {
     if (!_promoDeletedController.isClosed) {
       _promoDeletedController.close();
     }
+    if (!_orderCompletionController.isClosed) {
+      _orderCompletionController.close();
+    }
     
     // Recreate stream controllers for fresh state
     _loyaltyPointController = StreamController<Map<String, dynamic>>.broadcast();
@@ -349,6 +370,7 @@ class SocketService {
     _promoUpdatedController = StreamController<Map<String, dynamic>>.broadcast();
     _newPromoCreatedController = StreamController<Map<String, dynamic>>.broadcast();
     _promoDeletedController = StreamController<Map<String, dynamic>>.broadcast();
+    _orderCompletionController = StreamController<Map<String, dynamic>>.broadcast();
     
     LoggingService.instance.socket('Socket service reset complete');
   }

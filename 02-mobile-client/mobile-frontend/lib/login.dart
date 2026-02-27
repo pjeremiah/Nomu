@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api/api.dart';
@@ -17,7 +18,8 @@ class LoginPage extends StatefulWidget {
 }
  
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
-  late AnimationController _controller;
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
   late Animation<double> _fadeInAnimation;
   late Animation<Offset> _slideInAnimation;
  
@@ -32,19 +34,24 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
     _fadeInAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
     );
     _slideInAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
 
-    _controller.forward();
+    _fadeController.forward();
+    _slideController.forward();
     _loadUserCredentials();
   }
 
@@ -69,11 +76,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       // Continue without loading saved credentials if there's an error
     }
   }
- 
- 
+
   @override
   void dispose() {
-    _controller.dispose();
+    _fadeController.dispose();
+    _slideController.dispose();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -83,7 +90,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     myColor = const Color(0xFF212c59);
     mediaSize = MediaQuery.of(context).size;
- 
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -97,27 +104,30 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               ),
             ),
             SafeArea(
-              child: Column(
+              child: Stack(
                 children: [
-                  SizedBox(height: mediaSize.height * 0.08),
-                  FadeTransition(
-                    opacity: _fadeInAnimation,
-                    child: _buildTop(),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: SlideTransition(
-                      position: _slideInAnimation,
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: _buildBottom(),
+                  Column(
+                    children: [
+                      SizedBox(height: mediaSize.height * 0.08),
+                      FadeTransition(
+                        opacity: _fadeInAnimation,
+                        child: _buildTop(),
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: SlideTransition(
+                          position: _slideInAnimation,
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: _buildBottom(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
- 
           ],
         ),
       ),
@@ -137,7 +147,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           const Text(
-            "NOMU CAFE",
+            "Nomu Cafe",
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -181,7 +191,29 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           _buildLabel("Password"),
           _buildInputField(passwordController, hintText: "Enter your password", isPassword: true),
           const SizedBox(height: 10),
-          _buildForgotPasswordLink(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Checkbox(
+                    value: rememberUser,
+                    onChanged: (value) => setState(() => rememberUser = value ?? false),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => rememberUser = !rememberUser),
+                    child: const Text(
+                      "Remember me",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                ],
+              ),
+              _buildForgotPasswordLink(),
+            ],
+          ),
           const SizedBox(height: 20),
           _buildLoginButton(),
           const SizedBox(height: 20),
@@ -254,7 +286,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         ),
       ),
       child: ElevatedButton(
-        onPressed: () async {
+        onPressed: _isLoading
+            ? null
+            : () async {
           FocusScope.of(context).unfocus();
           final email = emailController.text.trim();
           final password = passwordController.text.trim();
@@ -309,7 +343,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 LoggingService.instance.auth('JWT token stored for admin functionality');
               }
               
-              // Save credentials if remember is checked
+              // Save credentials if remember is checked; clear them if unchecked
               if (rememberUser) {
                 try {
                   await prefs.setString('email', email);
@@ -319,10 +353,17 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   LoggingService.instance.error('Error saving credentials', e);
                   // Continue with login even if saving fails
                 }
+              } else {
+                try {
+                  await prefs.remove('email');
+                  await prefs.remove('password');
+                  await prefs.setBool('rememberUser', false);
+                } catch (e) {
+                  LoggingService.instance.error('Error clearing remember-me credentials', e);
+                }
               }
               
-              setState(() => _isLoading = false);
-              
+              // Keep showing "Logging in..." until we navigate away (do not set _isLoading = false here)
               // Reinitialize socket service for new user session
               try {
                 LoggingService.instance.auth('Reinitializing socket service for new session...');
@@ -391,10 +432,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 errorMessage = 'Login successful but no user data received. Please try again.';
               } else if (e.toString().contains('Invalid request')) {
                 errorMessage = 'Invalid request. Please check your email format and try again.';
-              } else if (e.toString().contains('timeout')) {
-                errorMessage = 'Login timed out. Please check your internet connection and try again.';
+              } else if (e.toString().toLowerCase().contains('timeout')) {
+                errorMessage = 'Cannot reach server. Check your internet connection and try again.';
               } else if (e.toString().contains('SocketException')) {
-                errorMessage = 'Network error. Please check your internet connection and try again.';
+                errorMessage = 'Network error. Check your internet connection and try again.';
               }
               
               ScaffoldMessenger.of(context).showSnackBar(
@@ -414,13 +455,28 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         ),
         child: _isLoading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Logging in...',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.95),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               )
             : const Text(
                 "LOGIN",
@@ -432,24 +488,20 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Widget _buildForgotPasswordLink() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ForgotPasswordPage(),
-            ),
-          );
-        },
-        child: const Text(
-          "Forgot Password?",
-          style: TextStyle(
-            color: Colors.blue,
-            fontWeight: FontWeight.w500,
-            decoration: TextDecoration.underline,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ForgotPasswordPage(),
           ),
+        );
+      },
+      child: const Text(
+        "Forgot Password?",
+        style: TextStyle(
+          color: Colors.blue,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -467,7 +519,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
+              CupertinoPageRoute(
                 builder: (context) => const SignupPage(),
               ),
             );
@@ -477,7 +529,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             style: TextStyle(
               color: Colors.blue,
               fontWeight: FontWeight.bold,
-              decoration: TextDecoration.underline,
             ),
           ),
         ),

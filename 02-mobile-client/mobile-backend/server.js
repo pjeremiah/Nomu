@@ -35,6 +35,7 @@ const { ipKeyGenerator } = require('express-rate-limit');
 const ActivityService = require('./services/activityService');
 const morgan = require('morgan');
 const Grid = require('gridfs-stream');
+const { GridFSBucket } = require('mongodb');
 const { 
   ipRateLimit, 
   checkEmployeeLimits, 
@@ -218,15 +219,46 @@ async function sendOTPEmail(email, otp) {
     to: email,
     subject: 'Nomu Cafe - Email Verification OTP',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #4a5568;">Nomu Cafe Email Verification</h2>
-        <p>Your verification code is:</p>
-        <h1 style="color: #2d3748; font-size: 48px; text-align: center; letter-spacing: 8px; background: #f7fafc; padding: 20px; border-radius: 8px;">${otp}</h1>
-        <p>This code will expire in 3 minutes.</p>
-        <p>If you didn't request this code, please ignore this email.</p>
-        <hr style="margin: 20px 0;">
-        <p style="color: #718096; font-size: 12px;">Nomu Cafe - Your Coffee Journey Starts Here</p>
-      </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nomu Cafe - Email Verification</title>
+    </head>
+    <body style="margin:0; padding:20px; background-color:#f4f4f4;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+            <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:left;">
+                <div style="margin-bottom:24px; text-align:center;">
+                    <div style="font-size:28px; font-weight:bold; color:#232c53;">☕ Nomu Cafe</div>
+                    <h2 style="margin:10px 0 0 0; font-size:20px; font-weight:bold; color:#232c53;">Email Verification</h2>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">Hello,</p>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">You have requested verification for your Nomu Cafe account. Please use the following verification code:</p>
+                <div style="background-color:#232c53; color:white; font-size:32px; font-weight:bold; text-align:center; padding:20px; border-radius:8px; letter-spacing:5px; margin:20px 0; font-family:'Courier New',monospace;">${otp}</div>
+                <div style="background-color:#fff3cd; border:1px solid #ffeaa7; color:#856404; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold;">⚠️ Important:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">The code will expire in <strong>5 minutes</strong>.</li>
+                        <li style="margin-bottom:6px;">Do not share this code with anyone</li>
+                        <li style="margin-bottom:0;">If you didn't request this code, please ignore this email</li>
+                    </ul>
+                </div>
+                <div style="background-color:#f8f9fa; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#232c53;">🔒 Security Tips:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">Always verify the sender's email address</li>
+                        <li style="margin-bottom:6px;">Never share your verification codes</li>
+                        <li style="margin-bottom:6px;">Use strong, unique passwords</li>
+                        <li style="margin-bottom:0;">Enable two-factor authentication when available</li>
+                    </ul>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you have any questions or concerns, please contact our support team.</p>
+                <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+            </td></tr>
+        </table>
+    </body>
+    </html>
     `
   };
 
@@ -527,48 +559,60 @@ async function sendWelcomeEmail(email, name) {
   }
 }
 
-// Send password change confirmation email
+// Send password change confirmation email (same format as Password Reset Successful)
 async function sendPasswordChangeEmail(email, name) {
   try {
+    const changeTime = new Date().toLocaleString();
     const mailOptions = {
-      from: `"Nomu Cafe Security" <${process.env.EMAIL_USER}>`,
+      from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: '🔒 Password Changed Successfully - Nomu Cafe',
+      subject: 'Nomu Cafe - Password Updated!',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">🔒 Password Updated!</h1>
-            <p style="color: white; margin: 10px 0; font-size: 16px;">Your password has been successfully changed</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Password Updated! - Nomu Cafe</title>
+    </head>
+    <body style="margin:0; padding:20px; background-color:#f4f4f4;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+        <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:left;">
+          <div style="margin-bottom:24px; text-align:center;">
+            <div style="font-size:28px; font-weight:bold; color:#232c53;">☕ Nomu Cafe</div>
           </div>
-          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-            <h2 style="color: #333; text-align: center; margin-bottom: 20px;">Hello ${name}! 👋</h2>
-            <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-              We're writing to confirm that your Nomu Cafe account password was successfully changed.
-            </p>
-            <div style="background: #fff; border: 2px solid #28a745; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
-              <h3 style="color: #28a745; margin: 0 0 15px 0;">✅ Password Change Confirmed</h3>
-              <p style="color: #666; margin: 0; line-height: 1.6;">
-                <strong>Time:</strong> ${new Date().toLocaleString()}<br>
-                <strong>Status:</strong> Successfully Updated<br>
-                <strong>Account:</strong> ${email}
-              </p>
-            </div>
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; padding: 20px; margin: 20px 0;">
-              <h4 style="color: #856404; margin: 0 0 15px 0;">🔐 Security Reminder</h4>
-              <ul style="color: #856404; margin: 0; padding-left: 20px; text-align: left;">
-                <li>Keep your new password secure and don't share it</li>
-                <li>Use a strong, unique password</li>
-                <li>If you didn't make this change, contact support immediately</li>
-              </ul>
-            </div>
-            <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-              Your account security is important to us. If you have any questions or concerns, please don't hesitate to contact our support team.
-            </p>
-            <div style="text-align: center; margin-top: 30px;">
-              <p style="color: #999; font-size: 14px;">Best regards,<br>The Nomu Cafe Security Team</p>
-            </div>
+          <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%); color:white; padding:20px; border-radius:8px; margin:20px 0; text-align:center;">
+            <h2 style="margin:0; font-size:22px; font-weight:bold; text-align:center; color:white;">🔒 Password Updated!</h2>
+            <p style="margin:6px 0 0 0; font-size:14px; text-align:center; color:white;">Your password has been successfully changed.</p>
           </div>
-        </div>
+          <p style="font-size:14px; color:#333; margin:0 0 16px 0;">Hello ${name || 'there'},</p>
+          <p style="font-size:14px; color:#333; margin:0 0 16px 0;">This email confirms that the password for your Nomu Cafe account has been successfully changed. You can sign in using the email and new password that were set for your account.</p>
+          <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef; text-align:center;">
+            <h3 style="color:#232c53; margin:0 0 12px 0; font-size:15px; text-align:center;">Account details</h3>
+            <ul style="margin:0 auto; padding-left:0; list-style:none; display:inline-block; text-align:left;">
+              <li style="margin-bottom:8px; font-size:14px;"><strong>Email:</strong> ${email}</li>
+              <li style="margin-bottom:0; font-size:14px;"><strong>Password changed at:</strong> ${changeTime}</li>
+            </ul>
+          </div>
+          <div style="background:#d1ecf1; border:1px solid #bee5eb; border-radius:8px; padding:15px; margin:20px 0;">
+            <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#0c5460;">🔐 Security Reminder</p>
+            <ul style="margin:0; padding-left:20px; color:#0c5460;">
+              <li style="margin-bottom:6px;">Your new password is now active</li>
+              <li style="margin-bottom:6px;">Keep your new password secure and don't share it</li>
+              <li style="margin-bottom:6px;">Use a strong, unique password</li>
+              <li style="margin-bottom:0;">If you didn't make this change, contact support immediately</li>
+            </ul>
+          </div>
+          <div style="background:#fff3cd; border:1px solid #ffeaa7; border-radius:8px; padding:15px; margin:20px 0;">
+            <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#856404;">⚠️ Important Notice</p>
+            <p style="margin:0; font-size:14px; color:#856404; line-height:1.5;">For security reasons, we recommend changing your password again after logging in, especially if you suspect your account may have been compromised.</p>
+          </div>
+          <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you have any questions or concerns, please contact our support team.</p>
+          <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+        </td></tr>
+      </table>
+    </body>
+    </html>
       `
     };
 
@@ -581,56 +625,60 @@ async function sendPasswordChangeEmail(email, name) {
   }
 }
 
-// Send password reset confirmation email
+// Send password reset confirmation email (client/customer - same UI as admin Password Reset Successful, with Security Reminder & Important Notice)
 async function sendPasswordResetEmail(email, name) {
   try {
+    const resetTime = new Date().toLocaleString();
     const mailOptions = {
-      from: `"Nomu Cafe Security" <${process.env.EMAIL_USER}>`,
+      from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: '🔓 Password Reset Successfully - Nomu Cafe',
+      subject: 'Nomu Cafe - Password Reset Successful',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">🔓 Password Reset!</h1>
-            <p style="color: white; margin: 10px 0; font-size: 16px;">Your password has been successfully reset</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Password Reset Successful - Nomu Cafe</title>
+    </head>
+    <body style="margin:0; padding:20px; background-color:#f4f4f4;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+        <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:left;">
+          <div style="margin-bottom:24px; text-align:center;">
+            <div style="font-size:28px; font-weight:bold; color:#232c53;">☕ Nomu Cafe</div>
           </div>
-          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-            <h2 style="color: #333; text-align: center; margin-bottom: 20px;">Hello ${name}! 👋</h2>
-            <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-              We're writing to confirm that your Nomu Cafe account password was successfully reset.
-            </p>
-            <div style="background: #fff; border: 2px solid #17a2b8; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
-              <h3 style="color: #17a2b8; margin: 0 0 15px 0;">✅ Password Reset Confirmed</h3>
-              <p style="color: #666; margin: 0; line-height: 1.6;">
-                <strong>Time:</strong> ${new Date().toLocaleString()}<br>
-                <strong>Status:</strong> Successfully Reset<br>
-                <strong>Account:</strong> ${email}
-              </p>
-            </div>
-            <div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 10px; padding: 20px; margin: 20px 0;">
-              <h4 style="color: #0c5460; margin: 0 0 15px 0;">🔐 Security Reminder</h4>
-              <ul style="color: #0c5460; margin: 0; padding-left: 20px; text-align: left;">
-                <li>Your new password is now active</li>
-                <li>Keep your new password secure and don't share it</li>
-                <li>Use a strong, unique password</li>
-                <li>If you didn't request this reset, contact support immediately</li>
-              </ul>
-            </div>
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; padding: 20px; margin: 20px 0;">
-              <h4 style="color: #856404; margin: 0 0 15px 0;">⚠️ Important Notice</h4>
-              <p style="color: #856404; margin: 0; line-height: 1.6;">
-                For security reasons, we recommend changing your password again after logging in, 
-                especially if you suspect your account may have been compromised.
-              </p>
-            </div>
-            <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-              Your account security is important to us. If you have any questions or concerns, please don't hesitate to contact our support team.
-            </p>
-            <div style="text-align: center; margin-top: 30px;">
-              <p style="color: #999; font-size: 14px;">Best regards,<br>The Nomu Cafe Security Team</p>
-            </div>
+          <div style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%); color:white; padding:20px; border-radius:8px; margin:20px 0; text-align:center;">
+            <h2 style="margin:0; font-size:22px; font-weight:bold; text-align:center; color:white;">🔒 Password Reset Successful</h2>
+            <p style="margin:6px 0 0 0; font-size:14px; text-align:center; color:white;">Your password has been successfully updated. You can now sign in with your new password.</p>
           </div>
-        </div>
+          <p style="font-size:14px; color:#333; margin:0 0 16px 0;">Hello ${name || 'there'},</p>
+          <p style="font-size:14px; color:#333; margin:0 0 16px 0;">This email confirms that the password for your Nomu Cafe account has been successfully reset. You can sign in using the email and new password that were set for your account.</p>
+          <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin:20px 0; border:1px solid #e9ecef; text-align:center;">
+            <h3 style="color:#232c53; margin:0 0 12px 0; font-size:15px; text-align:center;">Account details</h3>
+            <ul style="margin:0 auto; padding-left:0; list-style:none; display:inline-block; text-align:left;">
+              <li style="margin-bottom:8px; font-size:14px;"><strong>Email:</strong> ${email}</li>
+              <li style="margin-bottom:0; font-size:14px;"><strong>Password reset at:</strong> ${resetTime}</li>
+            </ul>
+          </div>
+          <div style="background:#d1ecf1; border:1px solid #bee5eb; border-radius:8px; padding:15px; margin:20px 0;">
+            <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#0c5460;">🔐 Security Reminder</p>
+            <ul style="margin:0; padding-left:20px; color:#0c5460;">
+              <li style="margin-bottom:6px;">Your new password is now active</li>
+              <li style="margin-bottom:6px;">Keep your new password secure and don't share it</li>
+              <li style="margin-bottom:6px;">Use a strong, unique password</li>
+              <li style="margin-bottom:0;">If you didn't request this reset, contact support immediately</li>
+            </ul>
+          </div>
+          <div style="background:#fff3cd; border:1px solid #ffeaa7; border-radius:8px; padding:15px; margin:20px 0;">
+            <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#856404;">⚠️ Important Notice</p>
+            <p style="margin:0; font-size:14px; color:#856404; line-height:1.5;">For security reasons, we recommend changing your password again after logging in, especially if you suspect your account may have been compromised.</p>
+          </div>
+          <p style="font-size:14px; color:#333; margin:0 0 16px 0; text-align:center;">If you have any questions or concerns, please contact our support team.</p>
+          <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+        </td></tr>
+      </table>
+    </body>
+    </html>
       `
     };
 
@@ -949,8 +997,8 @@ const genericImageStorage = new GridFsStorage({
   db: mongoose.connection,
   file: (req, file) => {
     const imageType = req.body.imageType || 'unknown';
-    // Use profile_pictures collection for profile images to match existing setup
-    const bucketName = imageType === 'profile' ? 'profile_pictures' : `${imageType}_images`;
+    // Use profile_images so all profile pictures are in one bucket (same as direct profile upload & serve)
+    const bucketName = imageType === 'profile' ? 'profile_images' : `${imageType}_images`;
     
     _log('✅ [GRIDFS STORAGE] File configuration:', {
       imageType: imageType,
@@ -1092,7 +1140,14 @@ const profileUpload = multer({
   }
 });
 
-// GridFS multer configuration (will be initialized after MongoDB connection)
+// Profile picture: use memory storage so we can write to GridFS with native driver (multer-gridfs-storage is broken with driver 6)
+const profileMemoryUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: profileFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 }
+});
+
+// GridFS multer configuration (will be initialized after MongoDB connection) - not used for profile anymore
 let profileGridFSUpload;
 
 // Storage for promo images (using regular file storage for now)
@@ -1191,16 +1246,17 @@ app.post('/api/test-profile-upload', profileUpload.single('profilePicture'), (re
   }
 });
 
-// Debug endpoint to test GridFS connection
+// Debug endpoint to test GridFS connection (uses native collections)
 app.get('/api/debug/gridfs', async (req, res) => {
   try {
-    const profileFiles = await profileGfs.files.find().toArray();
-    const promoFiles = await gfs.files.find().toArray();
+    const db = mongoose.connection.db;
+    const profileFiles = db ? await db.collection('profile_images.files').find().toArray() : [];
+    const promoFiles = db ? await db.collection('promo_images.files').find().toArray() : [];
     
     res.json({
       success: true,
       profileGfs: {
-        initialized: !!profileGfs,
+        initialized: !!db,
         filesCount: profileFiles.length,
         sampleFiles: profileFiles.slice(0, 3).map(f => ({
           id: f._id,
@@ -1209,7 +1265,7 @@ app.get('/api/debug/gridfs', async (req, res) => {
         }))
       },
       promoGfs: {
-        initialized: !!gfs,
+        initialized: !!db,
         filesCount: promoFiles.length,
         sampleFiles: promoFiles.slice(0, 3).map(f => ({
           id: f._id,
@@ -1828,117 +1884,108 @@ app.patch('/api/user/:id', async (req, res) => {
   }
 });
 
-// Middleware to choose between GridFS and regular file storage
-const profileUploadMiddleware = (req, res, next) => {
-  if (profileGridFSUpload) {
-    // Use GridFS if available
-    profileGridFSUpload.single('profilePicture')(req, res, next);
-  } else {
-    // Fall back to regular file storage
-    profileUpload.single('profilePicture')(req, res, next);
-  }
-};
+// Profile picture: always use memory upload; we write to GridFS in the route with native driver (multer-gridfs-storage fails with driver 6)
+const profileUploadMiddleware = profileMemoryUpload.single('profilePicture');
 
-// Upload profile picture using multer with GridFS (supports all file types)
+// Upload profile picture (memory upload; write to GridFS with native driver to avoid multer-gridfs-storage bug)
 app.post('/api/user/:id/profile-picture', profileUploadMiddleware, async (req, res) => {
   try {
     const userId = req.params.id;
-    
-    // Check if file was uploaded
-    if (!req.file) {
+
+    if (!req.file || !req.file.buffer) {
       _log('❌ [PROFILE PICTURE] No file uploaded');
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Find the user first
     const user = await User.findById(userId);
     if (!user) {
       _log('❌ [PROFILE PICTURE] User not found:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Skip validation completely for profile pictures - allow any file type
-    const fileBuffer = req.file.buffer;
-    _log('✅ [PROFILE PICTURE] Skipping validation - allowing any file type:', {
+    _log('✅ [PROFILE PICTURE] File received:', {
       originalname: req.file.originalname,
       size: req.file.size,
       mimetype: req.file.mimetype
     });
 
-    // File validation skipped - any file type allowed
-
-    // Delete old profile picture if it exists (both file path and GridFS)
+    // Delete old profile picture if it exists
     if (user.profilePicture) {
       if (user.profilePicture.startsWith('/uploads/')) {
-        // Old file system storage - try to delete
         const oldFilePath = path.join(__dirname, user.profilePicture);
         if (fs.existsSync(oldFilePath)) {
           try {
             fs.unlinkSync(oldFilePath);
-            _log('🗑️ [PROFILE PICTURE] Deleted old file system profile picture:', oldFilePath);
+            _log('🗑️ [PROFILE PICTURE] Deleted old file system profile picture');
           } catch (deleteError) {
             _log('⚠️ [PROFILE PICTURE] Could not delete old file:', deleteError.message);
           }
         }
       } else if (user.profilePicture.startsWith('/api/images/profile/')) {
-        // Old GridFS storage - try to delete from GridFS
         try {
-          const oldFileId = user.profilePicture.split('/').pop();
-          await profileGfs.remove({ _id: oldFileId });
-          _log('🗑️ [PROFILE PICTURE] Deleted old GridFS profile picture:', oldFileId);
+          const oldFileIdRaw = user.profilePicture.split('/').pop();
+          const oldFileId = parseGridFSFileId(oldFileIdRaw);
+          if (oldFileId) {
+            await deleteGridFSFile('profile_images', oldFileId);
+            _log('🗑️ [PROFILE PICTURE] Deleted old GridFS profile picture:', oldFileIdRaw);
+          }
         } catch (deleteError) {
           _log('⚠️ [PROFILE PICTURE] Could not delete old GridFS file:', deleteError.message);
         }
       }
     }
 
-    // Determine storage type and generate appropriate URL
     let fileUrl;
     let storageType;
-    
-    if (req.file.id) {
-      // GridFS storage
-      fileUrl = `/api/images/profile/${req.file.id}`;
+    const filename = `avatar_${userId}_${Date.now()}_${req.file.originalname || 'image'}`;
+
+    // Write to GridFS using native driver (mongoose.connection.db)
+    const db = mongoose.connection.db;
+    if (db) {
+      const bucket = new GridFSBucket(db, { bucketName: 'profile_images' });
+      const uploadStream = bucket.openUploadStream(filename, {
+        contentType: req.file.mimetype || 'application/octet-stream',
+        metadata: { userId, originalName: req.file.originalname, uploadDate: new Date() }
+      });
+      const fileId = uploadStream.id; // id is set when stream is created
+      await new Promise((resolve, reject) => {
+        uploadStream.once('finish', resolve);
+        uploadStream.once('error', reject);
+        uploadStream.end(req.file.buffer);
+      });
+      fileUrl = `/api/images/profile/${fileId}`;
       storageType = 'GridFS';
-      _log('✅ [PROFILE PICTURE] Using GridFS storage');
+      _log('✅ [PROFILE PICTURE] Saved to GridFS:', String(fileId));
     } else {
-      // Regular file storage
-      fileUrl = `/uploads/${req.file.filename}`;
+      // Fallback: write to disk
+      const uploadsDir = path.join(__dirname, 'uploads');
+      if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+      const diskFilename = `avatar_${userId}_${Date.now()}_${(req.file.originalname || 'image').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const filePath = path.join(uploadsDir, diskFilename);
+      fs.writeFileSync(filePath, req.file.buffer);
+      fileUrl = `/uploads/${diskFilename}`;
       storageType = 'File System';
-      _log('✅ [PROFILE PICTURE] Using file system storage');
+      _log('✅ [PROFILE PICTURE] Saved to file system:', diskFilename);
     }
 
     await User.updateOne(
       { _id: userId },
-      { 
-        profilePicture: fileUrl,
-        updatedAt: new Date()
-      }
+      { profilePicture: fileUrl, updatedAt: new Date() }
     );
 
-    _log(`✅ [PROFILE PICTURE] Profile picture saved to ${storageType} successfully`);
-    _log('✅ [PROFILE PICTURE] File URL:', fileUrl);
-
-    const responseData = { 
-      success: true, 
+    _log(`✅ [PROFILE PICTURE] Profile picture saved to ${storageType}`);
+    res.json({
+      success: true,
       message: 'Profile picture updated successfully',
       profilePicture: fileUrl,
       fileInfo: {
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         size: req.file.size,
-        filename: req.file.filename
+        filename,
+        ...(storageType === 'GridFS' && { imageId: String(fileUrl.split('/').pop()), bucketName: 'profile_images' })
       }
-    };
-
-    // Add GridFS-specific info if available
-    if (req.file.id) {
-      responseData.fileInfo.imageId = req.file.id;
-      responseData.fileInfo.bucketName = req.file.bucketName;
-    }
-
-    res.json(responseData);
-    
+    });
   } catch (error) {
     console.error('❌ [PROFILE PICTURE] Error:', error);
     res.status(500).json({ error: error.message });
@@ -2043,41 +2090,69 @@ app.options('/api/profile-picture/:fileId', (req, res) => {
   res.status(200).end();
 });
 
-// Serve profile picture from GridFS
+// Helper: parse GridFS file id (string from URL -> ObjectId for MongoDB)
+function parseGridFSFileId(id) {
+  if (!id || typeof id !== 'string') return null;
+  const trimmed = id.split('?')[0].trim();
+  if (trimmed.length !== 24 || !/^[a-fA-F0-9]+$/.test(trimmed)) return null;
+  try {
+    return new mongoose.mongo.ObjectId(trimmed);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Helper: stream a GridFS file to response (uses native driver; gridfs-stream is legacy and breaks on Node driver 4+)
+async function streamGridFSFileToResponse(bucketName, fileId, res, options = {}) {
+  const db = mongoose.connection.db;
+  if (!db) {
+    res.status(503).send('Database not available');
+    return;
+  }
+  const filesCol = db.collection(bucketName + '.files');
+  const file = await filesCol.findOne({ _id: fileId });
+  if (!file) {
+    res.status(404).send(options.notFoundMessage || 'File not found');
+    return;
+  }
+  res.set('Content-Type', file.contentType || 'application/octet-stream');
+  res.set('Content-Length', file.length);
+  res.set('Cache-Control', options.cacheControl || 'public, max-age=31536000');
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  const bucket = new GridFSBucket(db, { bucketName });
+  const stream = bucket.openDownloadStream(fileId);
+  stream.on('error', (err) => {
+    console.error('❌ [GRIDFS] Stream error:', err);
+    if (!res.headersSent) res.status(500).send(options.streamErrorMessage || 'Error reading file');
+  });
+  stream.pipe(res);
+}
+
+// Helper: delete a file from GridFS by bucket and id
+async function deleteGridFSFile(bucketName, fileId) {
+  const db = mongoose.connection.db;
+  if (!db) return;
+  const bucket = new GridFSBucket(db, { bucketName });
+  await bucket.delete(fileId);
+}
+
+// Serve profile picture from GridFS (native GridFSBucket; gridfs-stream is incompatible with MongoDB driver 4+)
 app.get('/api/profile-picture/:fileId', async (req, res) => {
   try {
-    const fileId = req.params.fileId;
-    
-    // Check if file exists in GridFS (use profileGfs for profile pictures)
-    const file = await profileGfs.files.findOne({ _id: fileId });
-    if (!file) {
-      _log('❌ [PROFILE PICTURE] File not found in GridFS:', fileId);
-      return res.status(404).send('Profile picture not found');
+    const fileIdRaw = req.params.fileId;
+    const fileId = parseGridFSFileId(fileIdRaw);
+    if (!fileId) {
+      return res.status(400).send('Invalid file id');
     }
-
-    // Set appropriate headers for cross-platform compatibility
-    res.set('Content-Type', file.contentType || 'application/octet-stream');
-    res.set('Content-Length', file.length);
-    res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-    res.set('Access-Control-Allow-Origin', '*'); // Allow cross-origin requests
-    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
-
-    // Create read stream from GridFS
-    const readstream = profileGfs.createReadStream({ _id: fileId });
-    
-    readstream.on('error', (err) => {
-      console.error('❌ [PROFILE PICTURE] Error reading from GridFS:', err);
-      if (!res.headersSent) {
-        res.status(500).send('Error reading profile picture');
-      }
+    await streamGridFSFileToResponse('profile_images', fileId, res, {
+      notFoundMessage: 'Profile picture not found',
+      streamErrorMessage: 'Error reading profile picture'
     });
-
-    readstream.pipe(res);
-    
   } catch (err) {
     console.error('❌ [PROFILE PICTURE] Error serving profile picture from GridFS:', err);
-    res.status(500).send('Error retrieving profile picture');
+    if (!res.headersSent) res.status(500).send('Error retrieving profile picture');
   }
 });
 
@@ -2216,76 +2291,51 @@ app.options('/api/images/:imageType/:imageId', (req, res) => {
   res.status(200).end();
 });
 
-// Serve image from GridFS by type and ID
+// Serve image from GridFS by type and ID (native GridFSBucket)
 app.get('/api/images/:imageType/:imageId', async (req, res) => {
   try {
-    const { imageType, imageId } = req.params;
-    
-    // Validate image type
+    const { imageType, imageId: imageIdRaw } = req.params;
+    const imageId = parseGridFSFileId(imageIdRaw);
+    if (!imageId) {
+      return res.status(400).send('Invalid image id');
+    }
     const validTypes = ['menu', 'promo', 'inventory', 'profile'];
     if (!validTypes.includes(imageType)) {
       return res.status(400).json({ error: 'Invalid image type' });
     }
-
-    // Use the appropriate GridFS instance based on image type
-    const gfsInstance = imageType === 'profile' ? profileGfs : gfs;
-    
-    // Check if file exists in GridFS
-    const file = await gfsInstance.files.findOne({ _id: imageId });
-    if (!file) {
-      _log('❌ [GRIDFS IMAGE] File not found in GridFS:', imageId);
-      return res.status(404).send('Image not found');
-    }
-
-    // Set appropriate headers for cross-platform compatibility
-    res.set('Content-Type', file.contentType || 'application/octet-stream');
-    res.set('Content-Length', file.length);
-    res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-    res.set('Access-Control-Allow-Origin', '*'); // Allow cross-origin requests
-    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
-
-    // Create read stream from GridFS
-    const readstream = gfsInstance.createReadStream({ _id: imageId });
-    
-    readstream.on('error', (err) => {
-      console.error('❌ [GRIDFS IMAGE] Error reading from GridFS:', err);
-      if (!res.headersSent) {
-        res.status(500).send('Error reading image');
-      }
+    const bucketName = imageType + '_images';
+    await streamGridFSFileToResponse(bucketName, imageId, res, {
+      notFoundMessage: 'Image not found',
+      streamErrorMessage: 'Error reading image'
     });
-
-    readstream.pipe(res);
-    
   } catch (err) {
     console.error('❌ [GRIDFS IMAGE] Error serving image from GridFS:', err);
-    res.status(500).send('Error retrieving image');
+    if (!res.headersSent) res.status(500).send('Error retrieving image');
   }
 });
 
-// Delete image from GridFS
+// Delete image from GridFS (native GridFSBucket)
 app.delete('/api/images/:imageType/:imageId', async (req, res) => {
   try {
-    const { imageType, imageId } = req.params;
-    
-    // Validate image type
+    const { imageType, imageId: imageIdRaw } = req.params;
+    const imageId = parseGridFSFileId(imageIdRaw);
+    if (!imageId) {
+      return res.status(400).json({ error: 'Invalid image id' });
+    }
     const validTypes = ['menu', 'promo', 'inventory', 'profile'];
     if (!validTypes.includes(imageType)) {
       return res.status(400).json({ error: 'Invalid image type' });
     }
-
-    // Check if file exists in GridFS
-    const file = await gfs.files.findOne({ _id: imageId });
+    const bucketName = imageType + '_images';
+    const db = mongoose.connection.db;
+    if (!db) return res.status(503).json({ error: 'Database not available' });
+    const file = await db.collection(bucketName + '.files').findOne({ _id: imageId });
     if (!file) {
       return res.status(404).json({ error: 'Image not found' });
     }
-
-    // Delete from GridFS
-    await gfs.remove({ _id: imageId });
-    
-    _log('✅ [GRIDFS DELETE] Image deleted successfully:', imageId);
+    await deleteGridFSFile(bucketName, imageId);
+    _log('✅ [GRIDFS DELETE] Image deleted successfully:', imageIdRaw);
     res.json({ success: true, message: 'Image deleted successfully' });
-    
   } catch (err) {
     console.error('❌ [GRIDFS DELETE] Error deleting image:', err);
     res.status(500).json({ error: err.message });
@@ -2534,11 +2584,11 @@ app.get('/api/rewards/active', async (req, res) => {
   }
 });
 
-// Simple in-memory cache for promos
+// Simple in-memory cache for promos (short TTL so admin changes from web backend show on mobile quickly)
 let promoCache = {
   data: null,
   timestamp: null,
-  ttl: 5 * 60 * 1000 // 5 minutes cache
+  ttl: 30 * 1000 // 30 seconds - same DB may be updated by web admin
 };
 
 // Get active promos only (OPTIMIZED VERSION) - Server-side filtering + Caching
@@ -2681,7 +2731,8 @@ app.post('/api/promo/:id/image-gridfs', promoGridFSUpload.single('image'), async
     // Delete old promo image if it exists (both file path and GridFS)
     if (promo.imageId) {
       try {
-        await gfs.remove({ _id: promo.imageId });
+        const oldId = parseGridFSFileId(String(promo.imageId)) || promo.imageId;
+        await deleteGridFSFile('promo_images', oldId);
         _log('🗑️ [PROMO GRIDFS] Deleted old GridFS promo image:', promo.imageId);
       } catch (deleteError) {
         _log('⚠️ [PROMO GRIDFS] Could not delete old GridFS file:', deleteError.message);
@@ -2723,40 +2774,23 @@ app.get('/api/promo-image/:promoId', async (req, res) => {
       return res.status(404).json({ error: 'Promo not found' });
     }
     
-    // Serve image - prioritize GridFS over file system
+    // Serve image - prioritize GridFS over file system (native GridFSBucket)
     if (promo.imageId) {
       _log('🎯 [PROMO IMAGE] Serving GridFS image:', promo.imageId);
-      
-      // Check if file exists in GridFS
-      const file = await gfs.files.findOne({ _id: promo.imageId });
-      if (!file) {
-        _log('❌ [PROMO IMAGE] GridFS file not found, trying fallback:', promo.imageId);
-        
-        // Fallback to imageUrl if GridFS image not found
-        if (promo.imageUrl) {
-          _log('🎯 [PROMO IMAGE] Falling back to imageUrl:', promo.imageUrl);
-          // Continue to the imageUrl handling below
-        } else {
-          return res.status(404).send('Promo image not found in GridFS and no fallback URL');
+      const fileId = parseGridFSFileId(String(promo.imageId)) || promo.imageId;
+      const db = mongoose.connection.db;
+      if (db) {
+        const file = await db.collection('promo_images.files').findOne({ _id: fileId });
+        if (file) {
+          await streamGridFSFileToResponse('promo_images', fileId, res, {
+            streamErrorMessage: 'Error reading promo image'
+          });
+          return;
         }
-      } else {
-        // Set appropriate headers
-        res.set('Content-Type', file.contentType || 'application/octet-stream');
-        res.set('Content-Length', file.length);
-        res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-
-        // Create read stream from GridFS
-        const readstream = gfs.createReadStream({ _id: promo.imageId });
-        
-        readstream.on('error', (err) => {
-          console.error('❌ [PROMO IMAGE] Error reading from GridFS:', err);
-          if (!res.headersSent) {
-            res.status(500).send('Error reading promo image');
-          }
-        });
-
-        readstream.pipe(res);
-        return; // Exit early if GridFS image was found and served
+      }
+      _log('❌ [PROMO IMAGE] GridFS file not found, trying fallback:', promo.imageId);
+      if (!promo.imageUrl) {
+        return res.status(404).send('Promo image not found in GridFS and no fallback URL');
       }
     }
     
@@ -2832,39 +2866,22 @@ app.get('/api/images/promo/:imageId', async (req, res) => {
   }
 });
 
-// Serve promo image from GridFS
+// Serve promo image from GridFS (native GridFSBucket)
 app.get('/api/promo-image-gridfs/:fileId', async (req, res) => {
   try {
-    const fileId = req.params.fileId;
-    _log('🎯 [PROMO GRIDFS] Fetching image from GridFS:', fileId);
-    
-    // Check if file exists in GridFS
-    const file = await gfs.files.findOne({ _id: fileId });
-    if (!file) {
-      _log('❌ [PROMO GRIDFS] File not found in GridFS:', fileId);
-      return res.status(404).send('Promo image not found');
+    const fileIdRaw = req.params.fileId;
+    const fileId = parseGridFSFileId(fileIdRaw);
+    if (!fileId) {
+      return res.status(400).send('Invalid file id');
     }
-
-    // Set appropriate headers
-    res.set('Content-Type', file.contentType || 'application/octet-stream');
-    res.set('Content-Length', file.length);
-    res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-
-    // Create read stream from GridFS
-    const readstream = gfs.createReadStream({ _id: fileId });
-    
-    readstream.on('error', (err) => {
-      console.error('❌ [PROMO GRIDFS] Error reading from GridFS:', err);
-      if (!res.headersSent) {
-        res.status(500).send('Error reading promo image');
-      }
+    _log('🎯 [PROMO GRIDFS] Fetching image from GridFS:', fileIdRaw);
+    await streamGridFSFileToResponse('promo_images', fileId, res, {
+      notFoundMessage: 'Promo image not found',
+      streamErrorMessage: 'Error reading promo image'
     });
-
-    readstream.pipe(res);
-    
   } catch (err) {
     console.error('❌ [PROMO GRIDFS] Error serving promo image from GridFS:', err);
-    res.status(500).send('Error retrieving promo image');
+    if (!res.headersSent) res.status(500).send('Error retrieving promo image');
   }
 });
 
@@ -2955,7 +2972,7 @@ Drink Add-Ons: Pearls +10 Pudding +15 Grass Jelly/Nata +15 Popping Boba +15 Espr
 • Honey Oatmilk Latte — 200
 Coffee Add-Ons: Medium +10 Large +20 Espresso Shot +30 Kumo Cream +40 Oatmilk/Soymilk +40 Pearls +15 Pudding +15 Grass Jelly/Nata +15 Popping Boba +15
 
-Opening and Closing Hours: Vary per branch. UST branch usually 7 a.m. – 10 p.m. Check https://nomu.cafe for current hours.
+Opening and Closing Hours (synced with nomu.cafe Location page): Dapitan (Dapitan St., Sampaloc, Manila) 8:00 AM – 10:00 PM. Jupiter (Jupiter St, Bel-Air, Makati) 7:00 AM – 8:00 PM. UPD (University Ave, Diliman, Quezon City) 7:00 AM – 9:00 PM. Check https://nomu.cafe for current hours.
 
 ACCOUNT MANAGEMENT HELP:
 - To change personal information: Go to Profile page → Edit Profile → Update your details
@@ -2965,6 +2982,54 @@ ACCOUNT MANAGEMENT HELP:
 `;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// Canned business hours response (synced with mobile-frontend openai_service.dart and nomu.cafe Location page).
+// Used when app calls backend so the answer is always accurate and includes the URL for the "Visit Nomu Cafe Website" button.
+const BUSINESS_HOURS_RESPONSE = `The opening and closing hours vary per branch.
+
+Nomu Café – Dapitan
+Dapitan St., Sampaloc, Manila — 8:00 AM – 10:00 PM
+
+Nomu Café – Jupiter
+Jupiter St, Bel-Air, Makati — 7:00 AM – 8:00 PM
+
+Nomu Café – UPD
+University Ave, Diliman, Quezon City — 7:00 AM – 9:00 PM
+
+Visit our website to explore our menu, locations, and discover more about Nomu Cafe.
+
+https://nomu.cafe`;
+
+function isBusinessHoursQuery(message) {
+  if (!message || typeof message !== 'string') return false;
+  const lower = message.toLowerCase();
+  const keywords = ['business hours', 'opening hours', 'closing hours', 'store hours', 'what time', 'when open', 'when close', 'open today', 'operating hours', 'hours'];
+  return keywords.some(k => lower.includes(k));
+}
+
+// Canned account help response (synced with mobile-frontend openai_service.dart).
+const ACCOUNT_HELP_RESPONSE = `Here's how to manage your account settings in the Nomu app:
+
+1. Go to the Profile page (tap Profile in the bottom navigation).
+
+2. Tap Account Settings.
+
+3. To change your profile picture: Tap the profile picture area (or "Tap to change profile picture"), then tap Edit Picture. Choose Camera or Gallery, then select the photo you want to use.
+
+4. To edit personal information: Update any fields (e.g. Full Name, Username, Birthday, Gender). Scroll down and tap Save Changes to keep your updates.
+
+5. To change your password: In the Change Password section, enter your current password, then enter and confirm your new password. Tap Send OTP to receive a code by email, enter the OTP in the field provided, then tap Verify OTP. When verification succeeds, tap Save Changes to complete the password change.
+
+Need to reset your password from the login screen? Use "Forgot Password" on the login page and follow the link sent to your email.
+
+Visit our website to explore our menu, locations, and discover more about Nomu Cafe: https://nomu.cafe`;
+
+function isAccountHelpQuery(message) {
+  if (!message || typeof message !== 'string') return false;
+  const lower = message.toLowerCase();
+  const keywords = ['account help', 'account settings', 'change password', 'profile picture', 'personal information', 'edit profile', 'account management', 'how do i change', 'how to change password'];
+  return keywords.some(k => lower.includes(k));
+}
 
 // Function to clean AI responses by removing asterisks and the word "order"
 function cleanAIResponse(text) {
@@ -3024,7 +3089,11 @@ app.post('/api/chat', async (req, res) => {
     }
     // Add user message
     chat.messages.push({ sender: 'user', text: message });
-    const aiResponse = await getAIResponse(message);
+    // Use canned responses for business hours and account help so answers match the app.
+    let aiResponse;
+    if (isBusinessHoursQuery(message)) aiResponse = BUSINESS_HOURS_RESPONSE;
+    else if (isAccountHelpQuery(message)) aiResponse = ACCOUNT_HELP_RESPONSE;
+    else aiResponse = await getAIResponse(message);
     chat.messages.push({ sender: 'ai', text: aiResponse });
     await chat.save();
     res.json({ aiResponse, chat });
@@ -3954,9 +4023,10 @@ app.delete('/api/admin/promos/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 const localIP = getLocalIP();
+const bindHost = process.env.SERVER_HOST || '0.0.0.0';
 
-// Update the server listen to use the HTTP server
-server.listen(PORT, '0.0.0.0', () => {
+// Listen on SERVER_HOST (e.g. 0.0.0.0 = all interfaces) so backend is reachable from any network
+server.listen(PORT, bindHost, () => {
   // Advertise service via mDNS for auto-discovery from mobile (no log)
   try {
     const bonjour = require('bonjour')();
@@ -4241,10 +4311,10 @@ app.post('/api/forgot-password', async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Store OTP in the existing otpStore with purpose (using same key format as existing system)
-    // OTP will not expire but has attempt limit for security
+    const otpExpiry = Date.now() + (5 * 60 * 1000); // 5 minutes
     otpStore.set(email, {
       otp,
-      expiresAt: null, // No expiration
+      expiresAt: otpExpiry,
       purpose: 'forgot_password',
       email: email,
       userId: user._id,
@@ -4318,7 +4388,12 @@ app.post('/api/verify-forgot-password-otp', async (req, res) => {
       });
     }
     
-    // OTP never expires for forgot password
+    // Check if OTP has expired (5 minutes)
+    if (storedData.expiresAt && Date.now() > storedData.expiresAt) {
+      _log(`⏰ [FORGOT PASSWORD] OTP expired for ${email}`);
+      otpStore.delete(email);
+      return res.status(400).json({ error: 'OTP has expired' });
+    }
     
     if (storedData.otp !== otp) {
       // Increment attempt counter

@@ -261,7 +261,7 @@ class ScanLimitNotificationService {
               ),
               const SizedBox(height: 16),
               Text(
-                'Your limits will reset tomorrow. Thank you for using NOMU!',
+                'Your limits will reset tomorrow. Thank you for using Nomu!',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],

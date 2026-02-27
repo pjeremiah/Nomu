@@ -17,6 +17,18 @@ class PromoService {
     }
   }
 
+  /// Resolves relative promo image URLs to absolute using the API origin,
+  /// so Image.network() can load them (same as web app's API_BASE + imageUrl).
+  static String? resolveImageUrl(String? imageUrl, String apiBaseUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return imageUrl;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+    if (imageUrl.startsWith('/')) {
+      final origin = Uri.parse(apiBaseUrl).origin;
+      return origin + imageUrl;
+    }
+    return imageUrl;
+  }
+
   // Get active promos
   static Future<List<Promo>> getActivePromos() async {
     try {
@@ -30,7 +42,12 @@ class PromoService {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           final List<dynamic> promos = data['promos'] ?? [];
-          return promos.map((promo) => Promo.fromJson(promo)).toList();
+          final origin = Uri.parse(apiBaseUrl).origin;
+          return promos.map((promo) {
+            final p = Promo.fromJson(promo);
+            final resolved = resolveImageUrl(p.imageUrl, apiBaseUrl);
+            return resolved != null && resolved != p.imageUrl ? p.copyWith(imageUrl: resolved) : p;
+          }).toList();
         }
       }
       
@@ -101,7 +118,16 @@ class PromoService {
           _log('Parsed promos data: $data');
         }
         if (data['success'] == true) {
-          final promos = List<Map<String, dynamic>>.from(data['promos'] ?? []);
+          final List<dynamic> raw = data['promos'] ?? [];
+          final origin = Uri.parse(apiBaseUrl).origin;
+          final promos = raw.map<Map<String, dynamic>>((p) {
+            final map = Map<String, dynamic>.from(p as Map);
+            final url = map['imageUrl'] as String?;
+            if (url != null && url.isNotEmpty && url.startsWith('/')) {
+              map['imageUrl'] = origin + url;
+            }
+            return map;
+          }).toList();
           if (kDebugMode) {
             _log('Returning ${promos.length} promos');
           }
@@ -161,10 +187,12 @@ class PromoService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          return Promo.fromJson(data['promo']);
+          final p = Promo.fromJson(data['promo']);
+          final resolved = resolveImageUrl(p.imageUrl, apiBaseUrl);
+          return resolved != null && resolved != p.imageUrl ? p.copyWith(imageUrl: resolved) : p;
         }
       }
-      
+
       if (kDebugMode) {
         _log('Get promo failed: ${response.body}', level: 'error');
       }

@@ -77,7 +77,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Text(
                   'Skip',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppTheme.neutral500,
+                        color: const Color(0xFFB08D57),
                       ),
                 ),
               ),
@@ -124,7 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
               ),
             ),
-            // Dots
+            // Dots (round dots like promo section, gold for selected)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Row(
@@ -134,13 +134,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   (i) => AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: _currentPage == i ? 24 : 8,
+                    width: 8,
                     height: 8,
                     decoration: BoxDecoration(
                       color: _currentPage == i
-                          ? AppTheme.primary
+                          ? const Color(0xFFB08D57)
                           : AppTheme.neutral300,
-                      borderRadius: BorderRadius.circular(4),
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ),
@@ -151,8 +151,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: SizedBox(
                 width: double.infinity,
-                height: AppTheme.minTouchTarget,
-                child: FilledButton(
+                child: OutlinedButton(
                   onPressed: () {
                     if (_currentPage < _pages.length - 1) {
                       _pageController.nextPage(
@@ -163,11 +162,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       _finish();
                     }
                   },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: AppTheme.neutral0,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFFB08D57),
+                    side: const BorderSide(color: Color(0xFFB08D57), width: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: Text(

@@ -7,7 +7,7 @@ import VirtualLoyaltyCardImg from '../utils/Images/NomuAppPage/VirtualLoyaltyCar
 import LoginImg from '../utils/Images/NomuAppPage/Login.png';
 import SplashArtImg from '../utils/Images/NomuAppPage/SplashArt.png';
 
-const DOWNLOAD_APP_URL = 'https://drive.google.com/drive/folders/1XJyZEK_KEOs-Ew8n_mjpR_T-fW_ro2T1?usp=sharing';
+const DOWNLOAD_APP_URL = '/Nomu-Mobile-Application.apk';
 
 const fadeIn = keyframes`
   from { opacity: 0; }
@@ -469,6 +469,7 @@ const NomuApp = () => {
               href={DOWNLOAD_APP_URL}
               target="_blank"
               rel="noopener noreferrer"
+              download="Nomu-Mobile-Application.apk"
               title="Download Nomu Application"
             >
               <FaMobileAlt />

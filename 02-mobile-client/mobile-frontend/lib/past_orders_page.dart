@@ -1,0 +1,175 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+/// Full-screen Past Orders page (replaces the modal).
+class PastOrdersPage extends StatelessWidget {
+  final List<Map<String, dynamic>> pastOrders;
+  final String Function(String itemType, String category) getItemIcon;
+  final String Function(String itemType) getItemTypeDisplayName;
+  final void Function(BuildContext context, Map<String, dynamic> order) onOrderTap;
+
+  const PastOrdersPage({
+    Key? key,
+    required this.pastOrders,
+    required this.getItemIcon,
+    required this.getItemTypeDisplayName,
+    required this.onOrderTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAF9F7),
+      appBar: AppBar(
+        title: const Text(
+          'Past Orders',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 18,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/istetik.png'),
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        elevation: 0,
+      ),
+      body: pastOrders.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No past orders',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your order history will appear here',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: pastOrders.length,
+              itemBuilder: (context, index) {
+                final order = pastOrders[pastOrders.length - 1 - index];
+                final date = DateTime.tryParse(order['date'].toString());
+                final items = order['items'] as List<dynamic>?;
+                final isMultipleItems = items != null && items.isNotEmpty;
+                final firstItem = isMultipleItems ? items.first : order;
+                final itemName = firstItem['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
+                final itemType = firstItem['itemType'] ?? order['itemType'] ?? 'drink';
+                final category = firstItem['category'] ?? order['category'] ?? 'coffee';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 2,
+                    shadowColor: Colors.black26,
+                    child: InkWell(
+                      onTap: () => onOrderTap(context, order),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF242C5B),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Image.asset(
+                                getItemIcon(itemType, category),
+                                width: 24,
+                                height: 24,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isMultipleItems
+                                        ? '${itemName} +${items.length - 1} more'
+                                        : itemName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                      color: Color(0xFF242C5B),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF242C5B).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      isMultipleItems
+                                          ? '${items.length} items'
+                                          : getItemTypeDisplayName(itemType),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF242C5B),
+                                      ),
+                                    ),
+                                  ),
+                                  if (date != null) ...[
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          DateFormat('MMM d, y').format(date.toLocal()),
+                                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                              color: Colors.grey[500],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
