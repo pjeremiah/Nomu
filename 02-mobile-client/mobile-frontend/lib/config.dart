@@ -26,7 +26,7 @@ class Config {
   }
 
   static Future<String> get registration async => '${await dynamicApiBaseUrl}/register';
-  static Future<String> get loginUrl async => '${await dynamicApiBaseUrl}/user/login';
+  static Future<String> get loginUrl async => '${await dynamicApiBaseUrl}/auth/login';
   static Future<String> get userInfo async => '${await dynamicApiBaseUrl}/user';
   
 
