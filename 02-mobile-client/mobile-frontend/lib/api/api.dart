@@ -33,7 +33,7 @@ class ApiService {
       
       final response = await http
           .get(url, headers: _headers)
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (kDebugMode) {
         _log('GET response status: ${response.statusCode}');
@@ -99,7 +99,7 @@ class ApiService {
             headers: _headers,
             body: jsonEncode(registrationData),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (kDebugMode) {
         _log('Registration response status: ${response.statusCode}');
@@ -271,7 +271,7 @@ class ApiService {
             Uri.parse('$userInfoUrl/$username'),
             headers: _headers,
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -878,7 +878,7 @@ class ApiService {
               if (name != null) 'name': name,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       final data = response.statusCode == 200
           ? (jsonDecode(response.body) as Map<String, dynamic>? ?? {})
@@ -915,7 +915,7 @@ class ApiService {
             headers: _headers,
             body: jsonEncode({'email': email}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       final data = response.statusCode == 200
           ? (jsonDecode(response.body) as Map<String, dynamic>? ?? {})
@@ -959,7 +959,7 @@ class ApiService {
             headers: _headers,
             body: jsonEncode({'email': email, 'otp': otp}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
           
       if (kDebugMode) {
         _log('OTP verification response status: ${response.statusCode}');
@@ -1007,7 +1007,7 @@ class ApiService {
               'purpose': 'password_change',
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (kDebugMode) {
         _log('Password change OTP response status: ${response.statusCode}');
@@ -1050,7 +1050,7 @@ class ApiService {
               'purpose': 'password_change',
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return {'success': true, 'message': 'OTP verified successfully'};
@@ -1084,7 +1084,7 @@ class ApiService {
             headers: _headers,
             body: jsonEncode({'email': email}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return null; // Success
@@ -1120,7 +1120,7 @@ class ApiService {
               'otp': otp,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -1158,7 +1158,7 @@ class ApiService {
               'newPassword': newPassword,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return null; // Success
@@ -1194,7 +1194,7 @@ class ApiService {
               'newPassword': newPassword,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return {'success': true, 'message': 'Password changed successfully'};
