@@ -1,0 +1,29 @@
+---
+description: When updating the mobile APK or releasing, always update both mobile and web and push to GitHub
+alwaysApply: true
+---
+
+# Nomu: Always Update Both Mobile and Web
+
+When rebuilding the **Nomu Mobile Application** APK or doing a release:
+
+1. **Mobile**
+   - Rebuild: `02-mobile-client/mobile-frontend` → `flutter build apk --release`
+   - Copy APK to web:  
+     `build/app/outputs/flutter-apk/app-release.apk` →  
+     `01-web-application/frontend/public/Nomu-Mobile-Application.apk`
+   - Commit any mobile-backend changes (e.g. `02-mobile-client/mobile-backend/`).
+
+2. **Web**
+   - Ensure the web app serves the APK: link is already  
+     `DOWNLOAD_APP_URL = '/Nomu-Mobile-Application.apk'` in  
+     `01-web-application/frontend/src/client/NomuApp.jsx`.
+   - Stage and commit the **web** side:  
+     `git add -f 01-web-application/frontend/public/Nomu-Mobile-Application.apk`  
+     and any other changed files under `01-web-application/` (e.g. `render.yaml`).
+
+3. **Push once**
+   - Single commit (or one commit per logical change) that includes both mobile and web updates.
+   - `git push origin main` so Render can redeploy both **nomu-backend** (and **nomu-mobile-backend** if defined) and **nomu-frontend** (manual deploy if `autoDeploy: false`).
+
+Do not push only mobile or only web when the APK or release affects both.
