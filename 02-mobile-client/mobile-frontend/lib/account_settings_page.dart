@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'config.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 import 'api/api.dart';
 import 'services/logging_service.dart';
 import 'services/file_upload_service.dart';
@@ -74,6 +75,11 @@ class AccountSettingsPageState extends State<AccountSettingsPage> with TickerPro
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOutCubic),
     );
     _fadeController.forward();
+    
+    // Wake up backend (e.g. Render cold start) so Send OTP is more likely to succeed
+    Config.healthCheckUrl.then((url) {
+      http.get(Uri.parse(url)).timeout(const Duration(seconds: 30)).catchError((_) {});
+    });
     
     // Ensure profile picture is properly loaded
     _ensureProfilePictureLoaded();
