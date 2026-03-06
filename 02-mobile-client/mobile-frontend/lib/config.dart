@@ -82,8 +82,8 @@ class Config {
         return 'https://$host:$port/api';
       }
     } else {
-      // For mobile, use HTTPS for production backend
-      if (host == 'nomu-backend.onrender.com') {
+      // For mobile, use HTTPS for production backends (Render)
+      if (host == 'nomu-backend.onrender.com' || host == 'nomu-mobile-backend.onrender.com') {
         return 'https://$host/api';
       } else {
         return 'http://$host:$port/api';
@@ -144,9 +144,9 @@ class Config {
 
     // Production backend for mobile app
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // For production, use the deployed backend
-      LoggingService.instance.debug('Android detected - using production backend: nomu-backend.onrender.com');
-      return 'nomu-backend.onrender.com';
+      // For production, use the deployed mobile backend (host only; scheme added in dynamicApiBaseUrl)
+      LoggingService.instance.debug('Android detected - using production backend: nomu-mobile-backend.onrender.com');
+      return 'nomu-mobile-backend.onrender.com';
     }
 
     LoggingService.instance.debug('Fallback to localhost');
@@ -165,7 +165,7 @@ class Config {
     
     // For production backend, use HTTPS (no port needed)
     final host = await _resolveHost();
-    if (host == 'nomu-backend.onrender.com') {
+    if (host == 'nomu-backend.onrender.com' || host == 'nomu-mobile-backend.onrender.com') {
       return '443'; // HTTPS port
     }
     
