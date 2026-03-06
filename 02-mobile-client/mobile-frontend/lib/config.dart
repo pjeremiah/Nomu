@@ -117,6 +117,13 @@ class Config {
       'isWeb': kIsWeb,
     });
 
+    // On Android, always use production backend so the app never uses localhost.
+    // This ensures promos, orders, loyalty, profile, OTP, and chatbot use the deployed backend and MongoDB.
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      LoggingService.instance.debug('Android detected - using production backend: nomu-mobile-backend.onrender.com');
+      return 'nomu-mobile-backend.onrender.com';
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final overrideHost = prefs.getString(_prefHostKey);
     if (overrideHost != null && overrideHost.trim().isNotEmpty) {
@@ -140,13 +147,6 @@ class Config {
       final String host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       LoggingService.instance.debug('Web detected - using host: $host');
       return host;
-    }
-
-    // Production backend for mobile app
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      // For production, use the deployed mobile backend (host only; scheme added in dynamicApiBaseUrl)
-      LoggingService.instance.debug('Android detected - using production backend: nomu-mobile-backend.onrender.com');
-      return 'nomu-mobile-backend.onrender.com';
     }
 
     LoggingService.instance.debug('Fallback to localhost');

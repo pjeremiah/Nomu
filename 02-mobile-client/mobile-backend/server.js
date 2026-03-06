@@ -1708,7 +1708,7 @@ async function handleUserLogin(user, password, res) {
 }
 
 // Login endpoint (without OTP) - with special rate limiting
-app.post('/api/user/login', async (req, res) => {
+const loginHandler = async (req, res) => {
   _log('🔐 Login request body:', req.body);
   try {
     const { email, password } = req.body;
@@ -1718,28 +1718,14 @@ app.post('/api/user/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Find user by email (camelCase field matching)
     const user = await User.findOne({ email: email });
-    
     if (!user) {
       _log('❌ User not found for email:', email);
-      
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    _log('✅ User found:', { 
-      id: user._id, 
-      fullName: user.fullName, 
-      username: user.username, 
-      email: user.email,
-      role: user.role,
-      points: user.points,
-      reviewPoints: user.reviewPoints,
-      hasPassword: !!user.password,
-      passwordLength: user.password ? user.password.length : 0
-    });
+    _log('✅ User found:', { id: user._id, fullName: user.fullName, username: user.username, email: user.email, role: user.role, points: user.points, reviewPoints: user.reviewPoints, hasPassword: !!user.password, passwordLength: user.password ? user.password.length : 0 });
 
-    // Check if user has a password
     if (!user.password) {
       _log('❌ User has no password stored:', email);
       return res.status(401).json({ message: 'Invalid credentials - no password stored' });
@@ -1747,28 +1733,27 @@ app.post('/api/user/login', async (req, res) => {
 
     _log('🔐 Attempting password verification...');
     const isMatch = await bcrypt.compare(password, user.password);
-    
     if (!isMatch) {
       _log('❌ Password mismatch for user:', email);
-      
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     _log('✅ Password verified for user:', email);
 
-    // Generate JWT token
+    // Ensure user has qrToken (same as handleUserLogin - required for loyalty QR)
+    if (!user.qrToken || user.qrToken === '') {
+      _log('⚠️ [LOGIN] User missing qrToken, generating new one:', user.email);
+      user.qrToken = generateQrToken(user._id);
+      await user.save();
+      _log('✅ [LOGIN] qrToken generated for user:', user.email);
+    }
+
     const token = jwt.sign(
-      { 
-        userId: user._id, 
-        email: user.email, 
-        role: user.role,
-        username: user.username 
-      },
+      { userId: user._id, email: user.email, role: user.role, username: user.username },
       process.env.JWT_SECRET || 'your_secret_key',
       { expiresIn: '24h' }
     );
 
-    // Explicitly select the fields we want to return
     const userData = {
       _id: user._id,
       fullName: user.fullName,
@@ -1787,20 +1772,19 @@ app.post('/api/user/login', async (req, res) => {
       rewardsHistory: user.rewardsHistory,
       createdAt: user.createdAt
     };
-    
+
     _log('🎉 Login successful for user:', email);
     _log('📤 Sending user data:', userData);
-    
-    res.json({
-      message: 'Login successful',
-      token,
-      user: userData
-    });
+
+    res.json({ message: 'Login successful', token, user: userData });
   } catch (err) {
     console.error('❌ Login error:', err);
     res.status(500).json({ error: err.message });
   }
-});
+};
+app.post('/api/user/login', loginHandler);
+// App expects /api/auth/login (same MongoDB, same JWT)
+app.post('/api/auth/login', loginHandler);
 
 
 
