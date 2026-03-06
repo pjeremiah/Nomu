@@ -173,13 +173,16 @@ const io = socketIo(server, {
 // Initialize security notification system
 initializeNotifications(io);
 
-// Email transporter setup with verification
+// Email transporter setup with verification (longer timeouts for cold start / slow networks)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  }
+  },
+  connectionTimeout: 60000,  // 60s to establish connection (e.g. from Render to Gmail)
+  greetingTimeout: 30000,    // 30s for SMTP greeting
+  socketTimeout: 60000       // 60s for socket inactivity
 });
 
 // Verify transporter at startup
