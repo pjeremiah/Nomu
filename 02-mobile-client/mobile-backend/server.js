@@ -1192,9 +1192,6 @@ const genericImageUpload = multer({
   }
 });
 
-// Serve uploads statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -1243,6 +1240,44 @@ app.post('/api/test-profile-upload', profileUpload.single('profilePicture'), (re
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Chat proxy: mobile app sends message here; server calls OpenAI with OPENAI_API_KEY (key stays on server)
+app.post('/api/chat/completion', express.json(), async (req, res) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({
+      error: 'Chat not configured',
+      message: 'OPENAI_API_KEY is not set on the server.'
+    });
+  }
+  const { message, model = 'gpt-3.5-turbo', temperature = 0.7, maxTokens = 4000, messages } = req.body || {};
+  const payload = {
+    model,
+    temperature: Number(temperature),
+    max_tokens: Number(maxTokens),
+    messages: Array.isArray(messages) && messages.length > 0
+      ? messages
+      : [{ role: 'user', content: message || '' }]
+  };
+  try {
+    const { data } = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        timeout: 60000
+      }
+    );
+    return res.json(data);
+  } catch (err) {
+    const status = err.response?.status || 500;
+    const body = err.response?.data || { error: err.message };
+    return res.status(status).json(body);
   }
 });
 

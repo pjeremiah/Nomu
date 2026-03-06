@@ -5,13 +5,33 @@ import '../config.dart';
 class OpenAIService {
   static const String _baseUrl = 'https://api.openai.com/v1';
   
-  /// Send a chat completion request to OpenAI
+  /// Send a chat completion request to OpenAI (or via backend proxy when on production mobile backend)
   static Future<Map<String, dynamic>> sendChatCompletion({
     required String message,
     String model = 'gpt-3.5-turbo',
     double temperature = 0.7,
     int maxTokens = 4000, // Increased default limit
   }) async {
+    final useProxy = await Config.useBackendChatProxy;
+    if (useProxy) {
+      final baseUrl = await Config.apiBaseUrl;
+      final url = Uri.parse('$baseUrl/chat/completion');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'message': message,
+          'model': model,
+          'temperature': temperature,
+          'maxTokens': maxTokens,
+        }),
+      ).timeout(const Duration(seconds: 60));
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('Chat proxy error: ${response.statusCode} - ${response.body}');
+    }
+
     if (!Config.isOpenAIConfigured) {
       throw Exception('OpenAI API key not configured');
     }

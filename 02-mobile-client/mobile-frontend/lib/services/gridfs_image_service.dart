@@ -124,7 +124,7 @@ class GridFSImageService {
       }
 
       final baseUrl = await Config.apiBaseUrl;
-      final imageUrl = '$baseUrl/api/images/$imageType/$imageId';
+      final imageUrl = '$baseUrl/images/$imageType/$imageId';
       
       LoggingService.instance.info('Constructed image URL', {
         'imageType': imageType,
@@ -144,7 +144,7 @@ class GridFSImageService {
   Future<String> getPromoImageUrl(String promoId) async {
     try {
       final baseUrl = await Config.apiBaseUrl;
-      final imageUrl = '$baseUrl/api/promo-image/$promoId';
+      final imageUrl = '$baseUrl/promo-image/$promoId';
       
       LoggingService.instance.info('Constructed promo fallback image URL', {
         'promoId': promoId,

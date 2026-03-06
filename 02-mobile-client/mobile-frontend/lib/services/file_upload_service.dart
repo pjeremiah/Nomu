@@ -76,7 +76,7 @@ class FileUploadService {
       });
 
       // Create multipart request
-      final uri = Uri.parse('$apiBaseUrl/api/user/$userId/profile-picture');
+      final uri = Uri.parse('$apiBaseUrl/user/$userId/profile-picture');
       final request = http.MultipartRequest('POST', uri);
       
       // Add file to request
@@ -177,7 +177,7 @@ class FileUploadService {
       });
 
       // Create multipart request
-      final uri = Uri.parse('$apiBaseUrl/api/user/$userId/profile-picture');
+      final uri = Uri.parse('$apiBaseUrl/user/$userId/profile-picture');
       final request = http.MultipartRequest('POST', uri);
       
       // Add file to request
@@ -251,7 +251,7 @@ class FileUploadService {
         'imageLength': base64Image.length
       });
 
-      final uri = Uri.parse('$apiBaseUrl/api/user/$userId/profile-picture-base64');
+      final uri = Uri.parse('$apiBaseUrl/user/$userId/profile-picture-base64');
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},

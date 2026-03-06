@@ -203,4 +203,10 @@ class Config {
 
   // Check if OpenAI is configured
   static bool get isOpenAIConfigured => openAIKey.isNotEmpty;
+
+  // True when app should use backend chat proxy (production mobile backend has OPENAI_API_KEY)
+  static Future<bool> get useBackendChatProxy async {
+    final host = await _resolveHost();
+    return host == 'nomu-mobile-backend.onrender.com';
+  }
 }
