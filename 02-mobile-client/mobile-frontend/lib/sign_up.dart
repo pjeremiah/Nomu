@@ -73,7 +73,7 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
     return emailRegex.hasMatch(email);
   }
-
+ 
   bool _isValidPassword(String password) {
     final hasMinLength = password.length >= 8;
     final hasUpper = password.contains(RegExp(r'[A-Z]'));
@@ -81,6 +81,20 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
     final hasDigit = password.contains(RegExp(r'[0-9]'));
     final hasSpecial = password.contains(RegExp(r'[!@#\$%^&*(),.?\":{}|<>]'));
     return hasMinLength && hasUpper && hasLower && hasDigit && hasSpecial;
+  }
+
+  int? _calculateAge(String birthday) {
+    try {
+      final dob = DateTime.parse(birthday);
+      final now = DateTime.now();
+      int age = now.year - dob.year;
+      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+        age--;
+      }
+      return age;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _sendOTP() async {
@@ -212,7 +226,20 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
           : !_isValidEmail(email)
               ? 'Enter a valid email'
               : null;
-      _birthdayError = birthday.isEmpty ? 'Birthday is required' : null;
+
+      if (birthday.isEmpty) {
+        _birthdayError = 'Birthday is required';
+      } else {
+        final age = _calculateAge(birthday);
+        if (age == null) {
+          _birthdayError = 'Invalid birthday';
+        } else if (age < 13) {
+          _birthdayError = 'You must be at least 13 years old to create an account';
+        } else {
+          _birthdayError = null;
+        }
+      }
+
       _genderError = gender == null ? 'Please select gender' : null;
       _passwordError = password.isEmpty
           ? 'Password is required'
