@@ -6,6 +6,22 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { galleryUpload } = require('../config/gridfs');
 const router = express.Router();
 
+const deleteGalleryMediaByIds = async (ids) => {
+  if (!ids || ids.length === 0) return;
+  const db = mongoose.connection.db;
+  const bucket = new GridFSBucket(db, { bucketName: 'gallery_media' });
+
+  for (const id of ids) {
+    if (!id) continue;
+    try {
+      const objectId = typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id;
+      await bucket.delete(objectId);
+    } catch (error) {
+      console.error('Error deleting GridFS file (non-fatal):', error.message);
+    }
+  }
+};
+
 // Get all gallery posts (admin) - Owner and Manager only; Staff has no access
 router.get('/admin', authMiddleware, async (req, res) => {
   try {
@@ -145,8 +161,11 @@ router.post('/', authMiddleware, (req, res, next) => {
       return res.status(status).json(data);
     }
   };
+  const uploadedMediaIds = (req.files || []).map((file) => file.id).filter(Boolean);
+  let postSaved = false;
 
   if (!['superadmin', 'manager'].includes(req.user?.role)) {
+    await deleteGalleryMediaByIds(uploadedMediaIds);
     return sendResponse(403, {
       success: false,
       message: 'Access denied. Only Owner or Manager can create gallery posts. Staff has no access.'
@@ -289,6 +308,7 @@ router.post('/', authMiddleware, (req, res, next) => {
     }
     
     await post.save();
+    postSaved = true;
 
     // Populate the created post
     try {
@@ -304,6 +324,9 @@ router.post('/', authMiddleware, (req, res, next) => {
       data: post
     });
   } catch (error) {
+    if (!postSaved) {
+      await deleteGalleryMediaByIds(uploadedMediaIds);
+    }
     console.error('Error creating gallery post:', error);
     
     // Handle validation errors
@@ -378,7 +401,10 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     next();
   });
 }, async (req, res) => {
+  const uploadedMediaIds = (req.files || []).map((file) => file.id).filter(Boolean);
+  let postSaved = false;
   if (!['superadmin', 'manager'].includes(req.user?.role)) {
+    await deleteGalleryMediaByIds(uploadedMediaIds);
     return res.status(403).json({
       success: false,
       message: 'Access denied. Only Owner or Manager can update gallery posts. Staff has no access.'
@@ -389,11 +415,13 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     
     const post = await GalleryPost.findById(req.params.id);
     if (!post) {
+      await deleteGalleryMediaByIds(uploadedMediaIds);
       return res.status(404).json({
         success: false,
         message: 'Gallery post not found'
       });
     }
+    const originalMediaIds = post.media.map((media) => String(media.gridfsId)).filter(Boolean);
     
     // Convert post to plain object to avoid Mongoose document issues
     // We'll work with the document but convert media to plain objects
@@ -464,6 +492,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
           } catch (idError) {
             console.error('Error processing file ID:', idError);
             console.error('File details:', file);
+            await deleteGalleryMediaByIds(uploadedMediaIds);
             return res.status(400).json({
               success: false,
               message: `Invalid file ID for file: ${file.originalname || 'unknown'}`,
@@ -486,6 +515,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       } catch (fileError) {
         console.error('Error processing new files:', fileError);
         console.error('File error stack:', fileError.stack);
+        await deleteGalleryMediaByIds(uploadedMediaIds);
         return res.status(400).json({
           success: false,
           message: 'Error processing uploaded files',
@@ -590,6 +620,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     } catch (mediaError) {
       console.error('Error processing existing media:', mediaError);
       console.error('Media error stack:', mediaError.stack);
+      await deleteGalleryMediaByIds(uploadedMediaIds);
       return res.status(400).json({
         success: false,
         message: 'Error processing existing media',
@@ -603,6 +634,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
 
     // Validate total media count doesn't exceed 5
     if (finalMedia.length > 5) {
+      await deleteGalleryMediaByIds(uploadedMediaIds);
       return res.status(400).json({
         success: false,
         message: `Maximum 5 media files allowed per post. You have ${keptExistingMedia.length} existing and ${newMediaItems.length} new files (total: ${finalMedia.length}). Please remove some media first.`
@@ -611,6 +643,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
 
     // Validate at least one media item
     if (finalMedia.length === 0) {
+      await deleteGalleryMediaByIds(uploadedMediaIds);
       return res.status(400).json({
         success: false,
         message: 'At least one media file is required'
@@ -631,6 +664,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       
       if (missingFields.length > 0) {
         console.error(`Media item ${i} missing fields:`, missingFields, media);
+        await deleteGalleryMediaByIds(uploadedMediaIds);
         return res.status(400).json({
           success: false,
           message: `Media item ${i + 1} is missing required fields: ${missingFields.join(', ')}`
@@ -650,6 +684,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
         console.error('Validation error before save:', validationError);
         console.error('Validation error details:', JSON.stringify(validationError.errors, null, 2));
         const messages = Object.values(validationError.errors || {}).map(err => err.message).join(', ');
+        await deleteGalleryMediaByIds(uploadedMediaIds);
         return res.status(400).json({
           success: false,
           message: `Validation error: ${messages || validationError.message}`,
@@ -664,6 +699,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
 
     try {
       const savedPost = await post.save();
+      postSaved = true;
     } catch (saveError) {
       console.error('=== SAVE ERROR ===');
       console.error('Error name:', saveError.name);
@@ -680,6 +716,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       // If it's a validation error, return 400 instead of 500
       if (saveError.name === 'ValidationError') {
         const messages = Object.values(saveError.errors || {}).map(err => err.message).join(', ');
+        await deleteGalleryMediaByIds(uploadedMediaIds);
         return res.status(400).json({
           success: false,
           message: `Validation error: ${messages || saveError.message}`,
@@ -690,6 +727,11 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       
       throw saveError; // Re-throw to be caught by outer catch
     }
+
+    const keptMediaIds = new Set(keptExistingMedia.map((media) => String(media.gridfsId)).filter(Boolean));
+    const removedMediaIds = originalMediaIds.filter((id) => !keptMediaIds.has(id));
+    await deleteGalleryMediaByIds(removedMediaIds);
+
     await post.populate('createdBy', 'name email');
 
     res.json({
@@ -698,6 +740,9 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       data: post
     });
   } catch (error) {
+    if (!postSaved) {
+      await deleteGalleryMediaByIds(uploadedMediaIds);
+    }
     console.error('Error updating gallery post:', error);
     console.error('Error stack:', error.stack);
     
@@ -736,20 +781,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       });
     }
 
-    // Delete associated files from GridFS
-    const db = mongoose.connection.db;
-    const bucket = new GridFSBucket(db, { bucketName: 'gallery_media' });
-    
-    for (const mediaItem of post.media) {
-      if (mediaItem.gridfsId) {
-        try {
-          await bucket.delete(mediaItem.gridfsId);
-        } catch (deleteError) {
-          console.error('Error deleting GridFS file:', deleteError);
-          // Continue with post deletion even if file deletion fails
-        }
-      }
-    }
+    const mediaIds = post.media.map((mediaItem) => mediaItem.gridfsId).filter(Boolean);
+    await deleteGalleryMediaByIds(mediaIds);
 
     await GalleryPost.findByIdAndDelete(req.params.id);
 

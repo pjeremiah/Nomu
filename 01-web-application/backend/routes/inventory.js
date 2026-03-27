@@ -9,6 +9,7 @@ const { body, validationResult } = require('express-validator');
 const { sanitizeInput, validateInput } = require('../middleware/securityMiddleware');
 const ActivityService = require('../services/activityService');
 const { inventoryUpload } = require('../config/gridfs');
+const { ObjectId } = require('mongodb');
 
 // Middleware to check if user is admin or higher
 const requireAdmin = (req, res, next) => {
@@ -28,6 +29,23 @@ const requireManager = (req, res, next) => {
 
 // Max upload size (in MB) - increased for inventory images
 const MAX_UPLOAD_MB = 50; // 50MB limit for inventory images
+
+const INVENTORY_IMAGE_PREFIX = '/api/images/inventory/';
+
+const extractInventoryImageId = (imageUrl) => {
+  if (!imageUrl || typeof imageUrl !== 'string') return null;
+  if (!imageUrl.startsWith(INVENTORY_IMAGE_PREFIX)) return null;
+  return imageUrl.slice(INVENTORY_IMAGE_PREFIX.length);
+};
+
+const deleteInventoryImageById = async (req, imageId) => {
+  if (!imageId || !req.app.locals.gfsInventory) return;
+  try {
+    await req.app.locals.gfsInventory.delete(new ObjectId(imageId));
+  } catch (error) {
+    console.warn('GridFS inventory image delete (non-fatal):', error.message);
+  }
+};
 
 // GET /api/inventory - Get all inventory items with filters
 router.get('/', authMiddleware, requireAdmin, async (req, res) => {
@@ -302,6 +320,7 @@ router.put('/:id',
   authMiddleware, 
   requireAdmin,
   sanitizeInput,
+  inventoryUpload.single('image'),
   [
     body('name')
       .optional()
@@ -318,6 +337,9 @@ router.put('/:id',
   ],
   validateInput,
   async (req, res) => {
+    let existingItem;
+    const newImageId = req.file ? String(req.file.id) : null;
+    let updateApplied = false;
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -330,14 +352,30 @@ router.put('/:id',
       // Add updatedBy
       updateData.updatedBy = req.user.userId;
 
+      existingItem = await InventoryItem.findById(id);
+      if (!existingItem) {
+        if (newImageId) {
+          await deleteInventoryImageById(req, newImageId);
+        }
+        return res.status(404).json({ message: 'Inventory item not found' });
+      }
+
+      if (req.file) {
+        updateData.imageUrl = `/api/images/inventory/${req.file.id}`;
+      }
+
       const updatedItem = await InventoryItem.findByIdAndUpdate(
         id,
         updateData,
         { new: true, runValidators: true }
       );
+      updateApplied = true;
 
-      if (!updatedItem) {
-        return res.status(404).json({ message: 'Inventory item not found' });
+      if (newImageId) {
+        const oldImageId = extractInventoryImageId(existingItem.imageUrl);
+        if (oldImageId && oldImageId !== newImageId) {
+          await deleteInventoryImageById(req, oldImageId);
+        }
       }
 
       // Log activity
@@ -353,6 +391,9 @@ router.put('/:id',
         item: updatedItem
       });
     } catch (error) {
+      if (newImageId && !updateApplied) {
+        await deleteInventoryImageById(req, newImageId);
+      }
       console.error('Error updating inventory item:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
@@ -376,9 +417,11 @@ router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
       currentStock: item.currentStock,
       imageUrl: item.imageUrl
     };
+    const imageId = extractInventoryImageId(item.imageUrl);
 
     // Hard delete - completely remove from database
     await InventoryItem.findByIdAndDelete(id);
+    await deleteInventoryImageById(req, imageId);
 
     // Log activity
     await ActivityService.logAdminActivity(

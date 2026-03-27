@@ -7,6 +7,23 @@ const authMiddleware = require('../middleware/authMiddleware');
 const ActivityService = require('../services/activityService');
 const { promoUpload } = require('../config/gridfs');
 
+const PROMO_IMAGE_PREFIX = '/api/images/promo/';
+
+const extractPromoImageId = (imageUrl) => {
+  if (!imageUrl || typeof imageUrl !== 'string') return null;
+  if (!imageUrl.startsWith(PROMO_IMAGE_PREFIX)) return null;
+  return imageUrl.slice(PROMO_IMAGE_PREFIX.length);
+};
+
+const deletePromoImageById = async (req, imageId) => {
+  if (!imageId || !req.app.locals.gfsPromo) return;
+  try {
+    await req.app.locals.gfsPromo.delete(new mongoose.Types.ObjectId(imageId));
+  } catch (gfsErr) {
+    console.warn('GridFS promo image delete (non-fatal):', gfsErr.message);
+  }
+};
+
 // Get all promos (admin only)
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -155,6 +172,9 @@ router.post('/', authMiddleware, promoUpload.single('image'), async (req, res) =
 
 // Update promo (owner and manager only; staff is view-only)
 router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res) => {
+  let oldImageId = null;
+  const newImageId = req.file ? String(req.file.id) : null;
+  let promoSaved = false;
   try {
     const { role } = req.user;
     if (!['superadmin', 'manager'].includes(role)) {
@@ -175,8 +195,12 @@ router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res)
 
     const promo = await Promo.findById(req.params.id);
     if (!promo) {
+      if (newImageId) {
+        await deletePromoImageById(req, newImageId);
+      }
       return res.status(404).json({ message: 'Promo not found' });
     }
+    oldImageId = extractPromoImageId(promo.imageUrl);
 
     // Parse and validate dates: expect ISO strings (with Z or offset) so exact admin time is preserved
     const parseDate = (str) => {
@@ -225,12 +249,14 @@ router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res)
 
     // Update image if new one uploaded
     if (req.file) {
-      // Note: For GridFS, we don't need to manually delete old images
-      // as they are stored with unique IDs and can be cleaned up later
       promo.imageUrl = `/api/images/promo/${req.file.id}`; // GridFS file ID for serving images
     }
 
     await promo.save();
+    promoSaved = true;
+    if (newImageId && oldImageId && oldImageId !== newImageId) {
+      await deletePromoImageById(req, oldImageId);
+    }
     
     // Update status based on dates
     await promo.updateStatus();
@@ -245,6 +271,9 @@ router.put('/:id', authMiddleware, promoUpload.single('image'), async (req, res)
 
     res.json(promo);
   } catch (error) {
+    if (newImageId && !promoSaved) {
+      await deletePromoImageById(req, newImageId);
+    }
     console.error('Error updating promo:', error);
     res.status(500).json({ message: 'Error updating promo' });
   }
@@ -265,14 +294,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     // Delete image from database (GridFS) if exists - admin images are stored in DB, not local storage
     if (promo.imageUrl) {
-      const match = promo.imageUrl.match(/^\/api\/images\/promo\/([a-fA-F0-9]{24})$/);
-      if (match && req.app.locals.gfsPromo) {
-        try {
-          await req.app.locals.gfsPromo.delete(new mongoose.Types.ObjectId(match[1]));
-        } catch (gfsErr) {
-          console.warn('GridFS promo image delete (non-fatal):', gfsErr.message);
-        }
-      }
+      const imageId = extractPromoImageId(promo.imageUrl);
+      await deletePromoImageById(req, imageId);
     }
 
     // Log activity before deletion

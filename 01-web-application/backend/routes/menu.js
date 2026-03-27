@@ -7,9 +7,27 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { sanitizeInput, validateFileUpload } = require('../middleware/securityMiddleware');
 const ActivityService = require('../services/activityService');
 const { menuUpload } = require('../config/gridfs');
+const { ObjectId } = require('mongodb');
 
 const router = express.Router();
 const MAX_UPLOAD_MB = 50; // 50MB limit for menu images
+
+const MENU_IMAGE_PREFIX = '/api/images/menu/';
+
+const extractImageIdFromUrl = (imageUrl) => {
+  if (!imageUrl || typeof imageUrl !== 'string') return null;
+  if (!imageUrl.startsWith(MENU_IMAGE_PREFIX)) return null;
+  return imageUrl.slice(MENU_IMAGE_PREFIX.length);
+};
+
+const deleteMenuImageById = async (req, imageId) => {
+  if (!imageId || !req.app.locals.gfsMenu) return;
+  try {
+    await req.app.locals.gfsMenu.delete(new ObjectId(imageId));
+  } catch (error) {
+    // Ignore cleanup failures to avoid blocking menu updates/deletes.
+  }
+};
 
 // POST /api/menu → Add item
 router.post('/', authMiddleware, sanitizeInput, (req, res) => {
@@ -103,6 +121,7 @@ router.put('/:id', authMiddleware, sanitizeInput, (req, res) => {
       return res.status(400).json({ message: err.message || 'Upload error' });
     }
     try {
+      let existing;
       const { id } = req.params;
       const { name, price, category, description, secondPrice } = req.body;
       const updates = {};
@@ -135,12 +154,11 @@ router.put('/:id', authMiddleware, sanitizeInput, (req, res) => {
         }
       }
 
-      const existing = await MenuItem.findById(id);
+      existing = await MenuItem.findById(id);
       if (!existing) return res.status(404).json({ message: 'Item not found' });
 
       // Handle new image upload
       if (req.file) {
-        // Note: GridFS doesn't require explicit old file deletion as it's handled by MongoDB
         updates.imageUrl = `/api/images/menu/${req.file.id}`;
       }
 
@@ -153,6 +171,14 @@ router.put('/:id', authMiddleware, sanitizeInput, (req, res) => {
       }
 
       const updated = await MenuItem.findByIdAndUpdate(id, updates, { new: true });
+
+      if (req.file) {
+        const oldImageId = extractImageIdFromUrl(existing.imageUrl);
+        const newImageId = String(req.file.id);
+        if (oldImageId && oldImageId !== newImageId) {
+          await deleteMenuImageById(req, oldImageId);
+        }
+      }
       
       // Log activity
       const priceInfo = updated.category === 'Drinks' && updated.secondPrice 
@@ -167,6 +193,9 @@ router.put('/:id', authMiddleware, sanitizeInput, (req, res) => {
       
       return res.json(updated);
     } catch (e) {
+      if (req.file) {
+        await deleteMenuImageById(req, String(req.file.id));
+      }
 
       return res.status(500).json({ message: e.message || 'Failed to update item' });
     }
@@ -220,9 +249,9 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       `Category: ${existing.category}, Price: ₱${existing.price}`
     );
     
-    // Note: GridFS images are automatically managed by MongoDB
-    // No need to manually delete files as GridFS handles cleanup
+    const imageId = extractImageIdFromUrl(existing.imageUrl);
     await existing.deleteOne();
+    await deleteMenuImageById(req, imageId);
     return res.json({ message: 'Item deleted' });
   } catch (err) {
 
