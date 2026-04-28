@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import SignInForm from '../client/SignInForm';
 import NomuLogo from '../utils/Images/Logo.png';
 import { isRestrictedAdminDevice } from './utils/deviceAccess';
-
-const MOBILE_BREAKPOINT = 768;
+import AdminDeviceRestriction from './components/AdminDeviceRestriction';
 
 /* Single-column layout: mobile sign-in design adapted for desktop admin */
 const Page = styled.div`
@@ -180,46 +179,6 @@ const FormContainer = styled.div`
   }
 `;
 
-/* Mobile-only: desktop-only message */
-const MobileBlock = styled.div`
-  display: none;
-  width: 100vw;
-  min-height: 100vh;
-  background: #212c59;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 2rem;
-  text-align: center;
-  @media (max-width: ${MOBILE_BREAKPOINT}px) {
-    display: flex;
-  }
-`;
-
-const MobileTitle = styled.h1`
-  color: #ffffff;
-  font-size: 1.35rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem 0;
-`;
-
-const MobileMessage = styled.p`
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.95rem;
-  line-height: 1.5;
-  margin: 0 0 1.5rem 0;
-  max-width: 300px;
-`;
-
-const MobileLink = styled(Link)`
-  color: #98C7ED;
-  text-decoration: none;
-  font-weight: 500;
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
 /**
  * Admin-only login at /login.
  * Single-column layout matching the mobile sign-in design, for desktop.
@@ -253,13 +212,7 @@ const AdminLogin = () => {
 
   if (isMobile) {
     return (
-      <MobileBlock>
-        <MobileTitle>Admin access is for desktop only</MobileTitle>
-        <MobileMessage>
-          Sign in from a computer or laptop to access the admin dashboard.
-        </MobileMessage>
-        <MobileLink to="/">← Back to Nomu Cafe</MobileLink>
-      </MobileBlock>
+      <AdminDeviceRestriction onBackHome={() => navigate('/')} />
     );
   }
 
