@@ -12,6 +12,7 @@ const { body, validationResult } = require('express-validator');
 
 // Import security middleware
 const { authRateLimiter, signupRateLimiter, sanitizeInput, validateInput } = require('../middleware/securityMiddleware');
+const { restrictAdminMobileAccess, isLikelyMobileRequest } = require('../middleware/deviceAccessMiddleware');
 
 // Import failed attempt middleware
 const { checkFailedAttempts, recordFailedAttempt, clearFailedAttempts } = require('../middleware/failedAttemptMiddleware');
@@ -469,6 +470,7 @@ router.post('/reset-password',
 
 // POST /admin/request-otp - Request OTP for admin login
 router.post('/admin/request-otp',
+  restrictAdminMobileAccess,
   authRateLimiter,
   checkFailedAttempts,
   sanitizeInput,
@@ -528,6 +530,7 @@ router.post('/admin/request-otp',
 
 // POST /admin/send-login-otp - Alias for /admin/request-otp (mobile compatibility)
 router.post('/admin/send-login-otp',
+  restrictAdminMobileAccess,
   authRateLimiter,
   checkFailedAttempts,
   sanitizeInput,
@@ -571,6 +574,7 @@ router.post('/admin/send-login-otp',
 
 // POST /admin/verify-login-otp - Alias for /admin/verify-otp (mobile compatibility)
 router.post('/admin/verify-login-otp',
+  restrictAdminMobileAccess,
   checkFailedAttempts,
   sanitizeInput,
   [
@@ -647,6 +651,7 @@ router.post('/admin/verify-login-otp',
 
 // POST /admin/verify-otp - Verify OTP and complete admin login
 router.post('/admin/verify-otp',
+  restrictAdminMobileAccess,
   checkFailedAttempts,
   sanitizeInput,
   [
@@ -735,6 +740,7 @@ router.post('/admin/verify-otp',
 
 // POST /login - Alias for signin (for frontend compatibility)
 router.post('/login', 
+  restrictAdminMobileAccess,
   authRateLimiter,
   checkFailedAttempts,
   sanitizeInput,
@@ -757,6 +763,9 @@ router.post('/login',
       // Check if this is an admin login
       const admin = await Admin.findOne({ email: email.toLowerCase() });
       if (admin) {
+        if (isLikelyMobileRequest(req)) {
+          return res.status(403).json({ message: 'Admin access is only available on desktop or laptop devices.' });
+        }
         // Verify admin password first before proceeding to OTP
         const isMatch = await bcrypt.compare(password, admin.password);
         if (!isMatch) {
@@ -1158,6 +1167,7 @@ router.post('/verify-otp',
 
 // POST /signin
 router.post('/signin', 
+  restrictAdminMobileAccess,
   authRateLimiter,
   checkFailedAttempts,
   sanitizeInput,
@@ -1179,6 +1189,9 @@ router.post('/signin',
       // Check if this is an admin login
       const admin = await Admin.findOne({ email: email.toLowerCase() });
       if (admin) {
+        if (isLikelyMobileRequest(req)) {
+          return res.status(403).json({ message: 'Admin access is only available on desktop or laptop devices.' });
+        }
         // Verify admin password first before proceeding to OTP
         const isMatch = await bcrypt.compare(password, admin.password);
         if (!isMatch) {

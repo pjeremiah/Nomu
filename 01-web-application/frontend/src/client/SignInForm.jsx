@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import { useAuth } from '../contexts/AuthContext';
+import { getAdminMobileContextHeader, getAdminDeviceTypeHeader } from '../admin/utils/deviceAccess';
 
 // Function to mask email address for security
 const maskEmail = (email) => {
@@ -89,7 +90,11 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/signin`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Mobile-Context': getAdminMobileContextHeader(),
+            'X-Admin-Device-Type': getAdminDeviceTypeHeader()
+          },
           body: JSON.stringify({ email: formData.email, password: formData.password }),
         });
         const data = await response.json();
@@ -163,7 +168,11 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
         const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         const response = await fetch(`${API_URL}/api/auth/admin/verify-otp`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Mobile-Context': getAdminMobileContextHeader(),
+            'X-Admin-Device-Type': getAdminDeviceTypeHeader()
+          },
           body: JSON.stringify({ 
             email: formData.email, 
             otp: formData.otp, 
@@ -227,7 +236,11 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const response = await fetch(`${API_URL}/api/auth/admin/request-otp`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Mobile-Context': getAdminMobileContextHeader(),
+          'X-Admin-Device-Type': getAdminDeviceTypeHeader()
+        },
         body: JSON.stringify({ email: formData.email, password: formData.password }),
       });
       const data = await response.json();

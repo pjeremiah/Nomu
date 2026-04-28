@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 import SignInForm from '../client/SignInForm';
 import NomuLogo from '../utils/Images/Logo.png';
+import { isRestrictedAdminDevice } from './utils/deviceAccess';
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -225,10 +226,10 @@ const MobileLink = styled(Link)`
  */
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT);
+  const [isMobile, setIsMobile] = useState(() => isRestrictedAdminDevice());
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
+    const check = () => setIsMobile(isRestrictedAdminDevice());
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
@@ -239,7 +240,7 @@ const AdminLogin = () => {
     if (token && userJson) {
       try {
         const user = JSON.parse(userJson);
-        if (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff') {
+        if (!isRestrictedAdminDevice() && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
           navigate('/admin/home', { replace: true });
         }
       } catch (_) {}

@@ -27,6 +27,7 @@ import CustomerFeedback from './admin/CustomerFeedback';
 import GalleryManagement from './admin/GalleryManagement';
 import ProtectedRoute from './admin/components/ProtectedRoute';
 import { ModalProvider } from './admin/context/ModalContext';
+import { isRestrictedAdminDevice } from './admin/utils/deviceAccess';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -51,6 +52,10 @@ const Container = styled.div`
 
 // Component to check if user is admin
 const RequireAdmin = ({ children }) => {
+  if (isRestrictedAdminDevice()) {
+    return <Navigate to="/login" replace />;
+  }
+
   // Check both localStorage and sessionStorage for user data
   const localUser = JSON.parse(localStorage.getItem('user') || '{}');
   const localToken = localStorage.getItem('token');
@@ -143,6 +148,10 @@ function App() {
       // If user is admin and not on admin route, redirect to admin
       if (token && (user.role === 'superadmin' || user.role === 'manager' || user.role === 'staff')) {
         const currentPath = window.location.pathname;
+        if (isRestrictedAdminDevice()) {
+          window.location.href = '/login';
+          return;
+        }
         if (!currentPath.startsWith('/admin')) {
           window.location.href = '/admin/home';
         }
