@@ -9,14 +9,27 @@ import MobileAppModal from './MobileAppModal';
 import { useAuth } from '../contexts/AuthContext';
 
 // --- Hook ---
+const MOBILE_BREAKPOINT = 768;
+const COMPACT_NAV_BREAKPOINT = 1100;
+
 const useWindowResize = () => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= MOBILE_BREAKPOINT);
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   return isMobile;
+};
+
+const useCompactNav = () => {
+  const [isCompactNav, setIsCompactNav] = useState(window.innerWidth <= COMPACT_NAV_BREAKPOINT);
+  useEffect(() => {
+    const handleResize = () => setIsCompactNav(window.innerWidth <= COMPACT_NAV_BREAKPOINT);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return isCompactNav;
 };
 
 const dropdownItemStyle = {
@@ -73,8 +86,9 @@ const NavContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
   
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: ${COMPACT_NAV_BREAKPOINT}px) {
     padding: 0 16px;
   }
   
@@ -87,9 +101,9 @@ const NavLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 32px;
-  flex-grow: 1;
+  flex-grow: 0;
 
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: ${COMPACT_NAV_BREAKPOINT}px) {
     justify-content: center;
     gap: 0;
     position: relative;
@@ -103,7 +117,7 @@ const NavRight = styled.div`
   align-items: center;
   gap: 28px;
 
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: ${COMPACT_NAV_BREAKPOINT}px) {
     position: absolute;
     right: 10px;
     flex-shrink: 0;
@@ -124,7 +138,7 @@ const NavLogo = styled(LinkR)`
   text-decoration: none;
   color: inherit;
 
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: ${COMPACT_NAV_BREAKPOINT}px) {
     margin: 0 auto;
   }
 `;
@@ -140,11 +154,20 @@ const Logo = styled.img`
 const NavItems = styled.ul`
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   list-style: none;
   gap: 24px;
   margin: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
 
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: 1300px) {
+    gap: 14px;
+  }
+
+  @media screen and (max-width: ${COMPACT_NAV_BREAKPOINT}px) {
     display: none;
   }
 `;
@@ -155,9 +178,11 @@ const StyledNavLink = styled(RouterNavLink)`
     : (props.theme.isDarkMode ? props.theme.text_primary : 'white')
   };
   font-weight: 500;
+  font-size: 14px;
   text-decoration: none;
   transition: all 0.3s ease;
   text-shadow: none;
+  white-space: nowrap;
 
   &:hover {
     color: #98C7ED;
@@ -191,7 +216,7 @@ const MobileIcon = styled.button`
   text-shadow: none;
   transition: all 0.3s ease;
 
-  @media screen and (max-width: 768px) {
+  @media screen and (max-width: ${COMPACT_NAV_BREAKPOINT}px) {
     display: flex;
     align-items: center;
     cursor: pointer;
@@ -809,6 +834,7 @@ const MobileLogoutButton = styled.button`
 // --- Component ---
 const Navbar = () => {
   const isMobile = useWindowResize();
+  const isCompactNav = useCompactNav();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -1071,7 +1097,7 @@ const Navbar = () => {
           <NavLogo to="/" onClick={handleLogoClick}>
             <Logo src={LogoImg} alt="Nomu Cafe Logo" />
           </NavLogo>
-          {!isMobile && (
+          {!isCompactNav && (
             <NavItems>
               <StyledNavLink to="/" $isScrolled={isScrolled} onClick={handleHomeClick}>HOME</StyledNavLink>
               <StyledNavLink to="/aboutus" $isScrolled={isScrolled}>ABOUT US</StyledNavLink>
