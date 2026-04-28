@@ -39,7 +39,7 @@ if (process.env.NODE_ENV !== 'production') {
     // Allow all origins in development (including mobile apps)
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, User-Agent, X-API-Key, X-Client-Version, X-Platform');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, User-Agent, X-API-Key, X-Client-Version, X-Platform, X-Admin-Mobile-Context, X-Admin-Device-Type');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
     res.header('Access-Control-Max-Age', '86400'); // 24 hours

@@ -210,7 +210,9 @@ const corsOptions = {
     'User-Agent',
     'X-API-Key',
     'X-Client-Version',
-    'X-Platform'
+    'X-Platform',
+    'X-Admin-Mobile-Context',
+    'X-Admin-Device-Type'
   ],
   exposedHeaders: [
     'Content-Length', 
