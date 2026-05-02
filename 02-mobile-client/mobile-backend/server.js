@@ -4289,11 +4289,16 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
       0
     );
-    
-    // Check minimum spending requirement (100 pesos)
+
+    // Only paid lines count toward loyalty stamps — free reward pickup (₱0) never earns points.
+    const paidSubtotal = enrichedItems.reduce((sum, item) => {
+      if (item.excludeFromAnalytics) return sum;
+      return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
+    }, 0);
+
     const MINIMUM_SPENDING = 100;
-    const isEligibleForPoints = totalPrice >= MINIMUM_SPENDING;
-    
+    const isEligibleForPoints = paidSubtotal >= MINIMUM_SPENDING;
+
     let pointsAdded = 0;
     if (isEligibleForPoints) {
       _log(`📱 [LOYALTY] Adding point to user ${user.fullName} (current: ${user.points})`);
@@ -4310,8 +4315,14 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
         user.points = newPoints;
       }
       pointsAdded = 1;
+    } else if (paidSubtotal < MINIMUM_SPENDING && enrichedItems.some((i) => i.excludeFromAnalytics)) {
+      _log(
+        `📱 [LOYALTY] No points: paid merchandise ₱${paidSubtotal} (order total ₱${totalPrice} incl. free rewards; minimum ₱${MINIMUM_SPENDING} on paid items only)`
+      );
     } else {
-      _log(`⚠️ [LOYALTY] Order total ₱${totalPrice} is below minimum ₱${MINIMUM_SPENDING} for loyalty points`);
+      _log(
+        `⚠️ [LOYALTY] Paid merchandise ₱${paidSubtotal} is below minimum ₱${MINIMUM_SPENDING} for loyalty points`
+      );
     }
     
     // Create order with multiple items (cycle = current loyalty cycle: 1, 2, 3...)
