@@ -20,13 +20,33 @@ const String _kIsRewardRedemption = '_isRewardRedemption';
 const String _kRewardBucket = '_rewardBucket';
 const String _kRewardDescription = '_rewardDescription';
 
-String? _rewardBucketForInventoryCategory(String raw) {
+/// Maps an inventory row's [category] to a loyalty reward bucket.
+///
+/// Uses the **same strings as the Select Inventory modal chips**
+/// (`InventoryScannerService.getCategories()`), e.g. "Donuts", "Drinks",
+/// "Pastries", "Pizzas" — not improvised DB-only synonyms.
+String? _rewardBucketForBaristaModalCategory(String raw) {
   final c = raw.trim().toLowerCase();
-  if (c == 'donuts' || c == 'donut') return 'donut';
-  if (c == 'drinks' || c == 'drink') return 'drink';
-  if (c == 'pastries' || c == 'pastry') return 'pastry';
-  if (c == 'pizzas' || c == 'pizza') return 'pizza';
-  return null;
+  if (c.isEmpty) return null;
+  // Modal tab labels (plural) + common singular / spelling variants.
+  switch (c) {
+    case 'donuts':
+    case 'donut':
+    case 'doughnuts':
+    case 'doughnut':
+      return 'donut';
+    case 'drinks':
+    case 'drink':
+      return 'drink';
+    case 'pizzas':
+    case 'pizza':
+      return 'pizza';
+    case 'pastries':
+    case 'pastry':
+      return 'pastry';
+    default:
+      return null;
+  }
 }
 
 String _freeRewardButtonLabel(String bucket) {
@@ -282,57 +302,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
         sp != null &&
         sp > 0 &&
         fp != sp;
-  }
-
-  /// One price tier for a dual-priced SKU (₱ button + optional qty stepper).
-  Widget _dualPriceTierColumn({
-    required String label,
-    required String selectionKey,
-    required Map<String, int> tempSelectedItems,
-    required void Function(void Function()) setState,
-  }) {
-    final q = tempSelectedItems[selectionKey] ?? 0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        OutlinedButton(
-          onPressed: () {
-            setState(() {
-              final cur = tempSelectedItems[selectionKey] ?? 0;
-              tempSelectedItems[selectionKey] = cur + 1;
-            });
-          },
-          child: Text(label),
-        ),
-        if (q > 0) ...[
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.remove, size: 18),
-                onPressed: () {
-                  setState(() {
-                    final cur = tempSelectedItems[selectionKey] ?? 0;
-                    if (cur > 1) {
-                      tempSelectedItems[selectionKey] = cur - 1;
-                    } else {
-                      tempSelectedItems.remove(selectionKey);
-                    }
-                  });
-                },
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                padding: EdgeInsets.zero,
-              ),
-              Text(
-                '$q',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
   }
 
   static double? _num(dynamic v) {
@@ -1227,105 +1196,208 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                             final itemName = item['name'] ?? 'Unknown Item';
                             final category = item['category'] ?? '';
                             final rewardBucket =
-                                _rewardBucketForInventoryCategory(category);
+                                _rewardBucketForBaristaModalCategory(category);
                             final dual = _itemHasDualPrice(item);
                             final fp = _num(item['firstPrice']);
                             final sp = _num(item['secondPrice']);
 
-                            int currentQuantity;
                             String? keyFirst;
                             String? keySecond;
+                            int paidQty;
                             if (dual && fp != null && sp != null) {
                               keyFirst = _selectionKeyDual(baseId, fp);
                               keySecond = _selectionKeyDual(baseId, sp);
-                              currentQuantity =
-                                  (tempSelectedItems[keyFirst] ?? 0) +
+                              paidQty = (tempSelectedItems[keyFirst] ?? 0) +
                                   (tempSelectedItems[keySecond] ?? 0);
                             } else {
-                              currentQuantity = tempSelectedItems[baseId] ?? 0;
+                              paidQty = tempSelectedItems[baseId] ?? 0;
                             }
+
+                            final rewardKey = rewardBucket != null
+                                ? _selectionKeyReward(baseId, rewardBucket)
+                                : null;
+                            final rewardQty =
+                                rewardKey != null ? (tempSelectedItems[rewardKey] ?? 0) : 0;
+                            final anySelected = paidQty > 0 || rewardQty > 0;
 
                             final isInFilteredList = filteredItems
                                 .any((filteredItem) => filteredItem['_id'] == baseId);
 
-                            Widget priceControls;
-                            if (dual && fp != null && sp != null && keyFirst != null && keySecond != null) {
-                              priceControls = Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            final btnStyle = OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            );
+
+                            Widget horizontalActions = SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Expanded(
-                                    child: _dualPriceTierColumn(
-                                      label: '₱${fp.round()}',
-                                      selectionKey: keyFirst,
-                                      tempSelectedItems: tempSelectedItems,
-                                      setState: setState,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _dualPriceTierColumn(
-                                      label: '₱${sp.round()}',
-                                      selectionKey: keySecond,
-                                      tempSelectedItems: tempSelectedItems,
-                                      setState: setState,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            } else {
-                              priceControls = Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  if (currentQuantity > 0) ...[
-                                    IconButton(
-                                      icon: const Icon(Icons.remove, size: 18),
+                                  if (rewardBucket != null) ...[
+                                    OutlinedButton(
+                                      style: btnStyle.copyWith(
+                                        foregroundColor:
+                                            WidgetStateProperty.all(Colors.deepPurple),
+                                        side: WidgetStateProperty.all(
+                                            const BorderSide(
+                                                color: Colors.deepPurple)),
+                                      ),
                                       onPressed: () {
                                         setState(() {
-                                          if (currentQuantity > 1) {
-                                            tempSelectedItems[baseId] = currentQuantity - 1;
-                                          } else {
-                                            tempSelectedItems.remove(baseId);
-                                          }
+                                          final rk = _selectionKeyReward(
+                                              baseId, rewardBucket);
+                                          tempSelectedItems[rk] =
+                                              (tempSelectedItems[rk] ?? 0) + 1;
                                         });
                                       },
-                                      constraints: const BoxConstraints(
-                                        minWidth: 32,
-                                        minHeight: 32,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                    Container(
-                                      width: 40,
-                                      alignment: Alignment.center,
                                       child: Text(
-                                        '$currentQuantity',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                                        _freeRewardButtonLabel(rewardBucket),
+                                        style: const TextStyle(fontSize: 11),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  if (dual &&
+                                      fp != null &&
+                                      sp != null &&
+                                      keyFirst != null &&
+                                      keySecond != null) ...[
+                                    OutlinedButton(
+                                      style: btnStyle,
+                                      onPressed: () {
+                                        setState(() {
+                                          tempSelectedItems[keyFirst!] =
+                                              (tempSelectedItems[keyFirst] ?? 0) + 1;
+                                        });
+                                      },
+                                      child: Text(
+                                        '₱${fp.round()}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    OutlinedButton(
+                                      style: btnStyle,
+                                      onPressed: () {
+                                        setState(() {
+                                          tempSelectedItems[keySecond!] =
+                                              (tempSelectedItems[keySecond] ?? 0) + 1;
+                                        });
+                                      },
+                                      child: Text(
+                                        '₱${sp.round()}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 6),
+                                      child: Text(
+                                        '₱${_unitPriceFromInventoryRow(item).round()}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.blueGrey.shade800,
                                         ),
                                       ),
                                     ),
                                   ],
+                                  const SizedBox(width: 4),
                                   IconButton(
-                                    icon: const Icon(Icons.add, size: 18),
+                                    icon: const Icon(Icons.remove, size: 20),
+                                    onPressed: paidQty > 0
+                                        ? () {
+                                            setState(() {
+                                              if (dual &&
+                                                  keyFirst != null &&
+                                                  keySecond != null) {
+                                                final q2 =
+                                                    tempSelectedItems[keySecond] ?? 0;
+                                                if (q2 > 0) {
+                                                  if (q2 <= 1) {
+                                                    tempSelectedItems
+                                                        .remove(keySecond);
+                                                  } else {
+                                                    tempSelectedItems[keySecond] =
+                                                        q2 - 1;
+                                                  }
+                                                } else {
+                                                  final q1 = tempSelectedItems[
+                                                          keyFirst] ??
+                                                      0;
+                                                  if (q1 <= 1) {
+                                                    tempSelectedItems
+                                                        .remove(keyFirst);
+                                                  } else {
+                                                    tempSelectedItems[keyFirst] =
+                                                        q1 - 1;
+                                                  }
+                                                }
+                                              } else {
+                                                if (paidQty <= 1) {
+                                                  tempSelectedItems
+                                                      .remove(baseId);
+                                                } else {
+                                                  tempSelectedItems[baseId] =
+                                                      paidQty - 1;
+                                                }
+                                              }
+                                            });
+                                          }
+                                        : null,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 36,
+                                      minHeight: 36,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  SizedBox(
+                                    width: 28,
+                                    child: Text(
+                                      '$paidQty',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add, size: 20),
                                     onPressed: () {
                                       setState(() {
-                                        tempSelectedItems[baseId] = currentQuantity + 1;
+                                        if (dual &&
+                                            keyFirst != null &&
+                                            keySecond != null) {
+                                          tempSelectedItems[keyFirst] =
+                                              (tempSelectedItems[keyFirst] ?? 0) + 1;
+                                        } else {
+                                          tempSelectedItems[baseId] =
+                                              paidQty + 1;
+                                        }
                                       });
                                     },
                                     constraints: const BoxConstraints(
-                                      minWidth: 32,
-                                      minHeight: 32,
+                                      minWidth: 36,
+                                      minHeight: 36,
                                     ),
                                     padding: EdgeInsets.zero,
                                   ),
                                 ],
-                              );
-                            }
+                              ),
+                            );
 
                             return Card(
                               margin: const EdgeInsets.symmetric(vertical: 2),
-                              color: currentQuantity > 0 ? Colors.blue.withOpacity(0.1) : null,
+                              color: anySelected
+                                  ? Colors.blue.withOpacity(0.1)
+                                  : null,
                               child: Padding(
                                 padding: const EdgeInsets.all(12.0),
                                 child: Column(
@@ -1335,8 +1407,12 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                                       itemName,
                                       style: TextStyle(
                                         fontSize: 14,
-                                        fontWeight: currentQuantity > 0 ? FontWeight.bold : FontWeight.normal,
-                                        color: isInFilteredList ? null : Colors.grey.shade600,
+                                        fontWeight: anySelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isInFilteredList
+                                            ? null
+                                            : Colors.grey.shade600,
                                       ),
                                     ),
                                     if (category.isNotEmpty) ...[
@@ -1345,47 +1421,14 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                                         category,
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: isInFilteredList ? Colors.grey : Colors.grey.shade500,
-                                        ),
-                                      ),
-                                    ],
-                                    if (!dual) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '₱${_unitPriceFromInventoryRow(item).round()}',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.blueGrey.shade700,
+                                          color: isInFilteredList
+                                              ? Colors.grey
+                                              : Colors.grey.shade500,
                                         ),
                                       ),
                                     ],
                                     const SizedBox(height: 8),
-                                    priceControls,
-                                    if (rewardBucket != null) ...[
-                                      const SizedBox(height: 8),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.deepPurple,
-                                            side: const BorderSide(
-                                                color: Colors.deepPurple),
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              final rk = _selectionKeyReward(
-                                                  baseId, rewardBucket);
-                                              tempSelectedItems[rk] =
-                                                  (tempSelectedItems[rk] ?? 0) +
-                                                      1;
-                                            });
-                                          },
-                                          child: Text(
-                                              _freeRewardButtonLabel(rewardBucket)),
-                                        ),
-                                      ),
-                                    ],
+                                    horizontalActions,
                                   ],
                                 ),
                               ),
