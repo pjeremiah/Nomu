@@ -12,34 +12,46 @@ class QRValidationUtils {
     caseSensitive: false,
   );
 
-  /// Validates QR token format (UUID v4 validation - flexible format)
-  /// Returns true if the QR code is a valid UUID v4 format
-  static bool isValidQRToken(String qrCode) {
-    // Basic validation: QR token should be a non-empty string
-    if (qrCode.isEmpty) return false;
-    
-    // Check if it's not just whitespace
-    if (qrCode.trim().isEmpty) return false;
-    
-    // Clean the QR code (remove any whitespace)
-    String cleanQrCode = qrCode.trim();
-    
-    // Check if it's a UUID with hyphens (standard format: 36 chars)
-    bool isValidWithHyphens = _uuidV4WithHyphensPattern.hasMatch(cleanQrCode);
-    
-    // Check if it's a UUID without hyphens (32 chars) or with missing hyphens (36 chars)
-    bool isValidWithoutHyphens = _uuidV4WithoutHyphensPattern.hasMatch(cleanQrCode);
-    
-    if (!isValidWithHyphens && !isValidWithoutHyphens) {
-      Logger.qr('Invalid UUID v4 format: $cleanQrCode');
-      Logger.qr('   - Length: ${cleanQrCode.length}');
-      Logger.qr('   - Expected: 36 chars with hyphens or 32/36 chars without hyphens');
-      return false;
-    }
-    
-    Logger.success('Valid UUID v4 format: $cleanQrCode', 'QR VALIDATION');
-    Logger.qr('   - Format: ${isValidWithHyphens ? "with hyphens (36 chars)" : "without hyphens (${cleanQrCode.length} chars)"}');
+  /// Loyalty QR from the customer app encodes [User.qrToken], which the mobile API
+  /// generates as a JWT (`jwt.sign`), not a UUID. Accept standard JWS shape (3 base64url segments).
+  static final RegExp _loyaltyJwtShapePattern = RegExp(
+    r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$',
+  );
+
+  static bool _isValidLoyaltyJwtShape(String s) {
+    if (!_loyaltyJwtShapePattern.hasMatch(s)) return false;
+    // Reject pathological short strings that happen to contain two dots
+    if (s.length < 36) return false;
     return true;
+  }
+
+  /// Validates QR payload: UUID v4 (legacy) or JWT loyalty token (customer mobile app).
+  static bool isValidQRToken(String qrCode) {
+    if (qrCode.isEmpty) return false;
+    if (qrCode.trim().isEmpty) return false;
+
+    final String cleanQrCode = qrCode.trim();
+
+    final bool uuidWithHyphens = _uuidV4WithHyphensPattern.hasMatch(cleanQrCode);
+    final bool uuidWithoutHyphens = _uuidV4WithoutHyphensPattern.hasMatch(cleanQrCode);
+    if (uuidWithHyphens || uuidWithoutHyphens) {
+      Logger.success('Valid UUID v4 loyalty token', 'QR VALIDATION');
+      Logger.qr(
+        '   - Format: ${uuidWithHyphens ? "with hyphens (36 chars)" : "compact (${cleanQrCode.length} chars)"}',
+      );
+      return true;
+    }
+
+    if (_isValidLoyaltyJwtShape(cleanQrCode)) {
+      Logger.success('Valid JWT-shaped loyalty QR (customer app)', 'QR VALIDATION');
+      Logger.qr('   - Length: ${cleanQrCode.length}');
+      return true;
+    }
+
+    Logger.qr('Invalid loyalty QR format: $cleanQrCode');
+    Logger.qr('   - Length: ${cleanQrCode.length}');
+    Logger.qr('   - Expected: UUID v4, or JWT (three base64url segments)');
+    return false;
   }
 
   /// Validates QR token format with detailed error information
@@ -51,37 +63,35 @@ class QRValidationUtils {
       'format': null,
     };
 
-    // Basic validation: QR token should be a non-empty string
     if (qrCode.isEmpty) {
       result['error'] = 'QR code is empty';
       return result;
     }
-    
-    // Check if it's not just whitespace
+
     if (qrCode.trim().isEmpty) {
       result['error'] = 'QR code contains only whitespace';
       return result;
     }
-    
-    // Clean the QR code (remove any whitespace)
-    String cleanQrCode = qrCode.trim();
-    
-    // Check if it's a UUID with hyphens (standard format: 36 chars)
-    bool isValidWithHyphens = _uuidV4WithHyphensPattern.hasMatch(cleanQrCode);
-    
-    // Check if it's a UUID without hyphens (32 chars) or with missing hyphens (36 chars)
-    bool isValidWithoutHyphens = _uuidV4WithoutHyphensPattern.hasMatch(cleanQrCode);
-    
+
+    final String cleanQrCode = qrCode.trim();
+
+    final bool isValidWithHyphens = _uuidV4WithHyphensPattern.hasMatch(cleanQrCode);
+    final bool isValidWithoutHyphens = _uuidV4WithoutHyphensPattern.hasMatch(cleanQrCode);
+
     if (isValidWithHyphens) {
       result['isValid'] = true;
-      result['format'] = 'with hyphens (36 chars)';
+      result['format'] = 'UUID v4 with hyphens';
     } else if (isValidWithoutHyphens) {
       result['isValid'] = true;
-      result['format'] = 'without hyphens (${cleanQrCode.length} chars)';
+      result['format'] = 'UUID v4 compact';
+    } else if (_isValidLoyaltyJwtShape(cleanQrCode)) {
+      result['isValid'] = true;
+      result['format'] = 'JWT loyalty token';
     } else {
-      result['error'] = 'Invalid UUID v4 format. Expected 36 chars with hyphens or 32/36 chars without hyphens';
+      result['error'] =
+          'Invalid format. Expected UUID v4 or JWT loyalty token (customer app QR).';
     }
-    
+
     return result;
   }
 
@@ -90,9 +100,10 @@ class QRValidationUtils {
     return qrCode.trim().toLowerCase();
   }
 
-  /// Checks if QR code length is within expected range
+  /// Checks if QR code length is within expected range (UUID or typical JWT)
   static bool isQRCodeLengthValid(String qrCode) {
     final length = qrCode.trim().length;
-    return length == 32 || length == 36;
+    if (length == 32 || length == 36) return true;
+    return length >= 36 && _isValidLoyaltyJwtShape(qrCode.trim());
   }
 }
