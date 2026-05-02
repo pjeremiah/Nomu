@@ -1057,47 +1057,83 @@ function inventoryUnitPrice(inv) {
   return 0;
 }
 
+/** Human-readable summary of a transaction for `lastOrder` (all line items). */
+function formatLastOrderSummary(items) {
+  if (!items || !items.length) return '';
+  return items
+    .map((i) => {
+      const n = String(i.itemName || '').trim();
+      if (!n) return null;
+      const q = Math.max(1, Number(i.quantity) || 1);
+      return q > 1 ? `${n} ×${q}` : n;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+/**
+ * Split a single field that mistakenly contains multiple product names (comma-separated).
+ * Each segment is counted as its own line; quantity stays on each segment only when a single name.
+ */
+function splitItemNameSegments(name) {
+  const s = String(name || '').trim();
+  if (!s) return [];
+  if (!s.includes(',')) return [s];
+  return s.split(',').map((p) => p.trim()).filter(Boolean);
+}
+
 /**
  * Resolve each line against InventoryItem for price + category; keeps one row per SKU with quantity.
+ * Comma-separated `itemName` values are expanded so analytics and history stay one-SKU per row.
  */
 async function enrichScanMultipleLineItems(items) {
   const out = [];
   if (!Array.isArray(items)) return out;
   for (const item of items) {
-    const name = (item.itemName || item.name || '').trim();
+    const rawName = (item.itemName || item.name || '').trim();
     const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
     let price = Number(item.price);
     if (!Number.isFinite(price) || price < 0) price = 0;
-    let inv = null;
-    if (name) {
-      try {
-        inv = await InventoryItem.findOne({
-          name: new RegExp(`^${escapeRegexForLookup(name)}$`, 'i'),
-          status: 'active'
-        }).lean();
-      } catch (e) {
-        console.warn('[LOYALTY] enrich line lookup failed:', name, e && e.message);
+    const segments = splitItemNameSegments(rawName);
+    const perSegQty = segments.length > 1 ? 1 : qty;
+    const nSeg = segments.length || 1;
+    const pricePerSeg =
+      nSeg > 1 && price > 0 ? Math.round((price / nSeg) * 100) / 100 : price;
+
+    for (const name of segments.length ? segments : ['']) {
+      if (!name) continue;
+      let segPrice = pricePerSeg;
+      let inv = null;
+      if (name) {
+        try {
+          inv = await InventoryItem.findOne({
+            name: new RegExp(`^${escapeRegexForLookup(name)}$`, 'i'),
+            status: 'active'
+          }).lean();
+        } catch (e) {
+          console.warn('[LOYALTY] enrich line lookup failed:', name, e && e.message);
+        }
       }
-    }
-    if (inv) {
-      if (price <= 0) price = inventoryUnitPrice(inv);
-      const { category, itemType } = normalizeLoyaltyCategoryAndType(inv.category, item.itemType);
-      out.push({
-        itemName: inv.name || name,
-        itemType,
-        category,
-        price,
-        quantity: qty
-      });
-    } else {
-      const { category, itemType } = normalizeLoyaltyCategoryAndType(item.category, item.itemType);
-      out.push({
-        itemName: name || 'Unknown Item',
-        itemType,
-        category,
-        price,
-        quantity: qty
-      });
+      if (inv) {
+        if (segPrice <= 0) segPrice = inventoryUnitPrice(inv);
+        const { category, itemType } = normalizeLoyaltyCategoryAndType(inv.category, item.itemType);
+        out.push({
+          itemName: inv.name || name,
+          itemType,
+          category,
+          price: segPrice,
+          quantity: perSegQty
+        });
+      } else {
+        const { category, itemType } = normalizeLoyaltyCategoryAndType(item.category, item.itemType);
+        out.push({
+          itemName: name || 'Unknown Item',
+          itemType,
+          category,
+          price: segPrice,
+          quantity: perSegQty
+        });
+      }
     }
   }
   return out;
@@ -3801,28 +3837,49 @@ app.post('/api/loyalty/scan', async (req, res) => {
       messageType = 'warning';
     }
     
-    // Record the order with new structure (single item)
+    // Record the order (one transaction; multiple SKUs if itemName was comma-separated or multi-line)
     if (orderItem) {
-      user.lastOrder = orderItem;
       user.pastOrders = user.pastOrders || [];
-      
-      // Create order with single item
       const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const currentCycle = user.currentCycle || 1;
+      const parts = splitItemNameSegments(String(orderItem));
+      const virtualItems = parts.map((name) => ({
+        itemName: name,
+        itemType: orderType,
+        category: orderCategory,
+        price: parts.length > 1 && orderPrice > 0 ? orderPrice / parts.length : orderPrice,
+        quantity: 1
+      }));
+      const enrichedLines = await enrichScanMultipleLineItems(virtualItems);
+      const lineItems =
+        enrichedLines.length > 0
+          ? enrichedLines
+          : parts.map((name) => ({
+              itemName: name,
+              itemType: orderType,
+              category: orderCategory,
+              price: parts.length > 1 && orderPrice > 0 ? orderPrice / parts.length : orderPrice,
+              quantity: 1
+            }));
+      const computedTotal = lineItems.reduce(
+        (sum, row) => sum + (Number(row.price) || 0) * (Number(row.quantity) || 1),
+        0
+      );
       const newOrder = {
         orderId: orderId,
         cycle: currentCycle,
-        items: [{
-          itemName: orderItem,
-          itemType: orderType,
-          category: orderCategory,
-          price: orderPrice,
-          quantity: 1
-        }],
-        totalPrice: orderPrice,
+        items: lineItems.map((row) => ({
+          itemName: row.itemName,
+          itemType: row.itemType,
+          category: row.category,
+          price: Number(row.price) || 0,
+          quantity: row.quantity || 1
+        })),
+        totalPrice: computedTotal > 0 ? computedTotal : orderPrice,
         date: new Date()
       };
-      
+      user.lastOrder = formatLastOrderSummary(newOrder.items);
+
       user.pastOrders.push(newOrder);
       
       // Keep only last 20 orders
@@ -4085,8 +4142,7 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       date: new Date()
     };
     
-    // Set lastOrder to the first item for display purposes
-    user.lastOrder = newOrder.items[0].itemName;
+    user.lastOrder = formatLastOrderSummary(newOrder.items);
     user.pastOrders = user.pastOrders || [];
     user.pastOrders.push(newOrder);
     
@@ -4220,8 +4276,7 @@ app.post('/api/mechanic/notify-order-completion', async (req, res) => {
       employeeId: employeeId || 'unknown'
     };
 
-    // Update user's order history
-    user.lastOrder = newOrder.items[0].itemName;
+    user.lastOrder = formatLastOrderSummary(newOrder.items);
     user.pastOrders = user.pastOrders || [];
     user.pastOrders.push(newOrder);
     

@@ -72,30 +72,120 @@ function pastOrderLineItemStages(dateFilterOnPastOrders) {
               ]
             },
             {
-              $map: {
-                input: '$pastOrders.items',
-                as: 'it',
+              $reduce: {
+                input: { $ifNull: ['$pastOrders.items', []] },
+                initialValue: [],
                 in: {
-                  name: '$$it.itemName',
-                  qty: { $ifNull: ['$$it.quantity', 1] },
-                  category: '$$it.category'
+                  $concatArrays: [
+                    '$$value',
+                    {
+                      $let: {
+                        vars: {
+                          it: '$$this',
+                          nameParts: {
+                            $filter: {
+                              input: {
+                                $map: {
+                                  input: {
+                                    $split: [
+                                      { $toString: { $ifNull: ['$$this.itemName', ''] } },
+                                      ','
+                                    ]
+                                  },
+                                  as: 'p',
+                                  in: { $trim: { input: '$$p' } }
+                                }
+                              },
+                              as: 't',
+                              cond: { $gt: [{ $strLenCP: '$$t' }, 0] }
+                            }
+                          },
+                          origQty: {
+                            $convert: {
+                              input: { $ifNull: ['$$this.quantity', 1] },
+                              to: 'double',
+                              onError: 1,
+                              onNull: 1
+                            }
+                          }
+                        },
+                        in: {
+                          $map: {
+                            input: '$$nameParts',
+                            as: 'part',
+                            in: {
+                              name: '$$part',
+                              qty: {
+                                $cond: [
+                                  { $gt: [{ $size: '$$nameParts' }, 1] },
+                                  1,
+                                  '$$origQty'
+                                ]
+                              },
+                              category: '$$it.category'
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             },
             {
               $cond: [
                 {
-                  $and: [
-                    { $ne: [{ $ifNull: ['$pastOrders.drink', ''] }, ''] }
-                  ]
+                  $and: [{ $ne: [{ $ifNull: ['$pastOrders.drink', ''] }, ''] }]
                 },
-                [
-                  {
-                    name: '$pastOrders.drink',
-                    qty: { $ifNull: ['$pastOrders.quantity', 1] },
-                    category: { $literal: null }
+                {
+                  $let: {
+                    vars: {
+                      nameParts: {
+                        $filter: {
+                          input: {
+                            $map: {
+                              input: {
+                                $split: [
+                                  { $toString: { $ifNull: ['$pastOrders.drink', ''] } },
+                                  ','
+                                ]
+                              },
+                              as: 'p',
+                              in: { $trim: { input: '$$p' } }
+                            }
+                          },
+                          as: 't',
+                          cond: { $gt: [{ $strLenCP: '$$t' }, 0] }
+                        }
+                      },
+                      origQty: {
+                        $convert: {
+                          input: { $ifNull: ['$pastOrders.quantity', 1] },
+                          to: 'double',
+                          onError: 1,
+                          onNull: 1
+                        }
+                      }
+                    },
+                    in: {
+                      $map: {
+                        input: '$$nameParts',
+                        as: 'part',
+                        in: {
+                          name: '$$part',
+                          qty: {
+                            $cond: [
+                              { $gt: [{ $size: '$$nameParts' }, 1] },
+                              1,
+                              '$$origQty'
+                            ]
+                          },
+                          category: { $literal: null }
+                        }
+                      }
+                    }
                   }
-                ],
+                },
                 []
               ]
             }
