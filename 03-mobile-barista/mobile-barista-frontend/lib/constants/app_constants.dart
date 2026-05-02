@@ -28,7 +28,8 @@ class AppConstants {
   static const Duration processedCodesCleanupInterval = Duration(minutes: 5);
   
   // Network Configuration
-  static const String defaultServerHost = 'nomu-backend.onrender.com';
+  /// Same Render Web Service as `02-mobile-client/mobile-backend` (customer app).
+  static const String defaultServerHost = 'nomu-mobile-backend.onrender.com';
   static const String defaultServerPort = '443';
   static const String mobileAdminPort = '443';
   

@@ -1,16 +1,16 @@
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'constants/app_constants.dart';
 import 'utils/logger.dart';
 
 class Config {
-  // Admin Scanner API Endpoints (Updated to use web backend endpoints)
-  static Future<String> get adminSendOTPUrl async => '${await dynamicApiBaseUrl}/admin/request-otp';
-  static Future<String> get adminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/admin/verify-otp';
-  static Future<String> get mobileAdminLoginUrl async => '${await dynamicApiBaseUrl}/login';
-  static Future<String> get mobileAdminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/admin/verify-otp';
-  static Future<String> get mobileAdminResendOTPUrl async => '${await dynamicApiBaseUrl}/admin/request-otp';
+  // Admin Scanner API Endpoints — must match mobile-backend `/api/mobile/admin/*` routes
+  static Future<String> get adminSendOTPUrl async => '${await dynamicApiBaseUrl}/admin/send-login-otp';
+  static Future<String> get adminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/admin/verify-login-otp';
+  static Future<String> get mobileAdminLoginUrl async => '${await dynamicApiBaseUrl}/mobile/admin/login';
+  static Future<String> get mobileAdminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/mobile/admin/verify-otp';
+  static Future<String> get mobileAdminResendOTPUrl async => '${await dynamicApiBaseUrl}/mobile/admin/resend-otp';
   static Future<String> get apiBaseUrl async => await dynamicApiBaseUrl;
   
   // Health check endpoint
@@ -117,12 +117,11 @@ class Config {
     final String host = await _resolveHost();
     final String port = await _resolvePort();
     
-    // Use HTTPS for production backend
-    if (host == 'nomu-backend.onrender.com') {
+    // HTTPS for production Render backends (same pattern as customer mobile app)
+    if (host == 'nomu-backend.onrender.com' || host == 'nomu-mobile-backend.onrender.com') {
       return 'https://$host/api';
-    } else {
-      return 'http://$host:$port/api';
     }
+    return 'http://$host:$port/api';
   }
 
   // Runtime override controls
@@ -212,6 +211,12 @@ class Config {
       final String host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       Logger.config('Using web host: $host');
       return host;
+    }
+
+    // Android release builds: same deployed API as the customer Nomu mobile app
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      Logger.config('Android — using production mobile API: ${AppConstants.defaultServerHost}');
+      return AppConstants.defaultServerHost;
     }
 
     // Manual IP configuration - replace with your server IP

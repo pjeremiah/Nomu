@@ -930,6 +930,50 @@ const rewardsSchema = new mongoose.Schema({
 
 const Rewards = mongoose.model('Rewards', rewardsSchema);
 
+// Admin accounts (same MongoDB collection as web admin panel — `admins`)
+const adminSchema = new mongoose.Schema({
+  fullName: { type: String, default: '' },
+  email: { type: String, unique: true, lowercase: true, trim: true },
+  password: { type: String, required: true },
+  role: { type: String, enum: ['superadmin', 'manager', 'staff'], default: 'staff' },
+  status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+  lastLoginAt: { type: Date, default: null },
+  firstLoginCompleted: { type: Boolean, default: false },
+  rememberUntil: { type: Date, default: null }
+});
+const Admin = mongoose.model('Admin', adminSchema);
+
+// Barista inventory (collection: inventoryitems)
+const inventoryItemSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, default: '' },
+  category: { type: String, required: true },
+  currentStock: { type: Number, default: 0 },
+  minimumThreshold: { type: Number, default: 0 },
+  maximumThreshold: { type: Number, default: 100 },
+  unit: { type: String, default: 'pieces' },
+  supplier: { type: mongoose.Schema.Types.Mixed, default: '' },
+  storageLocation: { type: String, default: 'Main Storage' },
+  shelfLife: { type: Number, default: 0 },
+  requiresRefrigeration: { type: Boolean, default: false },
+  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  imageUrl: { type: String, default: '' },
+  notes: { type: String, default: '' },
+  lastRestocked: { type: Date, default: null },
+  lastSold: { type: Date, default: null },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+const InventoryItem = mongoose.model('InventoryItem', inventoryItemSchema);
+
+function mobileAdminOtpKey(email) {
+  return `mobile_admin:${String(email).trim().toLowerCase()}`;
+}
+
 // Create indexes for better query performance
 Promo.createIndexes([
   { status: 1, isActive: 1, startDate: 1, endDate: 1 }, // Compound index for active promo queries
@@ -1789,7 +1833,231 @@ app.post('/api/user/login', loginHandler);
 // App expects /api/auth/login (same MongoDB, same JWT)
 app.post('/api/auth/login', loginHandler);
 
+// ==================== BARISTA APP: mobile admin OTP (same Render service as customer app) ====================
+// OTP keys are prefixed so they never collide with customer /api/request-otp entries in otpStore.
 
+async function handleMobileAdminVerifyOtp(req, res) {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    const otpKey = mobileAdminOtpKey(email);
+    const storedData = otpStore.get(otpKey);
+    if (!storedData || storedData.purpose !== 'mobile_admin_login') {
+      return res.status(400).json({ message: 'OTP not found or expired' });
+    }
+    if (Date.now() > storedData.expiresAt) {
+      otpStore.delete(otpKey);
+      return res.status(400).json({ message: 'OTP has expired' });
+    }
+    if (String(storedData.otp) !== String(otp).trim()) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    const admin = await Admin.findById(storedData.adminId);
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    if (!['superadmin', 'manager', 'staff'].includes(admin.role)) {
+      return res.status(403).json({ message: 'Access denied. Valid admin account required.' });
+    }
+
+    admin.status = 'active';
+    admin.lastLoginAt = new Date();
+    admin.updatedAt = new Date();
+    await admin.save();
+
+    const token = jwt.sign(
+      {
+        adminId: admin._id,
+        email: admin.email,
+        role: admin.role,
+        fullName: admin.fullName,
+        platform: 'mobile'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    const { password: _, ...adminData } = admin.toObject();
+    otpStore.delete(otpKey);
+
+    res.json({
+      message: 'Mobile admin login successful',
+      token,
+      user: adminData,
+      platform: 'mobile'
+    });
+  } catch (err) {
+    console.error('[MOBILE ADMIN] verify-otp error:', err);
+    res.status(500).json({ message: err.message });
+  }
+}
+
+app.post('/api/mobile/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const admin = await Admin.findOne({
+      email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    if (!admin) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+    if (!['superadmin', 'manager', 'staff'].includes(admin.role)) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: 'Invalid password' });
+    }
+
+    admin.status = 'active';
+    admin.lastLoginAt = new Date();
+    admin.updatedAt = new Date();
+    await admin.save();
+
+    const otp = generateOTP();
+    const now = Date.now();
+    const otpKey = mobileAdminOtpKey(admin.email);
+    otpStore.set(otpKey, {
+      otp,
+      expiresAt: now + 60 * 60 * 1000,
+      cooldownUntil: now + 60 * 1000,
+      purpose: 'mobile_admin_login',
+      adminId: admin._id
+    });
+
+    try {
+      await transporter.sendMail({
+        from: `"NOMU Mobile Admin Login" <${process.env.EMAIL_USER}>`,
+        to: admin.email,
+        subject: 'Your NOMU Mobile Admin OTP Code',
+        text: `Your OTP is: ${otp} (Valid for 60 minutes)`,
+        html: `<p>Your NOMU mobile admin verification code is:</p><h2 style="letter-spacing:8px">${otp}</h2><p>Valid for 60 minutes.</p>`
+      });
+    } catch (mailErr) {
+      console.error('[MOBILE ADMIN] OTP email failed:', mailErr.message);
+    }
+
+    res.json({
+      message: 'OTP sent to registered email',
+      email: admin.email,
+      expiresIn: '60 minutes'
+    });
+  } catch (err) {
+    console.error('[MOBILE ADMIN] login error:', err);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+app.post('/api/mobile/admin/verify-otp', handleMobileAdminVerifyOtp);
+app.post('/api/admin/verify-login-otp', handleMobileAdminVerifyOtp);
+
+app.post('/api/mobile/admin/resend-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const admin = await Admin.findOne({
+      email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    if (!['superadmin', 'manager', 'staff'].includes(admin.role)) {
+      return res.status(403).json({ message: 'Access denied. Valid admin account required.' });
+    }
+
+    const otpKey = mobileAdminOtpKey(admin.email);
+    const storedData = otpStore.get(otpKey);
+    if (storedData && Date.now() < storedData.cooldownUntil) {
+      const remainingTime = Math.ceil((storedData.cooldownUntil - Date.now()) / 1000);
+      return res.status(429).json({
+        message: `Please wait ${remainingTime} seconds before requesting another OTP`
+      });
+    }
+
+    const otp = generateOTP();
+    const now = Date.now();
+    otpStore.set(otpKey, {
+      otp,
+      expiresAt: now + 60 * 60 * 1000,
+      cooldownUntil: now + 60 * 1000,
+      purpose: 'mobile_admin_login',
+      adminId: admin._id
+    });
+
+    try {
+      await transporter.sendMail({
+        from: `"NOMU Mobile Admin Login" <${process.env.EMAIL_USER}>`,
+        to: admin.email,
+        subject: 'Your NOMU Mobile Admin OTP Code (Resent)',
+        text: `Your OTP is: ${otp} (Valid for 60 minutes)`,
+        html: `<p>Your NOMU mobile admin verification code (resent) is:</p><h2 style="letter-spacing:8px">${otp}</h2>`
+      });
+    } catch (mailErr) {
+      console.error('[MOBILE ADMIN] resend email failed:', mailErr.message);
+    }
+
+    res.json({
+      message: 'OTP resent successfully to your email',
+      email: admin.email,
+      expiresIn: '60 minutes'
+    });
+  } catch (err) {
+    console.error('[MOBILE ADMIN] resend-otp error:', err);
+    res.status(500).json({ message: 'Server error during OTP resend' });
+  }
+});
+
+// Aliases for barista Flutter legacy paths (email-only OTP send / verify)
+app.post('/api/admin/send-login-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+    const admin = await Admin.findOne({
+      email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    if (!admin) return res.status(400).json({ message: 'Admin not found' });
+    if (!['superadmin', 'manager', 'staff'].includes(admin.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const otp = generateOTP();
+    const now = Date.now();
+    const otpKey = mobileAdminOtpKey(admin.email);
+    otpStore.set(otpKey, {
+      otp,
+      expiresAt: now + 60 * 60 * 1000,
+      cooldownUntil: now + 60 * 1000,
+      purpose: 'mobile_admin_login',
+      adminId: admin._id
+    });
+    try {
+      await transporter.sendMail({
+        from: `"NOMU Admin Login" <${process.env.EMAIL_USER}>`,
+        to: admin.email,
+        subject: 'Your NOMU Admin OTP Code',
+        text: `Your OTP is: ${otp}`,
+        html: `<p>Your verification code:</p><h2 style="letter-spacing:8px">${otp}</h2>`
+      });
+    } catch (e) {
+      console.error('[ADMIN send-login-otp] email:', e.message);
+    }
+    res.status(200).json({ message: 'OTP sent to your email address', expiresAt: new Date(now + 60 * 60 * 1000).toISOString() });
+  } catch (err) {
+    console.error('[ADMIN send-login-otp]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // Request new OTP endpoint
 app.post('/api/request-otp', async (req, res) => {
@@ -3893,6 +4161,241 @@ app.patch('/api/customer/qr/:qrToken', async (req, res) => {
   } catch (err) {
     console.error('❌ [USER] Error updating user by QR token:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== BARISTA APP: inventory + customer lookup + analytics (shared mobile-backend) ====================
+
+app.get('/api/inventory', async (req, res) => {
+  try {
+    const items = await InventoryItem.find({ status: 'active' }).sort({ name: 1 }).lean();
+    res.json({ success: true, items });
+  } catch (err) {
+    console.error('[INVENTORY] list error:', err);
+    res.status(500).json({ error: 'Failed to fetch inventory items' });
+  }
+});
+
+app.get('/api/inventory/:id', async (req, res) => {
+  try {
+    const item = await InventoryItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Inventory item not found' });
+    res.json({ success: true, item });
+  } catch (err) {
+    console.error('[INVENTORY] get error:', err);
+    res.status(500).json({ error: 'Failed to fetch inventory item' });
+  }
+});
+
+app.put('/api/inventory/:id/stock', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity, adminId } = req.body;
+    if (!quantity || quantity <= 0) {
+      return res.status(400).json({ error: 'Valid quantity is required' });
+    }
+    const item = await InventoryItem.findById(id);
+    if (!item) return res.status(404).json({ error: 'Inventory item not found' });
+    if (!adminId || String(adminId).trim() === '') {
+      return res.status(400).json({ error: 'Valid adminId is required' });
+    }
+
+    const updateResult = await InventoryItem.findByIdAndUpdate(
+      id,
+      {
+        $inc: { currentStock: -quantity },
+        $set: { lastSold: new Date(), updatedAt: new Date(), updatedBy: adminId }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updateResult) return res.status(404).json({ error: 'Inventory item not found' });
+    if (updateResult.currentStock < 0) {
+      await InventoryItem.findByIdAndUpdate(id, {
+        $inc: { currentStock: quantity },
+        $set: { updatedAt: new Date(), updatedBy: adminId }
+      });
+      return res.status(400).json({
+        error: 'Insufficient stock - transaction rolled back',
+        currentStock: updateResult.currentStock + quantity,
+        requestedQuantity: quantity
+      });
+    }
+
+    res.json({
+      success: true,
+      item: updateResult,
+      message: `Stock decreased by ${quantity} units`
+    });
+  } catch (err) {
+    console.error('[INVENTORY] stock error:', err);
+    res.status(500).json({ error: 'Failed to update stock' });
+  }
+});
+
+app.get('/api/inventory/search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+    const items = await InventoryItem.find({
+      status: 'active',
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } }
+      ]
+    })
+      .sort({ name: 1 })
+      .lean();
+    res.json({ success: true, items });
+  } catch (err) {
+    console.error('[INVENTORY] search error:', err);
+    res.status(500).json({ error: 'Failed to search inventory' });
+  }
+});
+
+app.get('/api/customer/qr/:qrToken', async (req, res) => {
+  try {
+    let { qrToken } = req.params;
+    let customer = await User.findOne({ qrToken });
+    if (!customer && qrToken.includes('-')) {
+      customer = await User.findOne({ qrToken: qrToken.replace(/-/g, '') });
+    }
+    if (!customer && !qrToken.includes('-') && qrToken.length === 36) {
+      const withHyphens = `${qrToken.substring(0, 8)}-${qrToken.substring(8, 12)}-${qrToken.substring(12, 16)}-${qrToken.substring(16, 20)}-${qrToken.substring(20, 36)}`;
+      customer = await User.findOne({ qrToken: withHyphens });
+    }
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    res.json(customer);
+  } catch (err) {
+    console.error('[CUSTOMER QR] error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/analytics/top-selling-items', async (req, res) => {
+  try {
+    const users = await User.find({}, 'pastOrders');
+    const allPastOrders = [];
+    users.forEach((user) => {
+      if (user.pastOrders && user.pastOrders.length > 0) {
+        user.pastOrders.forEach((po) => {
+          const items = po.items || [];
+          if (items.length > 0) {
+            items.forEach((line) => {
+              const name = line.itemName || line.drink;
+              if (name) {
+                allPastOrders.push({ drink: name, quantity: line.quantity || 1 });
+              }
+            });
+          } else if (po.drink) {
+            allPastOrders.push({ drink: po.drink, quantity: po.quantity || 1 });
+          }
+        });
+      }
+    });
+
+    const itemCounts = {};
+    const itemOrders = {};
+    allPastOrders.forEach((order) => {
+      const itemName = order.drink;
+      const quantity = order.quantity || 1;
+      if (!itemCounts[itemName]) {
+        itemCounts[itemName] = 0;
+        itemOrders[itemName] = 0;
+      }
+      itemCounts[itemName] += quantity;
+      itemOrders[itemName] += 1;
+    });
+
+    const topSellingItems = Object.keys(itemCounts)
+      .map((itemName) => ({
+        item: itemName,
+        quantity: itemCounts[itemName],
+        orders: itemOrders[itemName]
+      }))
+      .sort((a, b) => b.quantity - a.quantity);
+
+    res.json({
+      success: true,
+      data: topSellingItems,
+      totalItems: topSellingItems.length,
+      totalOrders: allPastOrders.length
+    });
+  } catch (err) {
+    console.error('[ANALYTICS] top-selling-items error:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics data' });
+  }
+});
+
+app.get('/api/analytics/best-sellers-by-category', async (req, res) => {
+  try {
+    const users = await User.find({}, 'pastOrders');
+    const allPastOrders = [];
+    users.forEach((user) => {
+      if (user.pastOrders && user.pastOrders.length > 0) {
+        user.pastOrders.forEach((po) => {
+          const items = po.items || [];
+          if (items.length > 0) {
+            items.forEach((line) => {
+              const name = line.itemName || line.drink;
+              if (name) {
+                allPastOrders.push({ drink: name, quantity: line.quantity || 1 });
+              }
+            });
+          } else if (po.drink) {
+            allPastOrders.push({ drink: po.drink, quantity: po.quantity || 1 });
+          }
+        });
+      }
+    });
+
+    const categoryMappings = {
+      Drinks: ['Americano', 'Cold Brew', 'Nomu Latte', 'Kumo Coffee', 'Orange Long Black', 'Cappuccino', 'Flavored Latte', 'Salted Caramel Latte', 'Spanish Latte', 'Chai Latte', 'Ube Vanilla Latte', 'Mazagran', 'Coconut Vanilla Latte', 'Chocolate Mocha', 'Caramel Macchiato', 'Macadamia Latte', 'Butterscotch Latte', 'Peachespresso', 'Shakerato', 'Mint Latte', 'Honey Oatmilk Latte', 'Nomu Milk Tea', 'Wintermelon Milk Tea', 'Taro Milk Tea', 'Blue Cotton Candy', 'Mixed Fruit Tea', 'Tiger Brown Sugar', 'Mixed Berries', 'Strawberry Lemonade Green Tea', 'Honey Citron Ginger Tea', 'Matcha Latte', 'Sakura Latte', 'Honey Lemon Chia', 'Hot Chocolate', 'Hot Mint Chocolate'],
+      Pizza: ['Creamy Pesto', 'Salame Piccante', 'Savory Spinach', 'The Five Cheese', 'Black Truffle', 'Cheese'],
+      Donuts: ['Original Milky Vanilla Glaze', 'Oreo Overload', 'White Chocolate with Almonds', 'Dark Chocolate with Cashew Nuts', 'Dark Chocolate with Sprinkles', 'Matcha', 'Strawberry with Sprinkles', 'Smores'],
+      Pastries: ['Pain Suisse', 'French Butter Croissant', 'Blueberry Cheesecake Danish', 'Mango Cheesecake Danish', 'Crookie', 'Pain Au Chocolat', 'Almond Croissant', 'Pain Suisse Chocolate', 'Hokkaido Cheese Danish', 'Vanilla Flan Brulee Tart', 'Pain Au Pistachio', 'Strawberry Cream Croissant', 'Choco-Berry Pain Suisse', 'Kunefe Pistachio Croissant', 'Garlic Cream Cheese Croissant', 'Pain Au Ham & Cheese', 'Grilled Cheese']
+    };
+
+    const categoryData = {};
+    Object.keys(categoryMappings).forEach((c) => {
+      categoryData[c] = {};
+    });
+
+    allPastOrders.forEach((order) => {
+      const itemName = order.drink;
+      const quantity = order.quantity || 1;
+      let itemCategory = 'Other';
+      for (const [category, items] of Object.entries(categoryMappings)) {
+        if (items.some((item) => itemName.includes(item))) {
+          itemCategory = category;
+          break;
+        }
+      }
+      if (categoryData[itemCategory]) {
+        if (!categoryData[itemCategory][itemName]) {
+          categoryData[itemCategory][itemName] = { quantity: 0, orders: 0 };
+        }
+        categoryData[itemCategory][itemName].quantity += quantity;
+        categoryData[itemCategory][itemName].orders += 1;
+      }
+    });
+
+    const result = {};
+    Object.keys(categoryData).forEach((category) => {
+      const items = Object.keys(categoryData[category])
+        .map((itemName) => ({
+          item: itemName,
+          quantity: categoryData[category][itemName].quantity,
+          orders: categoryData[category][itemName].orders
+        }))
+        .sort((a, b) => b.quantity - a.quantity);
+      result[category] = items;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('[ANALYTICS] best-sellers-by-category error:', err);
+    res.status(500).json({ error: 'Failed to fetch category analytics data' });
   }
 });
 
