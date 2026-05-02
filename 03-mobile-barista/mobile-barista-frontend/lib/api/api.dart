@@ -249,7 +249,12 @@ class ApiService {
   }
 
   // Add loyalty point when admin scans QR code (all roles can scan)
-  static Future<Map<String, dynamic>?> addLoyaltyPoint(String qrToken, String drink) async {
+  /// [totalPricePeso] — order total in PHP for minimum-spend (₱100) loyalty rule; server also resolves if omitted.
+  static Future<Map<String, dynamic>?> addLoyaltyPoint(
+    String qrToken,
+    String drink, {
+    double? totalPricePeso,
+  }) async {
     const int maxRetries = AppConstants.maxRetries;
     const Duration retryDelay = AppConstants.retryDelay;
     
@@ -257,10 +262,17 @@ class ApiService {
       try {
         Logger.transaction('Adding loyalty point for QR token: $qrToken, drink: $drink (attempt $attempt/$maxRetries)');
         final apiBaseUrl = await Config.apiBaseUrl;
+        final body = <String, dynamic>{
+          'qrToken': qrToken,
+          'drink': drink,
+        };
+        if (totalPricePeso != null && totalPricePeso > 0) {
+          body['price'] = totalPricePeso;
+        }
         final response = await http.post(
           Uri.parse('$apiBaseUrl/loyalty/scan'),
           headers: _headers,
-          body: jsonEncode({'qrToken': qrToken, 'drink': drink}),
+          body: jsonEncode(body),
         ).timeout(AppConstants.apiTimeout);
         
         Logger.api('Add loyalty point response status: ${response.statusCode}');

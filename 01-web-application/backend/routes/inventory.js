@@ -3,7 +3,9 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const InventoryItem = require('../models/InventoryItem');
+const StockMovement = require('../models/StockMovement');
 const authMiddleware = require('../middleware/authMiddleware');
 const { body, validationResult } = require('express-validator');
 const { sanitizeInput, validateInput } = require('../middleware/securityMiddleware');
@@ -260,6 +262,29 @@ router.post('/',
          }
          return true;
        }),
+
+    body('firstPrice')
+      .custom((value) => {
+        if (value === undefined || value === null || String(value).trim() === '') {
+          throw new Error('First price is required');
+        }
+        const num = parseFloat(value);
+        if (isNaN(num) || num < 0) {
+          throw new Error('First price must be a non-negative number');
+        }
+        return true;
+      }),
+
+    body('secondPrice')
+      .optional({ values: 'falsy' })
+      .custom((value) => {
+        if (value === undefined || value === null || String(value).trim() === '') return true;
+        const num = parseFloat(value);
+        if (isNaN(num) || num < 0) {
+          throw new Error('Second price must be a non-negative number');
+        }
+        return true;
+      }),
     
   ],
   validateInput,
@@ -277,8 +302,16 @@ router.post('/',
         name,
         category,
         currentStock,
-        minimumThreshold
+        minimumThreshold,
+        firstPrice,
+        secondPrice
       } = req.body;
+
+      const parsePrice = (v) => {
+        if (v === undefined || v === null || v === '') return null;
+        const n = parseFloat(v);
+        return Number.isFinite(n) && n >= 0 ? n : null;
+      };
 
       // Get image URL if file was uploaded
       const imageUrl = req.file ? `/api/images/inventory/${req.file.id}` : ''; // GridFS file ID for serving images
@@ -286,6 +319,8 @@ router.post('/',
       const newItem = new InventoryItem({
         name,
         category,
+        firstPrice: parsePrice(firstPrice),
+        secondPrice: parsePrice(secondPrice),
         currentStock: parseFloat(currentStock) || 0,
         minimumThreshold: parseFloat(minimumThreshold) || 0,
         imageUrl,
@@ -327,12 +362,44 @@ router.put('/:id',
       .trim()
       .isLength({ min: 2, max: 100 })
       .withMessage('Name must be between 2 and 100 characters'),
+
+    body('category')
+      .optional()
+      .isIn(['Donuts', 'Drinks', 'Pastries', 'Pizzas'])
+      .withMessage('Invalid category'),
+
+    body('firstPrice')
+      .custom((value) => {
+        if (value === undefined || value === null || String(value).trim() === '') {
+          throw new Error('First price is required');
+        }
+        const num = parseFloat(value);
+        if (isNaN(num) || num < 0) {
+          throw new Error('First price must be a non-negative number');
+        }
+        return true;
+      }),
+
+    body('secondPrice')
+      .optional({ values: 'falsy' })
+      .custom((value) => {
+        if (value === undefined || value === null || String(value).trim() === '') return true;
+        const num = parseFloat(value);
+        if (isNaN(num) || num < 0) {
+          throw new Error('Second price must be a non-negative number');
+        }
+        return true;
+      }),
     
     body('currentStock')
-      .optional()
+      .optional({ values: 'falsy' })
       .isNumeric()
-      .isFloat({ min: 0 })
       .withMessage('Current stock must be a non-negative number'),
+
+    body('minimumThreshold')
+      .optional({ values: 'falsy' })
+      .isNumeric()
+      .withMessage('Minimum threshold must be a non-negative number'),
     
   ],
   validateInput,
@@ -342,12 +409,28 @@ router.put('/:id',
     let updateApplied = false;
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const updateData = { ...req.body };
+
+      const parsePrice = (v) => {
+        if (v === undefined || v === null || v === '') return null;
+        const n = parseFloat(v);
+        return Number.isFinite(n) && n >= 0 ? n : null;
+      };
+      if ('firstPrice' in updateData) {
+        updateData.firstPrice = parsePrice(updateData.firstPrice);
+      }
+      if ('secondPrice' in updateData) {
+        updateData.secondPrice = parsePrice(updateData.secondPrice);
+      }
+      // Never take imageUrl from the client body (avoids data URLs / wrong hosts); GridFS path is set only when a file is uploaded.
+      delete updateData.imageUrl;
       
       // Remove fields that shouldn't be updated directly
       delete updateData.createdBy;
       delete updateData.createdAt;
       delete updateData.updatedAt;
+      delete updateData._id;
+      delete updateData.__v;
       
       // Add updatedBy
       updateData.updatedBy = req.user.userId;
@@ -400,36 +483,36 @@ router.put('/:id',
   }
 );
 
-// DELETE /api/inventory/:id - Delete inventory item
+// DELETE /api/inventory/:id - Permanently remove item (same pattern as menu: document + GridFS image)
 router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid inventory item id' });
+    }
+
     const item = await InventoryItem.findById(id);
     if (!item) {
       return res.status(404).json({ message: 'Inventory item not found' });
     }
 
-    // Store item data for logging before deletion
-    const itemData = {
-      name: item.name,
-      category: item.category,
-      currentStock: item.currentStock,
-      imageUrl: item.imageUrl
-    };
     const imageId = extractInventoryImageId(item.imageUrl);
 
-    // Hard delete - completely remove from database
-    await InventoryItem.findByIdAndDelete(id);
-    await deleteInventoryImageById(req, imageId);
-
-    // Log activity
+    // Log while the full document still exists (matches menu delete flow)
     await ActivityService.logAdminActivity(
       req.user.userId,
-      `Permanently deleted inventory item: "${itemData.name}"`,
-      { _id: id, ...itemData },
-      `Category: ${itemData.category}, Stock: ${itemData.currentStock}`
+      `Permanently deleted inventory item: "${item.name}"`,
+      item.toObject ? item.toObject() : item,
+      `Category: ${item.category}, Stock: ${item.currentStock}`
     );
+
+    const itemId = item._id;
+    // Hard delete the item document from `inventoryitems` (same as menu: `deleteOne` on the model)
+    await item.deleteOne();
+    // Orphaned stock movements for this id (if any)
+    await StockMovement.deleteMany({ inventoryItem: itemId });
+    await deleteInventoryImageById(req, imageId);
 
     res.status(200).json({ message: 'Inventory item permanently deleted successfully' });
   } catch (error) {

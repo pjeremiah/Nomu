@@ -30,6 +30,18 @@ const InventoryItemSchema = new mongoose.Schema(
       enum: VALID_CATEGORIES,
       index: true 
     },
+    /** Primary selling price (PHP). Required for most items. */
+    firstPrice: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+    /** Optional second price (e.g. Large / alternate size). */
+    secondPrice: {
+      type: Number,
+      min: 0,
+      default: null
+    },
     sku: { 
       type: String, 
       unique: true, 

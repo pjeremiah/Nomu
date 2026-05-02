@@ -15,10 +15,40 @@ import ResponsiveModal from './components/ResponsiveModal';
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
+/** GridFS image paths are relative to the API host; the React app runs on another origin. */
+const resolveInventoryImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  const u = url.trim();
+  if (u.startsWith('data:') || u.startsWith('blob:')) return u;
+  if (/^https?:\/\//i.test(u)) return u;
+  const base = (API_BASE || '').replace(/\/$/, '');
+  const path = u.startsWith('/') ? u : `/${u}`;
+  return `${base}${path}`;
+};
+
+const formatInventoryCardPrice = (item) => {
+  const hasFirst =
+    item.firstPrice != null && item.firstPrice !== '' && !Number.isNaN(Number(item.firstPrice));
+  const hasSecond =
+    item.secondPrice != null && item.secondPrice !== '' && !Number.isNaN(Number(item.secondPrice));
+  const fmt = (n) =>
+    `₱${Number(n).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  if (hasFirst && hasSecond) return `${fmt(item.firstPrice)} / ${fmt(item.secondPrice)}`;
+  if (hasFirst) return fmt(item.firstPrice);
+  if (hasSecond) return fmt(item.secondPrice);
+  return '—';
+};
+
 
 const emptyForm = {
-  name: '', category: 'Donuts', currentStock: '', minimumThreshold: '', 
-  imageUrl: '', imageFile: null
+  name: '',
+  category: 'Donuts',
+  firstPrice: '',
+  secondPrice: '',
+  currentStock: '',
+  minimumThreshold: '',
+  imageUrl: '',
+  imageFile: null
 };
 
 
@@ -28,8 +58,29 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (initialData) {
-      setForm(initialData);
+    if (initialData && (initialData.name != null || initialData._id)) {
+      setForm({
+        name: initialData.name ?? '',
+        category: initialData.category || 'Donuts',
+        firstPrice:
+          initialData.firstPrice != null && initialData.firstPrice !== ''
+            ? String(initialData.firstPrice)
+            : '',
+        secondPrice:
+          initialData.secondPrice != null && initialData.secondPrice !== ''
+            ? String(initialData.secondPrice)
+            : '',
+        currentStock:
+          initialData.currentStock != null && initialData.currentStock !== ''
+            ? String(initialData.currentStock)
+            : '',
+        minimumThreshold:
+          initialData.minimumThreshold != null && initialData.minimumThreshold !== ''
+            ? String(initialData.minimumThreshold)
+            : '',
+        imageUrl: resolveInventoryImageUrl(initialData.imageUrl || ''),
+        imageFile: null
+      });
     } else {
       setForm(emptyForm);
     }
@@ -42,6 +93,14 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
     
     if (!form.name.trim()) newErrors.name = "Please fill up all blanks";
     if (!form.category) newErrors.category = "Please fill up all blanks";
+    if (form.firstPrice === '' || form.firstPrice === null || Number.isNaN(parseFloat(form.firstPrice))) {
+      newErrors.firstPrice = "First price is required";
+    } else if (parseFloat(form.firstPrice) < 0) {
+      newErrors.firstPrice = "Price cannot be negative";
+    }
+    if (form.secondPrice !== '' && form.secondPrice != null && !Number.isNaN(parseFloat(form.secondPrice)) && parseFloat(form.secondPrice) < 0) {
+      newErrors.secondPrice = "Price cannot be negative";
+    }
     
     // Only validate numeric fields if they have values
     if (form.currentStock && form.currentStock !== '' && parseFloat(form.currentStock) < 0) {
@@ -240,6 +299,55 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
              {errors.name && <div className="error-message">{errors.name}</div>}
            </div>
 
+           <div className="admin-form-row" style={{ marginBottom: '1px', display: 'flex', gap: '8px' }}>
+             <div className="admin-form-group" style={{ flex: 1 }}>
+               <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>First Price (₱)</label>
+               <input
+                 type="number"
+                 min="0"
+                 step="0.01"
+                 value={form.firstPrice}
+                 onChange={(e) => setForm((p) => ({ ...p, firstPrice: e.target.value }))}
+                 className="admin-form-input"
+                 placeholder="e.g. 120"
+                 style={{
+                   padding: '8px 12px',
+                   height: '40px',
+                   border: '2px solid #e9ecef',
+                   borderRadius: '6px',
+                   fontSize: '0.8rem',
+                   backgroundColor: '#f8f9fa',
+                   boxSizing: 'border-box',
+                   width: '100%'
+                 }}
+               />
+               {errors.firstPrice && <div className="error-message">{errors.firstPrice}</div>}
+             </div>
+             <div className="admin-form-group" style={{ flex: 1 }}>
+               <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Second Price (₱, optional)</label>
+               <input
+                 type="number"
+                 min="0"
+                 step="0.01"
+                 value={form.secondPrice}
+                 onChange={(e) => setForm((p) => ({ ...p, secondPrice: e.target.value }))}
+                 className="admin-form-input"
+                 placeholder="Enter second price"
+                 style={{
+                   padding: '8px 12px',
+                   height: '40px',
+                   border: '2px solid #e9ecef',
+                   borderRadius: '6px',
+                   fontSize: '0.8rem',
+                   backgroundColor: '#f8f9fa',
+                   boxSizing: 'border-box',
+                   width: '100%'
+                 }}
+               />
+               {errors.secondPrice && <div className="error-message">{errors.secondPrice}</div>}
+             </div>
+           </div>
+
            <div className="admin-form-group" style={{ marginBottom: '1px' }}>
              <label className="admin-form-label" style={{ marginBottom: '0px', fontSize: '0.75rem', fontWeight: '600', color: '#212c59' }}>Category</label>
              <div style={{ 
@@ -314,9 +422,10 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
                    if (files.length > 0) {
                      const file = files[0];
                      if (file.type.startsWith('image/')) {
+                       setForm(prev => ({ ...prev, imageFile: file }));
                        const reader = new FileReader();
-                       reader.onload = (e) => {
-                         setForm(prev => ({ ...prev, imageUrl: e.target.result }));
+                       reader.onload = (ev) => {
+                         setForm(prev => ({ ...prev, imageUrl: ev.target.result }));
                        };
                        reader.readAsDataURL(file);
                      }
@@ -354,11 +463,14 @@ const AddEditInventoryModal = ({ show, onHide, onSave, editing, initialData, mod
                  </div>
                </div>
                {form.imageUrl && (
-                 <div style={{ width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #e9ecef' }}>
+                 <div style={{ width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #e9ecef', background: '#eee' }}>
                    <img
-                     src={form.imageUrl}
+                     src={resolveInventoryImageUrl(form.imageUrl)}
                      alt="Item preview"
                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                     onError={(e) => {
+                       e.target.style.display = 'none';
+                     }}
                    />
                  </div>
                )}
@@ -633,6 +745,8 @@ const InventoryManagement = () => {
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
       formDataToSend.append('category', formData.category);
+      formDataToSend.append('firstPrice', formData.firstPrice ?? '');
+      formDataToSend.append('secondPrice', formData.secondPrice ?? '');
       formDataToSend.append('currentStock', formData.currentStock || '');
       formDataToSend.append('minimumThreshold', formData.minimumThreshold || '');
       if (formData.imageFile) {
@@ -678,13 +792,23 @@ const InventoryManagement = () => {
     setIsUpdatingItem(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const fd = new FormData();
+      fd.append('name', formData.name);
+      fd.append('category', formData.category);
+      fd.append('firstPrice', formData.firstPrice ?? '');
+      fd.append('secondPrice', formData.secondPrice ?? '');
+      fd.append('currentStock', formData.currentStock ?? '');
+      fd.append('minimumThreshold', formData.minimumThreshold ?? '');
+      if (formData.imageFile) {
+        fd.append('image', formData.imageFile);
+      }
+
       const response = await fetch(`${API_BASE}/api/inventory/${editingItem._id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: fd
       });
 
       if (response.ok) {
@@ -1159,7 +1283,7 @@ const InventoryManagement = () => {
                  <div className="inventory-item-image">
                    {item.imageUrl ? (
                      <img 
-                       src={`${API_BASE}${item.imageUrl}`} 
+                       src={resolveInventoryImageUrl(item.imageUrl)} 
                        alt={item.name}
                        onLoad={() => {}}
                        onError={() => {}}
@@ -1198,17 +1322,23 @@ const InventoryManagement = () => {
                    <div className="inventory-item-details">
                      <div className="detail-row">
                        <span className="detail-label">Category:</span>
-                       <span className="detail-value">{item.category}</span>
+                       <span className="detail-value" style={{ textAlign: 'right' }}>{item.category}</span>
+                     </div>
+                     <div className="detail-row">
+                       <span className="detail-label">Price:</span>
+                       <span className="detail-value" style={{ textAlign: 'right' }}>
+                         {formatInventoryCardPrice(item)}
+                       </span>
                      </div>
                      <div className="detail-row">
                        <span className="detail-label">Current Stock:</span>
-                       <span className="detail-value">
+                       <span className="detail-value" style={{ textAlign: 'right' }}>
                          {item.currentStock}
                        </span>
                      </div>
                      <div className="detail-row">
                        <span className="detail-label">Min Threshold:</span>
-                       <span className="detail-value">
+                       <span className="detail-value" style={{ textAlign: 'right' }}>
                          {item.minimumThreshold}
                        </span>
                      </div>

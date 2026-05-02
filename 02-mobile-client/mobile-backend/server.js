@@ -966,9 +966,58 @@ const inventoryItemSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
+  // Retail price for loyalty minimum-spend (₱100) — optional; used when barista omits `price` on scan
+  sellingPrice: { type: Number, default: null },
+  unitPrice: { type: Number, default: null },
+  retailPrice: { type: Number, default: null },
+  /** Synced with web admin inventory (PHP) */
+  firstPrice: { type: Number, default: null },
+  secondPrice: { type: Number, default: null }
 });
 const InventoryItem = mongoose.model('InventoryItem', inventoryItemSchema);
+
+function escapeRegexForLookup(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Barista app often sends only { qrToken, drink } with no `price`. Loyalty requires order total ≥ 100.
+ * Resolve from explicit price, else sum inventory sellingPrice by line, else assume ₱100 per line item.
+ */
+async function resolveLoyaltyOrderPrice(explicitPrice, orderItemText) {
+  const n = Number(explicitPrice);
+  if (Number.isFinite(n) && n > 0) {
+    return n;
+  }
+  if (!orderItemText || typeof orderItemText !== 'string') {
+    return 0;
+  }
+  const parts = orderItemText.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) {
+    return 0;
+  }
+  let sum = 0;
+  for (const part of parts) {
+    try {
+      const inv = await InventoryItem.findOne({
+        name: new RegExp(`^${escapeRegexForLookup(part)}$`, 'i'),
+        status: 'active'
+      }).lean();
+      const sp = inv && (inv.sellingPrice ?? inv.firstPrice ?? inv.secondPrice ?? inv.unitPrice ?? inv.retailPrice);
+      if (sp != null && Number(sp) > 0) {
+        sum += Number(sp);
+      }
+    } catch (e) {
+      console.warn('[LOYALTY] Price lookup failed for line:', part, e && e.message);
+    }
+  }
+  if (sum > 0) {
+    return sum;
+  }
+  // No per-item prices in DB: assume each line meets minimum (barista sold real items; scan had no totals)
+  return parts.length * 100;
+}
 
 function mobileAdminOtpKey(email) {
   return `mobile_admin:${String(email).trim().toLowerCase()}`;
@@ -3492,7 +3541,11 @@ app.post('/api/loyalty/scan', async (req, res) => {
     const orderItem = itemName || req.body.drink;
     const orderType = itemType || 'drink';
     const orderCategory = category || 'coffee';
-    const orderPrice = price || 0;
+    let orderPrice = Number(price) || 0;
+    if (orderPrice <= 0 && orderItem) {
+      orderPrice = await resolveLoyaltyOrderPrice(price, orderItem);
+      console.log(`📱 [LOYALTY] Resolved order total: ₱${orderPrice} for: ${String(orderItem).substring(0, 120)}`);
+    }
     
     if (!qrToken) {
       _log('❌ [LOYALTY] Missing qrToken in request');

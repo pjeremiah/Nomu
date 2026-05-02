@@ -1370,16 +1370,48 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     Logger.transaction('Added item: $item (Total items: ${_currentTransactionItems.length})');
   }
   
+  /// Sum line totals using inventory [sellingPrice]/[unitPrice]/[price] when present; else 0 (server applies ₱100/line fallback).
+  double _computeTransactionTotalPeso() {
+    final lines = _currentTransactionItems.where((s) => s.trim().isNotEmpty).toList();
+    if (lines.isEmpty) return 0;
+    double sum = 0;
+    final inv = InventoryScannerService.getAllItems();
+    for (final name in lines) {
+      Map<String, dynamic>? row;
+      for (final e in inv) {
+        if ((e['name'] ?? '').toString().trim() == name.trim()) {
+          row = e;
+          break;
+        }
+      }
+      if (row == null) continue;
+      final p = row['sellingPrice'] ?? row['unitPrice'] ?? row['price'] ?? row['retailPrice'];
+      if (p == null) continue;
+      final v = p is num ? p.toDouble() : double.tryParse(p.toString());
+      if (v != null && v > 0) sum += v;
+    }
+    return sum;
+  }
+
   // Complete transaction and add points
   Future<void> _completeTransaction(String qrCode, String selectedDrink) async {
-    _addItemToTransaction(selectedDrink);
-    
-    // Show transaction summary
-    String transactionSummary = _currentTransactionItems.join(', ');
+    if (selectedDrink.trim().isNotEmpty) {
+      _addItemToTransaction(selectedDrink);
+    }
+
+    // Show transaction summary (no empty tokens from legacy complete flow)
+    String transactionSummary =
+        _currentTransactionItems.where((s) => s.trim().isNotEmpty).join(', ');
     Logger.transaction('Completing transaction with items: $transactionSummary');
-    
+
+    final totalPeso = _computeTransactionTotalPeso();
+
     // Add points only once per transaction
-    final result = await ApiService.addLoyaltyPoint(qrCode, transactionSummary);
+    final result = await ApiService.addLoyaltyPoint(
+      qrCode,
+      transactionSummary,
+      totalPricePeso: totalPeso > 0 ? totalPeso : null,
+    );
     
     Logger.transaction('API result: $result');
     
