@@ -15,19 +15,19 @@ This is the backend API for the NOMU Cafe Superadmin Scanner app with email veri
 ### 1. Install Dependencies
 
 ```bash
-cd backend
+cd 03-mobile-barista/mobile-barista-backend
 npm install
 ```
 
 ### 2. Environment Variables
 
-Create a `.env` file in the backend directory with the following variables:
+Create a `.env` file in this directory (copy from `env-template.txt`) with at least:
 
 ```env
 # Server Configuration
-PORT=5001
+PORT=5002
 SERVER_HOST=0.0.0.0
-SERVER_PORT=5001
+SERVER_PORT=5002
 
 # MongoDB Configuration
 MONGO_URI=mongodb://localhost:27017/nomu_cafe

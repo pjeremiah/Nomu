@@ -14,7 +14,12 @@ EMAIL_PASS=your_gmail_app_password
 
 # Server Configuration
 PORT=5002
+# Listen on all interfaces so http://localhost:PORT works. Override only if you know you need a specific bind address.
+SERVER_HOST=0.0.0.0
 NODE_ENV=development
+
+# Main web API URL (abuse alerts POST to /api/abuse-alerts). Use your deployed URL in production.
+# WEB_BACKEND_URL=https://nomu-backend.onrender.com
 
 # High-Volume Security Configuration
 # IP-based Rate Limiting

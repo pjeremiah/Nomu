@@ -9,6 +9,9 @@ import useMobileDetection from '../hooks/useMobileDetection';
 import MobileRedirect from '../components/MobileRedirect';
 import { useAuth } from '../../contexts/AuthContext';
 
+/** Served from web `public/` (same pattern as customer app APK on NomuApp page). */
+const DOWNLOAD_BARISTA_APK_URL = '/Nomu-Barista-Application.apk';
+
 const Page = styled.div`
   display: flex;
   min-height: 100vh;
@@ -585,11 +588,11 @@ const AdminLayout = ({ children }) => {
               </NavItemContainer>
             ))}
             
-            {/* Mobile Barista Application Download Button */}
+            {/* Mobile Barista Application — APK hosted on same site as customer app */}
             <DownloadButton 
-              href="https://drive.google.com/drive/folders/15HsjfkjyfRN-ASEGXTDXNOJdYdFv9kGA?usp=sharing" 
-              target="_blank"
-              title="Download Barista App"
+              href={DOWNLOAD_BARISTA_APK_URL}
+              download="Nomu-Barista-Application.apk"
+              title="Download Barista App (APK)"
             >
               <NavIcon>
                 <Smartphone size={18} />

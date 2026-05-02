@@ -155,10 +155,7 @@ async function sendAdminLoginOTP(email, name, role) {
 const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/nomu_cafe';
 console.log('🔗 Attempting to connect to MongoDB:', mongoUri);
 
-mongoose.connect(mongoUri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(mongoUri)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => {
     console.error('❌ MongoDB connection error:', err);
@@ -1992,11 +1989,11 @@ function getLocalIPAddress() {
   const interfaces = os.networkInterfaces();
   
   for (const name of Object.keys(interfaces)) {
-    for (const interface of interfaces[name]) {
+    for (const netIface of interfaces[name]) {
       // Skip internal (loopback) and non-IPv4 addresses
-      if (interface.family === 'IPv4' && !interface.internal) {
+      if (netIface.family === 'IPv4' && !netIface.internal) {
         // Check if it's a private IP address
-        const ip = interface.address;
+        const ip = netIface.address;
         if (isPrivateIP(ip)) {
           return ip;
         }
@@ -2028,23 +2025,22 @@ function isPrivateIP(ip) {
 }
 
 const PORT = process.env.SERVER_PORT || process.env.PORT || 5001;
-const HOST = process.env.SERVER_HOST || getLocalIPAddress();
+// Bind all interfaces so http://localhost:PORT works (binding only to a LAN IP blocks localhost).
+const BIND_HOST = process.env.SERVER_HOST || '0.0.0.0';
+const LAN_IP = getLocalIPAddress();
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, BIND_HOST, () => {
   console.log('🚀 NOMU Admin Scanner API is running!');
-  console.log(`🌐 Server running on ${HOST}:${PORT}`);
+  console.log(`🌐 Listening on ${BIND_HOST}:${PORT} (all interfaces)`);
   console.log(`📱 Local: http://localhost:${PORT}`);
-  
-  // Show network IP if different from localhost
-  if (HOST !== 'localhost' && HOST !== '127.0.0.1') {
-    console.log(`🌍 Network: http://${HOST}:${PORT}`);
-    console.log(`📱 Mobile App: Use this IP in your Flutter app: ${HOST}`);
+  if (LAN_IP !== 'localhost' && LAN_IP !== '127.0.0.1') {
+    console.log(`🌍 Network (physical device): http://${LAN_IP}:${PORT}`);
+    console.log(`📱 Flutter / phone: use ${LAN_IP} as API host on the same Wi‑Fi`);
   } else {
-    console.log(`📱 Mobile App: Use localhost for emulator or your computer's IP for physical device`);
+    console.log(`📱 Mobile App: emulator can use localhost; physical device needs your PC LAN IP`);
   }
-  
-  console.log(`🔗 API Base: http://${HOST}:${PORT}/api`);
-  console.log(`🔌 Socket.IO: ws://${HOST}:${PORT}`);
+  console.log(`🔗 API Base: http://localhost:${PORT}/api`);
+  console.log(`🔌 Socket.IO: ws://localhost:${PORT}`);
   console.log('');
   console.log('📋 Available endpoints:');
   console.log('   POST /api/user/login - Regular user/customer login (for client-side app)');

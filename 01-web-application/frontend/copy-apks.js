@@ -5,10 +5,10 @@ const path = require('path');
 const publicDir = path.join(__dirname, 'public');
 const buildDir = path.join(__dirname, 'build');
 
-// APK files to copy
+// APK files in `public/` (must match filenames used in the app and build output)
 const apkFiles = [
-  'Nomu Mobile Application.apk',
-  'Mobile Barista Application.apk'
+  'Nomu-Mobile-Application.apk',
+  'Nomu-Barista-Application.apk'
 ];
 
 console.log('📱 Copying APK files to build directory...');
