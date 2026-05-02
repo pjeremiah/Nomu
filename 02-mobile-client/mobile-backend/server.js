@@ -1019,6 +1019,90 @@ async function resolveLoyaltyOrderPrice(explicitPrice, orderItemText) {
   return parts.length * 100;
 }
 
+/** Display categories for loyalty / pastOrders (matches admin inventory: Drinks, Pastries, Pizzas, Donuts → user-facing labels). */
+function normalizeLoyaltyCategoryAndType(rawCategory, clientItemType) {
+  const c = String(rawCategory || '').trim().toLowerCase();
+  const t = String(clientItemType || '').trim().toLowerCase();
+  if (c === 'drinks' || c === 'drink' || t === 'drink') {
+    return { category: 'Drinks', itemType: 'drink' };
+  }
+  if (c === 'pastries' || c === 'pastry' || t === 'pastry') {
+    return { category: 'Pastries', itemType: 'pastry' };
+  }
+  if (c === 'pizzas' || c === 'pizza' || t === 'pizza') {
+    return { category: 'Pizza', itemType: 'pizza' };
+  }
+  if (c === 'donuts' || c === 'donut' || t === 'donut') {
+    return { category: 'Donut', itemType: 'donut' };
+  }
+  return {
+    category: String(rawCategory || 'General').trim() || 'General',
+    itemType: t || 'food'
+  };
+}
+
+function inventoryUnitPrice(inv) {
+  if (!inv) return 0;
+  const candidates = [
+    inv.firstPrice,
+    inv.secondPrice,
+    inv.sellingPrice,
+    inv.unitPrice,
+    inv.retailPrice
+  ];
+  for (const p of candidates) {
+    const n = Number(p);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+/**
+ * Resolve each line against InventoryItem for price + category; keeps one row per SKU with quantity.
+ */
+async function enrichScanMultipleLineItems(items) {
+  const out = [];
+  if (!Array.isArray(items)) return out;
+  for (const item of items) {
+    const name = (item.itemName || item.name || '').trim();
+    const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+    let price = Number(item.price);
+    if (!Number.isFinite(price) || price < 0) price = 0;
+    let inv = null;
+    if (name) {
+      try {
+        inv = await InventoryItem.findOne({
+          name: new RegExp(`^${escapeRegexForLookup(name)}$`, 'i'),
+          status: 'active'
+        }).lean();
+      } catch (e) {
+        console.warn('[LOYALTY] enrich line lookup failed:', name, e && e.message);
+      }
+    }
+    if (inv) {
+      if (price <= 0) price = inventoryUnitPrice(inv);
+      const { category, itemType } = normalizeLoyaltyCategoryAndType(inv.category, item.itemType);
+      out.push({
+        itemName: inv.name || name,
+        itemType,
+        category,
+        price,
+        quantity: qty
+      });
+    } else {
+      const { category, itemType } = normalizeLoyaltyCategoryAndType(item.category, item.itemType);
+      out.push({
+        itemName: name || 'Unknown Item',
+        itemType,
+        category,
+        price,
+        quantity: qty
+      });
+    }
+  }
+  return out;
+}
+
 function mobileAdminOtpKey(email) {
   return `mobile_admin:${String(email).trim().toLowerCase()}`;
 }
@@ -3880,7 +3964,7 @@ app.post('/api/loyalty/scan', async (req, res) => {
 // Add loyalty point for multiple items in a single order
 app.post('/api/loyalty/scan-multiple', async (req, res) => {
   try {
-    const { qrToken, items } = req.body;
+    const { qrToken, items, employeeId } = req.body;
     
     if (!qrToken) {
       return res.status(400).json({ error: 'QR token is required' });
@@ -3890,15 +3974,75 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       return res.status(400).json({ error: 'Items array is required and must not be empty' });
     }
 
-    // Find user by QR token
-    const user = await User.findOne({ qrToken: qrToken });
+    let user = await User.findOne({ qrToken: qrToken }).maxTimeMS(5000);
+    let usedShortLivedScanToken = false;
+
     if (!user) {
-      _log('❌ [LOYALTY] User not found for QR token:', qrToken);
-      return res.status(404).json({ error: 'User not found' });
+      try {
+        const decoded = validateJwtToken(qrToken);
+        if (decoded && decoded.userId) {
+          user = await User.findById(decoded.userId);
+          if (user) {
+            const isShortLivedScan = decoded.type === 'qr_scan';
+            usedShortLivedScanToken = isShortLivedScan;
+            if (!isShortLivedScan) {
+              user.qrToken = qrToken;
+              await user.save();
+            }
+          }
+        }
+      } catch (jwtError) {
+        _log('⚠️ [LOYALTY] scan-multiple JWT validation failed:', jwtError.message);
+      }
     }
-    
-    // Calculate total price first
-    const totalPrice = items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+
+    if (!user) {
+      _log('❌ [LOYALTY] scan-multiple: User not found for QR token');
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: 'The QR code is not valid. Please make sure the customer has a valid QR code.',
+        code: 'INVALID_QR_TOKEN'
+      });
+    }
+
+    if (!usedShortLivedScanToken) {
+      if (!user.qrToken || user.qrToken === '') {
+        user.qrToken = generateQrToken(user._id);
+        await user.save();
+      } else if (user.qrToken !== qrToken) {
+        user.qrToken = qrToken;
+        await user.save();
+      }
+    }
+
+    try {
+      checkCustomerLimits(user._id.toString());
+      if (employeeId) {
+        checkEmployeeLimits(employeeId);
+        if (detectAbuse(employeeId, user._id.toString())) {
+          return res.status(429).json({
+            error: 'Suspicious activity detected. Scan blocked for security.',
+            code: 'ABUSE_DETECTED'
+          });
+        }
+      }
+    } catch (securityError) {
+      return res.status(429).json({
+        error: securityError.message,
+        code: 'RATE_LIMIT_EXCEEDED'
+      });
+    }
+
+    const enrichedItems = await enrichScanMultipleLineItems(items);
+    if (!enrichedItems.length) {
+      return res.status(400).json({ error: 'No valid line items after inventory resolution' });
+    }
+
+    const totalPrice = enrichedItems.reduce(
+      (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+      0
+    );
     
     // Check minimum spending requirement (100 pesos)
     const MINIMUM_SPENDING = 100;
@@ -3930,11 +4074,11 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     const newOrder = {
       orderId: orderId,
       cycle: currentCycle,
-      items: items.map(item => ({
-        itemName: item.itemName || item.name || 'Unknown Item',
-        itemType: item.itemType || 'food',
-        category: item.category || 'general',
-        price: item.price || 0,
+      items: enrichedItems.map((item) => ({
+        itemName: item.itemName,
+        itemType: item.itemType,
+        category: item.category,
+        price: Number(item.price) || 0,
         quantity: item.quantity || 1
       })),
       totalPrice: totalPrice,
@@ -3965,6 +4109,15 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
 
     await ensureConnection();
     await user.save();
+
+    try {
+      recordCustomerScan(user._id.toString(), 1);
+      if (employeeId) {
+        recordEmployeeScan(employeeId, user._id.toString());
+      }
+    } catch (scanLogErr) {
+      _log('⚠️ [SECURITY] scan-multiple record scan failed:', scanLogErr.message);
+    }
     
     // Send email notification for points earned
     try {
@@ -4002,9 +4155,10 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       message: `New order: ${itemNames} (${newOrder.items.length} items) - User now has ${user.points} points`
     });
 
-    res.json({ 
-      points: user.points, 
-      lastOrder: user.lastOrder, 
+    res.json({
+      success: true,
+      points: user.points,
+      lastOrder: user.lastOrder,
       pastOrders: user.pastOrders,
       totalOrders: user.pastOrders ? user.pastOrders.length : 0,
       orderId: orderId,

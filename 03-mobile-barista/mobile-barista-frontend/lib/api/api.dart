@@ -336,6 +336,72 @@ class ApiService {
     return null;
   }
 
+  /// Multi-line loyalty order: one `pastOrders` entry with correct itemType/category per line (mobile-backend `/api/loyalty/scan-multiple`).
+  static Future<Map<String, dynamic>?> addLoyaltyPointsMultiple(
+    String qrToken,
+    List<Map<String, dynamic>> items, {
+    String? employeeId,
+  }) async {
+    const int maxRetries = AppConstants.maxRetries;
+    const Duration retryDelay = AppConstants.retryDelay;
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        Logger.transaction(
+            'Loyalty scan-multiple: ${items.length} line(s) for QR (attempt $attempt/$maxRetries)');
+        final apiBaseUrl = await Config.apiBaseUrl;
+        final body = <String, dynamic>{
+          'qrToken': qrToken,
+          'items': items,
+        };
+        if (employeeId != null && employeeId.isNotEmpty) {
+          body['employeeId'] = employeeId;
+        }
+        final response = await http
+            .post(
+              Uri.parse('$apiBaseUrl/loyalty/scan-multiple'),
+              headers: _headers,
+              body: jsonEncode(body),
+            )
+            .timeout(AppConstants.apiTimeout);
+
+        Logger.api('scan-multiple status: ${response.statusCode}');
+        Logger.api('scan-multiple body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        }
+        if (response.statusCode == 429) {
+          final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+          return {
+            'error': errorData['error'] ?? errorData['message'] ?? 'Daily scan limit reached',
+            'points': errorData['points'],
+            'code': 'RATE_LIMIT_EXCEEDED',
+            'statusCode': 429
+          };
+        }
+        if (response.statusCode == 400) {
+          final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+          return {
+            'error': errorData['error'] ?? errorData['message'],
+            'points': errorData['points'],
+          };
+        }
+        if (response.statusCode >= 500 && attempt < maxRetries) {
+          await Future.delayed(retryDelay);
+          continue;
+        }
+        return null;
+      } catch (e) {
+        Logger.exception('scan-multiple exception (attempt $attempt)', e, 'API');
+        if (attempt < maxRetries) {
+          await Future.delayed(retryDelay);
+        }
+      }
+    }
+    return null;
+  }
+
   // Admin logout
   static Future<bool> logout(String email) async {
     try {

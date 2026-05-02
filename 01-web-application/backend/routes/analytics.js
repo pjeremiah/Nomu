@@ -4,19 +4,226 @@ const User = require('../models/User');
 const Order = require('../models/Order');
 const Feedback = require('../models/Feedback');
 const MenuItem = require('../models/MenuItem');
+const InventoryItem = require('../models/InventoryItem');
 const Admin = require('../models/Admin');
 const authMiddleware = require('../middleware/authMiddleware');
 const ActivityService = require('../services/activityService');
 
 // =============================================================================
-// BEST SELLER ANALYTICS – DATA SOURCE (same for daily, weekly, monthly, yearly)
+// BEST SELLER & SPENDING ANALYTICS – users.pastOrders
 // =============================================================================
-// Collection: users (User model)
-// Field: pastOrders (array of { drink: string, quantity: number, date: Date })
-// Date field used for filtering: pastOrders.date
-// All periods (today, week, month, year) use this same collection and date field;
-// only the date range (start/end) changes via getDateRangeForPeriod().
+// Supports BOTH shapes stored in MongoDB:
+// (A) Legacy: { drink, quantity, date, ... }
+// (B) Barista / mobile: { orderId, items: [{ itemName, itemType, category, price, quantity }], totalPrice, date }
+// Date filter: pastOrders.date — same for all periods via getDateRangeForPeriod().
 // =============================================================================
+
+/** Normalize category labels to admin shelf buckets (Donuts, Drinks, Pastries, Pizzas). */
+function normalizeAnalyticsShelfCategory(cat) {
+  if (cat == null || cat === '') return null;
+  const s = String(cat).trim();
+  const l = s.toLowerCase();
+  if (l === 'donut' || l === 'donuts') return 'Donuts';
+  if (l === 'pizza' || l === 'pizzas') return 'Pizzas';
+  if (l === 'drink' || l === 'drinks') return 'Drinks';
+  if (l === 'pastry' || l === 'pastries') return 'Pastries';
+  if (['Donuts', 'Drinks', 'Pastries', 'Pizzas'].includes(s)) return s;
+  return s;
+}
+
+async function buildNameToShelfCategoryMap() {
+  const [menuItems, invItems] = await Promise.all([
+    MenuItem.find({ status: 'active' }).select('name category').lean(),
+    InventoryItem.find({ status: 'active' }).select('name category').lean()
+  ]);
+  const map = {};
+  const add = (name, cat) => {
+    if (!name || !cat) return;
+    const n = String(name).trim();
+    if (!n) return;
+    const norm = normalizeAnalyticsShelfCategory(cat);
+    if (!norm) return;
+    map[n] = norm;
+    map[n.toLowerCase()] = norm;
+  };
+  menuItems.forEach((m) => add(m.name, m.category));
+  invItems.forEach((i) => add(i.name, i.category));
+  return map;
+}
+
+/** Mongo stages: unwind pastOrders → one doc per line item (items[] or legacy drink). */
+function pastOrderLineItemStages(dateFilterOnPastOrders) {
+  const stages = [
+    { $match: { role: 'Customer' } },
+    { $unwind: { path: '$pastOrders', preserveNullAndEmptyArrays: false } }
+  ];
+  if (dateFilterOnPastOrders && Object.keys(dateFilterOnPastOrders).length > 0) {
+    stages.push({ $match: dateFilterOnPastOrders });
+  }
+  stages.push(
+    {
+      $addFields: {
+        _lineEntries: {
+          $cond: [
+            {
+              $and: [
+                { $isArray: '$pastOrders.items' },
+                { $gt: [{ $size: { $ifNull: ['$pastOrders.items', []] } }, 0] }
+              ]
+            },
+            {
+              $map: {
+                input: '$pastOrders.items',
+                as: 'it',
+                in: {
+                  name: '$$it.itemName',
+                  qty: { $ifNull: ['$$it.quantity', 1] },
+                  category: '$$it.category'
+                }
+              }
+            },
+            {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: [{ $ifNull: ['$pastOrders.drink', ''] }, ''] }
+                  ]
+                },
+                [
+                  {
+                    name: '$pastOrders.drink',
+                    qty: { $ifNull: ['$pastOrders.quantity', 1] },
+                    category: { $literal: null }
+                  }
+                ],
+                []
+              ]
+            }
+          ]
+        }
+      }
+    },
+    { $unwind: { path: '$_lineEntries', preserveNullAndEmptyArrays: false } },
+    {
+      $match: {
+        '_lineEntries.name': { $exists: true, $nin: [null, ''] }
+      }
+    }
+  );
+  return stages;
+}
+
+/** Spending totals from barista-style pastOrders for Employed / Student only. */
+async function aggregateSpendingFromUserPastOrdersByEmployment() {
+  return User.aggregate([
+    { $match: { role: 'Customer', employmentStatus: { $in: ['Employed', 'Student'] } } },
+    { $unwind: { path: '$pastOrders', preserveNullAndEmptyArrays: false } },
+    {
+      $addFields: {
+        orderAmount: {
+          $let: {
+            vars: {
+              lineSum: {
+                $sum: {
+                  $map: {
+                    input: { $ifNull: ['$pastOrders.items', []] },
+                    as: 'it',
+                    in: {
+                      $multiply: [
+                        {
+                          $convert: {
+                            input: { $ifNull: ['$$it.price', 0] },
+                            to: 'double',
+                            onError: 0,
+                            onNull: 0
+                          }
+                        },
+                        {
+                          $convert: {
+                            input: { $ifNull: ['$$it.quantity', 1] },
+                            to: 'double',
+                            onError: 1,
+                            onNull: 1
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            in: {
+              $cond: [
+                { $gt: [{ $ifNull: ['$pastOrders.totalPrice', 0] }, 0] },
+                {
+                  $convert: {
+                    input: '$pastOrders.totalPrice',
+                    to: 'double',
+                    onError: 0,
+                    onNull: 0
+                  }
+                },
+                '$$lineSum'
+              ]
+            }
+          }
+        }
+      }
+    },
+    { $match: { orderAmount: { $gt: 0 } } },
+    {
+      $group: {
+        _id: '$employmentStatus',
+        totalSpent: { $sum: '$orderAmount' },
+        totalOrders: { $sum: 1 },
+        users: { $addToSet: '$_id' }
+      }
+    },
+    {
+      $project: {
+        employmentStatus: '$_id',
+        totalSpent: 1,
+        totalOrders: 1,
+        userCount: { $size: '$users' },
+        averageSpent: {
+          $cond: [
+            { $gt: [{ $size: '$users' }, 0] },
+            { $divide: ['$totalSpent', { $size: '$users' }] },
+            0
+          ]
+        }
+      }
+    }
+  ]);
+}
+
+function mergeEmploymentSpendingRows(orderRows, pastOrderRows) {
+  const byKey = {
+    Employed: { employmentStatus: 'Employed', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 },
+    Student: { employmentStatus: 'Student', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 }
+  };
+  (orderRows || []).forEach((row) => {
+    const k = row.employmentStatus;
+    if (k !== 'Employed' && k !== 'Student') return;
+    const o = byKey[k];
+    o.totalSpent += Number(row.totalSpent) || 0;
+    o.totalOrders += Number(row.totalOrders) || 0;
+    o.userCount += Number(row.userCount) || 0;
+  });
+  (pastOrderRows || []).forEach((row) => {
+    const k = row.employmentStatus;
+    if (k !== 'Employed' && k !== 'Student') return;
+    const o = byKey[k];
+    o.totalSpent += Number(row.totalSpent) || 0;
+    o.totalOrders += Number(row.totalOrders) || 0;
+    o.userCount += Number(row.userCount) || 0;
+  });
+  ['Employed', 'Student'].forEach((k) => {
+    const o = byKey[k];
+    o.averageSpent = o.userCount > 0 ? o.totalSpent / o.userCount : 0;
+  });
+  return [byKey.Employed, byKey.Student];
+}
 
 /**
  * Returns start and end dates for best-seller period filtering.
@@ -316,7 +523,7 @@ router.get('/highest-spenders-by-employment', authMiddleware, async (req, res) =
     }
 
     // Normalize order fields: amount and user ref (barista/mobile may use customerId + transactionTotal)
-    const spendingByEmployment = await Order.aggregate([
+    const spendingByEmploymentFromOrders = await Order.aggregate([
       {
         $addFields: {
           amount: { $ifNull: ['$totalAmount', '$transactionTotal'] },
@@ -378,15 +585,8 @@ router.get('/highest-spenders-by-employment', authMiddleware, async (req, res) =
       }
     ]);
 
-    // Always return both Employed and Student (real data; use 0 when no orders)
-    const byStatus = {};
-    spendingByEmployment.forEach((row) => {
-      byStatus[row.employmentStatus] = row;
-    });
-    const result = [
-      byStatus['Employed'] || { employmentStatus: 'Employed', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 },
-      byStatus['Student'] || { employmentStatus: 'Student', totalSpent: 0, totalOrders: 0, userCount: 0, averageSpent: 0 }
-    ];
+    const spendingFromPastOrders = await aggregateSpendingFromUserPastOrdersByEmployment();
+    const result = mergeEmploymentSpendingRows(spendingByEmploymentFromOrders, spendingFromPastOrders);
 
     res.json(result);
   } catch (error) {
@@ -599,30 +799,36 @@ router.get('/best-sellers', authMiddleware, async (req, res) => {
       }
     }
 
-    // Aggregate past orders (users collection) to get best sellers
     const bestSellers = await User.aggregate([
-      { $match: { role: 'Customer' } },
-      { $unwind: '$pastOrders' },
-      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
-      { 
-        $group: { 
-          _id: '$pastOrders.drink',
+      ...pastOrderLineItemStages(dateFilter),
+      {
+        $group: {
+          _id: '$_lineEntries.name',
           totalOrders: { $sum: 1 },
-          totalQuantity: { $sum: '$pastOrders.quantity' },
+          totalQuantity: {
+            $sum: {
+              $convert: {
+                input: '$_lineEntries.qty',
+                to: 'double',
+                onError: 1,
+                onNull: 1
+              }
+            }
+          },
           uniqueCustomers: { $addToSet: '$_id' }
-        } 
+        }
       },
-      { 
-        $project: { 
+      {
+        $project: {
           itemName: '$_id',
           totalOrders: 1,
           totalQuantity: 1,
           uniqueCustomers: { $size: '$uniqueCustomers' },
           _id: 0
-        } 
+        }
       },
       { $sort: { totalQuantity: -1 } },
-      { $limit: parseInt(limit) }
+      { $limit: parseInt(limit, 10) }
     ]);
 
 
@@ -672,62 +878,51 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
       }
     }
 
-    // Build map: menu item name -> category (exact and lowercase so pastOrders match)
-    const menuItems = await MenuItem.find({ status: 'active' }).lean();
-    const drinkToCategory = {};
-    menuItems.forEach((menuItem) => {
-      const name = (menuItem.name != null ? String(menuItem.name) : '').trim();
-      const cat = menuItem.category;
-      if (!name || !cat) return;
-      drinkToCategory[name] = cat;
-      const nameLower = name.toLowerCase();
-      if (!drinkToCategory[nameLower]) drinkToCategory[nameLower] = cat;
-    });
+    const nameToShelfCategory = await buildNameToShelfCategoryMap();
 
-    // Aggregate past orders
-    const bestSellersByCategory = await User.aggregate([
-      { $match: { role: 'Customer' } },
-      { $unwind: '$pastOrders' },
-      ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
-      { 
-        $group: { 
-          _id: '$pastOrders.drink',
+    const bestSellersRaw = await User.aggregate([
+      ...pastOrderLineItemStages(dateFilter),
+      {
+        $group: {
+          _id: '$_lineEntries.name',
           totalOrders: { $sum: 1 },
-          totalQuantity: { $sum: '$pastOrders.quantity' },
+          totalQuantity: {
+            $sum: {
+              $convert: {
+                input: '$_lineEntries.qty',
+                to: 'double',
+                onError: 1,
+                onNull: 1
+              }
+            }
+          },
           uniqueCustomers: { $addToSet: '$_id' }
-        } 
+        }
       },
-      { 
-        $project: { 
+      {
+        $project: {
           itemName: '$_id',
           totalOrders: 1,
           totalQuantity: 1,
           uniqueCustomers: { $size: '$uniqueCustomers' },
           _id: 0
-        } 
+        }
       },
       { $sort: { totalQuantity: -1 } }
     ]);
 
-    // Group by category using menu item category; skip unknown items (do not show in By Category)
     const categoryStats = {};
     const validCategories = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
-    bestSellersByCategory.forEach(item => {
+    bestSellersRaw.forEach((item) => {
       const rawName = item.itemName != null ? String(item.itemName).trim() : '';
       if (!rawName) return;
       const nameKeyLower = rawName.toLowerCase();
-      const category = drinkToCategory[rawName] || drinkToCategory[nameKeyLower];
-
-      // Unknown item (not in menu): skip so it does not appear in By Category at all
-      if (!category) {
+      let category =
+        nameToShelfCategory[rawName] || nameToShelfCategory[nameKeyLower];
+      category = normalizeAnalyticsShelfCategory(category);
+      if (!category || !validCategories.includes(category)) {
         return;
       }
-
-      // Only allow valid menu categories (Donuts, Drinks, Pastries, Pizzas)
-      if (!validCategories.includes(category)) {
-        return;
-      }
-
       if (!categoryStats[category]) {
         categoryStats[category] = [];
       }
@@ -775,39 +970,40 @@ router.get('/sales-trends', authMiddleware, async (req, res) => {
     }
 
     const { period = 'monthly', itemName } = req.query;
-    
-    let dateFormat;
+
     let groupBy;
-    
     if (period === 'daily') {
-      dateFormat = { $dateToString: { format: "%Y-%m-%d", date: "$pastOrders.date" } };
-      groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$pastOrders.date" } };
+      groupBy = { $dateToString: { format: '%Y-%m-%d', date: '$pastOrders.date' } };
     } else if (period === 'weekly') {
-      dateFormat = { $dateToString: { format: "%Y-%U", date: "$pastOrders.date" } };
-      groupBy = { $dateToString: { format: "%Y-%U", date: "$pastOrders.date" } };
+      groupBy = { $dateToString: { format: '%Y-%U', date: '$pastOrders.date' } };
     } else {
-      // monthly (default)
-      dateFormat = { $dateToString: { format: "%Y-%m", date: "$pastOrders.date" } };
-      groupBy = { $dateToString: { format: "%Y-%m", date: "$pastOrders.date" } };
+      groupBy = { $dateToString: { format: '%Y-%m', date: '$pastOrders.date' } };
     }
 
-
-    const matchStage = { role: 'Customer' };
+    const trendStages = [...pastOrderLineItemStages({})];
     if (itemName) {
-      matchStage['pastOrders.drink'] = itemName;
+      trendStages.push({ $match: { '_lineEntries.name': itemName } });
     }
+    trendStages.push({
+      $group: {
+        _id: groupBy,
+        totalOrders: { $sum: 1 },
+        totalQuantity: {
+          $sum: {
+            $convert: {
+              input: '$_lineEntries.qty',
+              to: 'double',
+              onError: 1,
+              onNull: 1
+            }
+          }
+        },
+        uniqueCustomers: { $addToSet: '$_id' }
+      }
+    });
 
     const salesTrends = await User.aggregate([
-      { $match: matchStage },
-      { $unwind: '$pastOrders' },
-      { 
-        $group: { 
-          _id: groupBy,
-          totalOrders: { $sum: 1 },
-          totalQuantity: { $sum: '$pastOrders.quantity' },
-          uniqueCustomers: { $addToSet: '$_id' }
-        } 
-      },
+      ...trendStages,
       { 
         $project: { 
           period: '$_id',

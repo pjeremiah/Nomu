@@ -8,7 +8,6 @@ import 'login.dart';
 import 'api/api.dart';
 import 'services/socket_service.dart';
 import 'services/inventory_scanner_service.dart';
-import 'services/menu_service.dart';
 import 'widgets/custom_toast.dart';
 import 'widgets/notification_banner.dart';
 import 'utils/qr_validation_utils.dart';
@@ -75,9 +74,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     // Initialize inventory scanner service
     _initializeInventoryService();
     
-    // Initialize menu service
-    _initializeMenuService();
-    
     // Set up periodic cleanup of processed codes
     Timer.periodic(AppConstants.processedCodesCleanupInterval, (timer) {
       _cleanupProcessedCodes();
@@ -127,88 +123,100 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     }
   }
 
-  Future<void> _initializeMenuService() async {
-    try {
-      await MenuService.initialize();
-      Logger.success('Menu service initialized', 'BARISTA');
-    } catch (e) {
-      Logger.exception('Menu service initialization error', e, 'BARISTA');
-    }
-  }
-
-  // Helper method to get all categories from both inventory and menu
+  /// Categories from admin inventory only (Donuts, Drinks, Pastries, Pizzas).
   List<String> _getAllCategories() {
     final inventoryCategories = InventoryScannerService.getCategories();
-    final menuCategories = MenuService.getAllCategories();
     final allCategories = <String>{'All'};
     allCategories.addAll(inventoryCategories);
-    allCategories.addAll(menuCategories);
     return allCategories.toList()..sort();
   }
 
-  // Helper method to get item by ID from both inventory and menu
   Map<String, dynamic>? _getItemById(String itemId) {
-    // First try inventory service
     final inventoryItem = InventoryScannerService.getItemById(itemId);
     if (inventoryItem != null) {
-      return {
-        ...inventoryItem,
-        'isMenu': false, // Mark as inventory item
-      };
+      return {...inventoryItem, 'isMenu': false};
     }
-    
-    // Then try menu service
-    final menuItem = MenuService.getItemById(itemId);
-    if (menuItem != null) {
-      // Check if this menu item has a corresponding inventory item
-      final baseName = _getBaseItemName(menuItem.name);
-      final correspondingInventoryItem = _findInventoryItemByName(baseName);
-      
-      if (correspondingInventoryItem != null) {
-        // Use inventory item data but keep menu item name for display
-        return {
-          ...correspondingInventoryItem,
-          'name': menuItem.name, // Keep the menu variation name
-          'isMenu': false, // Treat as inventory item since it has stock
-        };
-      } else {
-        // Pure menu item with no inventory
-        return {
-          '_id': menuItem.id,
-          'name': menuItem.name,
-          'category': menuItem.category,
-          'currentStock': 999, // Menu items are always available
-          'unit': 'servings',
-          'minimumThreshold': 0,
-          'description': menuItem.description,
-          'isMenu': true, // Mark as menu item
-        };
-      }
-    }
-    
     return null;
   }
 
-  // Helper method to extract base item name from menu variations
-  String _getBaseItemName(String menuName) {
-    // Remove common variations like (Hot), (Iced), (Medium), (Large), etc.
-    return menuName
-        .replaceAll(RegExp(r'\s*\([^)]*\)'), '') // Remove (Hot), (Iced), etc.
-        .replaceAll(RegExp(r'\s*★.*'), '') // Remove ★ and everything after
-        .replaceAll(RegExp(r'\s*☆.*'), '') // Remove ☆ and everything after
-        .trim();
+  static double? _num(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString());
   }
 
-  // Helper method to find inventory item by name (case-insensitive)
-  Map<String, dynamic>? _findInventoryItemByName(String name) {
-    final inventoryItems = InventoryScannerService.getAllItems();
-    try {
-      return inventoryItems.firstWhere((item) => 
-        (item['name'] ?? '').toLowerCase() == name.toLowerCase()
-      );
-    } catch (e) {
-      return null;
+  /// Unit price: firstPrice, else secondPrice, else legacy price fields.
+  double _unitPriceFromInventoryRow(Map<String, dynamic> row) {
+    final fp = _num(row['firstPrice']);
+    final sp = _num(row['secondPrice']);
+    if (fp != null && fp > 0) return fp;
+    if (sp != null && sp > 0) return sp;
+    final legacy = _num(row['sellingPrice']) ??
+        _num(row['unitPrice']) ??
+        _num(row['price']) ??
+        _num(row['retailPrice']);
+    if (legacy != null && legacy > 0) return legacy;
+    return 0;
+  }
+
+  /// Maps admin inventory category to API labels (Drinks, Pastries, Pizza, Donut) + itemType.
+  Map<String, String> _loyaltyCategoryAndType(String rawCategory) {
+    final c = rawCategory.trim().toLowerCase();
+    if (c == 'drinks') {
+      return {'category': 'Drinks', 'itemType': 'drink'};
     }
+    if (c == 'pastries') {
+      return {'category': 'Pastries', 'itemType': 'pastry'};
+    }
+    if (c == 'pizzas') {
+      return {'category': 'Pizza', 'itemType': 'pizza'};
+    }
+    if (c == 'donuts') {
+      return {'category': 'Donut', 'itemType': 'donut'};
+    }
+    return {'category': rawCategory.isNotEmpty ? rawCategory : 'General', 'itemType': 'food'};
+  }
+
+  /// Builds line items for `/api/loyalty/scan-multiple` from the transaction name list.
+  List<Map<String, dynamic>> _buildLoyaltyLineItemsFromTransaction() {
+    final counts = <String, int>{};
+    for (final name in _currentTransactionItems) {
+      final n = name.trim();
+      if (n.isEmpty) continue;
+      counts[n] = (counts[n] ?? 0) + 1;
+    }
+    final inv = InventoryScannerService.getAllItems();
+    final lines = <Map<String, dynamic>>[];
+    counts.forEach((name, qty) {
+      Map<String, dynamic>? row;
+      final nameLower = name.toLowerCase();
+      for (final e in inv) {
+        if ((e['name'] ?? '').toString().trim().toLowerCase() == nameLower) {
+          row = e;
+          break;
+        }
+      }
+      if (row != null) {
+        final cat = (row['category'] ?? '').toString();
+        final m = _loyaltyCategoryAndType(cat);
+        lines.add({
+          'itemName': (row['name'] ?? name).toString(),
+          'itemType': m['itemType']!,
+          'category': m['category']!,
+          'price': _unitPriceFromInventoryRow(row),
+          'quantity': qty,
+        });
+      } else {
+        lines.add({
+          'itemName': name,
+          'itemType': 'unknown',
+          'category': 'General',
+          'price': 0,
+          'quantity': qty,
+        });
+      }
+    });
+    return lines;
   }
 
   @override
@@ -745,7 +753,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
   }
 
   Future<void> _showDrinkSelectionDialog() async {
-    List<Map<String, dynamic>>? selectedItems = await showDialog<List<Map<String, dynamic>>>(
+    final dynamic selectedItems = await showDialog<dynamic>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
@@ -756,29 +764,11 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
         
         return StatefulBuilder(
           builder: (context, setState) {
-            // Get combined items from both inventory and menu
-            // Only drinks are hardcoded, everything else comes from admin inventory
+            /// Web admin inventory only (same SKUs as stock / loyalty DB).
             List<Map<String, dynamic>> getAllAvailableItems() {
-              final inventoryItems = InventoryScannerService.getAllItems();
-              final menuItems = MenuService.getAllItems().map((item) => {
-                '_id': item.id,
-                'name': item.name,
-                'category': item.category,
-                'currentStock': 999, // Menu items (drinks) are always available
-                'unit': 'servings',
-                'minimumThreshold': 0,
-                'description': item.description,
-                'isMenu': true, // Mark as menu item (drinks)
-              }).toList();
-              
-              // Mark inventory items as not menu items
-              final markedInventoryItems = inventoryItems.map((item) => {
-                ...item,
-                'isMenu': false, // Mark as inventory item (pizzas, pastries, donuts, etc.)
-              }).toList();
-              
-              // Combine: Admin inventory items + Hardcoded drinks
-              return [...markedInventoryItems, ...menuItems];
+              return InventoryScannerService.getAllItems()
+                  .map((item) => {...item, 'isMenu': false})
+                  .toList();
             }
             
             // Filter items based on category and search
@@ -1121,17 +1111,24 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
       _resumeScanning();
       return;
     }
-    
-    // Handle transaction completion
-    if (selectedItems.length == 1 && selectedItems.first['_id'] == 'COMPLETE_TRANSACTION') {
+
+    if (selectedItems is String && selectedItems == 'COMPLETE_TRANSACTION') {
       await _completeTransaction(qrResult!, '');
       return;
     }
+
+    if (selectedItems is! List) {
+      _resumeScanning();
+      return;
+    }
+
+    final selectedItemsList =
+        List<Map<String, dynamic>>.from(selectedItems);
     
     // Process selected items (all items can complete transactions)
     // Group items by ID and count quantities
     Map<String, Map<String, dynamic>> itemQuantities = {};
-    for (Map<String, dynamic> item in selectedItems) {
+    for (Map<String, dynamic> item in selectedItemsList) {
       final itemId = item['_id'] ?? '';
       
       if (itemQuantities.containsKey(itemId)) {
@@ -1370,47 +1367,38 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     Logger.transaction('Added item: $item (Total items: ${_currentTransactionItems.length})');
   }
   
-  /// Sum line totals using inventory [sellingPrice]/[unitPrice]/[price] when present; else 0 (server applies ₱100/line fallback).
-  double _computeTransactionTotalPeso() {
-    final lines = _currentTransactionItems.where((s) => s.trim().isNotEmpty).toList();
-    if (lines.isEmpty) return 0;
-    double sum = 0;
-    final inv = InventoryScannerService.getAllItems();
-    for (final name in lines) {
-      Map<String, dynamic>? row;
-      for (final e in inv) {
-        if ((e['name'] ?? '').toString().trim() == name.trim()) {
-          row = e;
-          break;
-        }
-      }
-      if (row == null) continue;
-      final p = row['sellingPrice'] ?? row['unitPrice'] ?? row['price'] ?? row['retailPrice'];
-      if (p == null) continue;
-      final v = p is num ? p.toDouble() : double.tryParse(p.toString());
-      if (v != null && v > 0) sum += v;
-    }
-    return sum;
-  }
-
   // Complete transaction and add points
   Future<void> _completeTransaction(String qrCode, String selectedDrink) async {
     if (selectedDrink.trim().isNotEmpty) {
       _addItemToTransaction(selectedDrink);
     }
 
-    // Show transaction summary (no empty tokens from legacy complete flow)
     String transactionSummary =
         _currentTransactionItems.where((s) => s.trim().isNotEmpty).join(', ');
     Logger.transaction('Completing transaction with items: $transactionSummary');
 
-    final totalPeso = _computeTransactionTotalPeso();
+    final lineItems = _buildLoyaltyLineItemsFromTransaction();
+    if (lineItems.isEmpty) {
+      Logger.error('No line items for loyalty payload', 'TRANSACTION');
+      if (mounted) {
+        CustomToast.showWarning(
+          context,
+          message: 'No items in this transaction',
+          duration: const Duration(seconds: 3),
+        );
+      }
+      _resetTransaction();
+      _resumeScanning();
+      return;
+    }
 
-    // Add points only once per transaction
-    final result = await ApiService.addLoyaltyPoint(
+    final prefs = await SharedPreferences.getInstance();
+    final employeeId = prefs.getString('user_id');
+
+    final result = await ApiService.addLoyaltyPointsMultiple(
       qrCode,
-      transactionSummary,
-      totalPricePeso: totalPeso > 0 ? totalPeso : null,
+      lineItems,
+      employeeId: employeeId,
     );
     
     Logger.transaction('API result: $result');
