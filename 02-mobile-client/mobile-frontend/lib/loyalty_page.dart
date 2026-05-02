@@ -951,9 +951,9 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         final claimType = (claim['type'] as String? ?? '').toLowerCase();
         bool isMatch = false;
         if (pointsRequired == 5) {
-          isMatch = claimType == 'donut';
+          isMatch = claimType == 'donut' || claimType == 'pastry';
         } else if (pointsRequired == 10) {
-          isMatch = claimType == 'coffee';
+          isMatch = claimType == 'coffee' || claimType == 'pizza';
         } else {
           final claimDesc = (claim['description'] as String? ?? '').toLowerCase();
           isMatch = claimDesc.contains(title.toLowerCase()) || title.toLowerCase().contains(claimDesc);
@@ -2028,11 +2028,18 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       if (widget.qrToken.isNotEmpty) {
         final userId = await ApiService.getUserIdByQrToken(widget.qrToken);
         if (userId != null) {
-          // Map reward type to the expected format
-          String claimType = 'donut'; // Default
-          if (rewardType.toLowerCase().contains('coffee') || pointsRequired == 10) {
+          // Map admin reward banner → backend claim type (must match barista fulfillment buckets).
+          String claimType = 'donut';
+          final rt = rewardType.toLowerCase();
+          if (rt.contains('pizza')) {
+            claimType = 'pizza';
+          } else if (rt.contains('pastry') || rt.contains('pastries')) {
+            claimType = 'pastry';
+          } else if (rt.contains('coffee') ||
+              rt.contains('drink') ||
+              pointsRequired == 10) {
             claimType = 'coffee';
-          } else if (rewardType.toLowerCase().contains('donut') || pointsRequired == 5) {
+          } else if (rt.contains('donut') || pointsRequired == 5) {
             claimType = 'donut';
           }
           

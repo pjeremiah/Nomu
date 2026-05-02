@@ -122,7 +122,10 @@ function pastOrderLineItemStages(dateFilterOnPastOrders) {
                                   '$$origQty'
                                 ]
                               },
-                              category: '$$it.category'
+                              category: '$$it.category',
+                              excludeFromAnalytics: {
+                                $eq: [{ $ifNull: ['$$it.excludeFromAnalytics', false] }, true]
+                              }
                             }
                           }
                         }
@@ -180,7 +183,8 @@ function pastOrderLineItemStages(dateFilterOnPastOrders) {
                               '$$origQty'
                             ]
                           },
-                          category: { $literal: null }
+                          category: { $literal: null },
+                          excludeFromAnalytics: false
                         }
                       }
                     }
@@ -196,7 +200,8 @@ function pastOrderLineItemStages(dateFilterOnPastOrders) {
     { $unwind: { path: '$_lineEntries', preserveNullAndEmptyArrays: false } },
     {
       $match: {
-        '_lineEntries.name': { $exists: true, $nin: [null, ''] }
+        '_lineEntries.name': { $exists: true, $nin: [null, ''] },
+        '_lineEntries.excludeFromAnalytics': { $ne: true }
       }
     }
   );

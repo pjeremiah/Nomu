@@ -453,6 +453,76 @@ async function sendOrderCompletionEmail(email, name, orderTotal, currentPoints, 
   }
 }
 
+function rewardTypeDisplayMeta(rewardType) {
+  const t = String(rewardType || '').toLowerCase();
+  if (t === 'coffee' || t === 'drink') return { emoji: '☕', name: 'Free Drink' };
+  if (t === 'pastry') return { emoji: '🥐', name: 'Free Pastry' };
+  if (t === 'pizza') return { emoji: '🍕', name: 'Free Pizza' };
+  return { emoji: '🍩', name: 'Free Donut' };
+}
+
+// Customer picked up a claimed reward at the counter (barista scan).
+async function sendRewardFulfilledAtCounterEmail(email, name, lines) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    console.error('❌ [REWARD PICKUP EMAIL] Invalid email format:', email);
+    return false;
+  }
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ [REWARD PICKUP EMAIL] Email credentials not configured');
+    return false;
+  }
+  if (!lines || !lines.length) return false;
+
+  const rows = lines
+    .map(
+      (L) => `
+    <tr>
+      <td style="padding:8px;border:1px solid #e2e8f0;">${L.rewardTitle || 'Reward'}</td>
+      <td style="padding:8px;border:1px solid #e2e8f0;">${L.description || ''}</td>
+      <td style="padding:8px;border:1px solid #e2e8f0;">${L.itemName || ''}</td>
+    </tr>`
+    )
+    .join('');
+
+  const subject = '🎁 Your free reward was served at Nomu Cafe';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px;">
+        <div style="background: white; padding: 24px; border-radius: 10px;">
+          <h1 style="color: #2d3748; margin-top: 0;">Hello ${name}!</h1>
+          <p style="color: #4a5568; line-height: 1.6;">This confirms your <strong>claimed reward</strong> was given to you at the counter. Enjoy!</p>
+          <table style="width:100%; border-collapse:collapse; margin: 16px 0; font-size: 14px;">
+            <thead>
+              <tr style="background:#f7fafc;">
+                <th align="left" style="padding:8px;border:1px solid #e2e8f0;">Reward type</th>
+                <th align="left" style="padding:8px;border:1px solid #e2e8f0;">Description</th>
+                <th align="left" style="padding:8px;border:1px solid #e2e8f0;">Item</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <p style="color: #718096; font-size: 13px;">Thank you for being part of Nomu Cafe.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `"Nomu Cafe Rewards" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject,
+      html: htmlContent
+    });
+    _log(`✅ [REWARD PICKUP EMAIL] Sent to: ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ [REWARD PICKUP EMAIL]', error);
+    return false;
+  }
+}
+
 // Send reward claim notification email
 async function sendRewardClaimEmail(email, name, rewardType, description, remainingPoints) {
   
@@ -469,8 +539,9 @@ async function sendRewardClaimEmail(email, name, rewardType, description, remain
     return false;
   }
 
-  const rewardEmoji = rewardType === 'coffee' ? '☕' : '🍩';
-  const rewardName = rewardType === 'coffee' ? 'Free Coffee' : 'Free Donut';
+  const meta = rewardTypeDisplayMeta(rewardType);
+  const rewardEmoji = meta.emoji;
+  const rewardName = meta.name;
   
   const subject = `🎉 Reward Claimed! ${rewardEmoji} ${rewardName} at Nomu Cafe`;
   const htmlContent = `
@@ -807,7 +878,10 @@ const userSchema = new mongoose.Schema({
           itemType: String, // 'drink', 'food', 'pastry', 'pizza', 'pasta', 'calzone', 'donut'
           category: String, // More specific category like 'coffee', 'milk_tea', 'pizza', 'croissant', etc.
           price: Number,
-          quantity: { type: Number, default: 1 }
+          quantity: { type: Number, default: 1 },
+          excludeFromAnalytics: { type: Boolean, default: false },
+          rewardBucket: String,
+          rewardDescription: String
         }
       ],
       totalPrice: Number,
@@ -1041,6 +1115,41 @@ function normalizeLoyaltyCategoryAndType(rawCategory, clientItemType) {
   };
 }
 
+/** Maps admin inventory category to barista reward bucket (donut | drink | pastry | pizza). */
+function inventoryCategoryToRewardBucket(rawCategory) {
+  const c = String(rawCategory || '').trim().toLowerCase();
+  if (c === 'donuts' || c === 'donut') return 'donut';
+  if (c === 'drinks' || c === 'drink') return 'drink';
+  if (c === 'pastries' || c === 'pastry') return 'pastry';
+  if (c === 'pizzas' || c === 'pizza') return 'pizza';
+  return null;
+}
+
+const REWARD_CLAIM_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+
+function rewardHistoryTypesForBucket(bucket) {
+  const b = String(bucket || '').toLowerCase();
+  if (b === 'donut') return ['donut'];
+  if (b === 'drink') return ['coffee', 'drink'];
+  if (b === 'pastry') return ['pastry'];
+  if (b === 'pizza') return ['pizza'];
+  return [];
+}
+
+/** Customer must have claimed the matching reward in the app recently before barista can give it free. */
+function userHasRecentRewardClaimForBucket(user, rewardBucket) {
+  const types = rewardHistoryTypesForBucket(rewardBucket);
+  if (!types.length) return false;
+  const cutoff = Date.now() - REWARD_CLAIM_LOOKBACK_MS;
+  const hist = user.rewardsHistory || [];
+  return hist.some((h) => {
+    const t = (h.type || '').toLowerCase();
+    if (!types.includes(t)) return false;
+    const d = h.date ? new Date(h.date).getTime() : 0;
+    return d >= cutoff;
+  });
+}
+
 function inventoryUnitPrice(inv) {
   if (!inv) return 0;
   const candidates = [
@@ -1085,11 +1194,65 @@ function splitItemNameSegments(name) {
 /**
  * Resolve each line against InventoryItem for price + category; keeps one row per SKU with quantity.
  * Comma-separated `itemName` values are expanded so analytics and history stay one-SKU per row.
+ * Reward redemptions: price 0, excludeFromAnalytics, validated bucket vs inventory category.
  */
 async function enrichScanMultipleLineItems(items) {
   const out = [];
   if (!Array.isArray(items)) return out;
   for (const item of items) {
+    const isReward =
+      item.isRewardRedemption === true ||
+      String(item.isRewardRedemption).toLowerCase() === 'true';
+    const rewardBucket = String(item.rewardBucket || '').toLowerCase().trim();
+    const rewardDescriptionIn = String(item.rewardDescription || '').trim();
+
+    if (isReward) {
+      const validBuckets = ['donut', 'drink', 'pastry', 'pizza'];
+      if (!validBuckets.includes(rewardBucket)) {
+        throw new Error(`Invalid reward bucket: ${rewardBucket || '(missing)'}`);
+      }
+      const rawName = (item.itemName || item.name || '').trim();
+      const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+      const segments = splitItemNameSegments(rawName);
+      const perSegQty = segments.length > 1 ? 1 : qty;
+      for (const name of segments.length ? segments : ['']) {
+        if (!name) continue;
+        let inv = null;
+        try {
+          inv = await InventoryItem.findOne({
+            name: new RegExp(`^${escapeRegexForLookup(name)}$`, 'i'),
+            status: 'active'
+          }).lean();
+        } catch (e) {
+          console.warn('[LOYALTY] reward line lookup failed:', name, e && e.message);
+        }
+        if (!inv) {
+          throw new Error(`Reward item not found in inventory: ${name}`);
+        }
+        const invBucket = inventoryCategoryToRewardBucket(inv.category);
+        if (invBucket !== rewardBucket) {
+          throw new Error(
+            `Free ${rewardBucket} cannot be applied to "${inv.name}" (category ${inv.category}). Pick an item in the correct category.`
+          );
+        }
+        const { category, itemType } = normalizeLoyaltyCategoryAndType(inv.category, item.itemType);
+        const meta = rewardTypeDisplayMeta(rewardBucket);
+        const rewardDescription =
+          rewardDescriptionIn || `${meta.name} — ${inv.name || name}`;
+        out.push({
+          itemName: inv.name || name,
+          itemType,
+          category,
+          price: 0,
+          quantity: perSegQty,
+          excludeFromAnalytics: true,
+          rewardBucket,
+          rewardDescription
+        });
+      }
+      continue;
+    }
+
     const rawName = (item.itemName || item.name || '').trim();
     const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
     let price = Number(item.price);
@@ -2842,21 +3005,25 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       return res.status(400).json({ error: 'Invalid points balance. Please contact support.' });
     }
     
-    if (type === 'donut' && user.points < 5) {
-      return res.status(400).json({ error: 'You need at least 5 points to claim a donut reward. You currently have ' + user.points + ' points.' });
+    if ((type === 'donut' || type === 'pastry') && user.points < 5) {
+      return res.status(400).json({
+        error: `You need at least 5 points to claim this reward. You currently have ${user.points} points.`
+      });
     }
-    if (type === 'coffee' && user.points < 10) {
-      return res.status(400).json({ error: 'You need at least 10 points to claim a coffee reward. You currently have ' + user.points + ' points.' });
+    if ((type === 'coffee' || type === 'pizza') && user.points < 10) {
+      return res.status(400).json({
+        error: `You need at least 10 points to claim this reward. You currently have ${user.points} points.`
+      });
     }
-    
-    // Validate reward type
-    if (!['donut', 'coffee'].includes(type)) {
-      return res.status(400).json({ error: 'Invalid reward type. Must be either "donut" or "coffee".' });
+
+    if (!['donut', 'coffee', 'pastry', 'pizza'].includes(type)) {
+      return res.status(400).json({
+        error: 'Invalid reward type. Use donut, coffee, pastry, or pizza.'
+      });
     }
-    
-    // For donut rewards, no restrictions - unlimited claims
-    if (type === 'donut') {
-      _log(`Donut claim - user has ${user.points} points, allowing unlimited claims`);
+
+    if (type === 'donut' || type === 'pastry') {
+      _log(`${type} claim - user has ${user.points} points`);
     }
     
     // Use current cycle from user data
@@ -2903,14 +3070,12 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       // Continue with the claim even if rewardsHistory fails
     }
     
-    // Deduct points based on reward type
-    if (type === 'coffee') {
-      user.points = 0; // Reset to 0 after claiming 10-point reward
-      user.currentCycle = (user.currentCycle || 1) + 1; // Increment cycle
-      _log(`Reset points to 0 for coffee claim, cycle advanced to: ${user.currentCycle}`);
-    } else if (type === 'donut') {
-      // Don't deduct points for donut reward - let points continue accumulating
-      _log(`Donut reward claimed, points remain at: ${user.points}`);
+    if (type === 'coffee' || type === 'pizza') {
+      user.points = 0;
+      user.currentCycle = (user.currentCycle || 1) + 1;
+      _log(`Reset points after ${type} claim, cycle advanced to: ${user.currentCycle}`);
+    } else {
+      _log(`${type} reward claimed, points remain at: ${user.points}`);
     }
     
     await user.save();
@@ -4091,7 +4256,31 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       });
     }
 
-    const enrichedItems = await enrichScanMultipleLineItems(items);
+    for (const raw of items) {
+      const isR =
+        raw.isRewardRedemption === true ||
+        String(raw.isRewardRedemption).toLowerCase() === 'true';
+      if (!isR) continue;
+      const b = String(raw.rewardBucket || '').toLowerCase();
+      if (!userHasRecentRewardClaimForBucket(user, b)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Reward not available for pickup',
+          message:
+            'The customer must claim this reward in the Nomu mobile app first. Claims are valid for pickup within 14 days.'
+        });
+      }
+    }
+
+    let enrichedItems;
+    try {
+      enrichedItems = await enrichScanMultipleLineItems(items);
+    } catch (enrichErr) {
+      return res.status(400).json({
+        success: false,
+        error: enrichErr.message || 'Invalid order lines'
+      });
+    }
     if (!enrichedItems.length) {
       return res.status(400).json({ error: 'No valid line items after inventory resolution' });
     }
@@ -4131,13 +4320,25 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     const newOrder = {
       orderId: orderId,
       cycle: currentCycle,
-      items: enrichedItems.map((item) => ({
-        itemName: item.itemName,
-        itemType: item.itemType,
-        category: item.category,
-        price: Number(item.price) || 0,
-        quantity: item.quantity || 1
-      })),
+      items: enrichedItems.map((item) => {
+        const row = {
+          itemName: item.itemName,
+          itemType: item.itemType,
+          category: item.category,
+          price: Number(item.price) || 0,
+          quantity: item.quantity || 1
+        };
+        if (item.excludeFromAnalytics) {
+          row.excludeFromAnalytics = true;
+        }
+        if (item.rewardBucket) {
+          row.rewardBucket = item.rewardBucket;
+        }
+        if (item.rewardDescription) {
+          row.rewardDescription = item.rewardDescription;
+        }
+        return row;
+      }),
       totalPrice: totalPrice,
       date: new Date()
     };
@@ -4195,6 +4396,24 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     } catch (emailError) {
       console.error('❌ [LOYALTY] Error sending email notification:', emailError);
       // Continue execution even if email fails
+    }
+
+    const pickupLines = enrichedItems
+      .filter((i) => i.excludeFromAnalytics && i.rewardBucket)
+      .map((i) => {
+        const m = rewardTypeDisplayMeta(i.rewardBucket);
+        return {
+          rewardTitle: m.name,
+          description: i.rewardDescription || m.name,
+          itemName: i.itemName
+        };
+      });
+    if (pickupLines.length > 0) {
+      try {
+        await sendRewardFulfilledAtCounterEmail(user.email, user.fullName, pickupLines);
+      } catch (pickupEmailErr) {
+        _log('⚠️ [REWARD PICKUP EMAIL] failed:', pickupEmailErr.message);
+      }
     }
 
     // Emit real-time notification to all connected clients with user identification

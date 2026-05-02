@@ -14,6 +14,90 @@ import 'utils/qr_validation_utils.dart';
 import 'utils/logger.dart';
 import 'constants/app_constants.dart';
 
+/// Barista-chosen unit price for an inventory line (first vs second price tier).
+const String _kBaristaUnitPrice = '_baristaUnitPrice';
+const String _kIsRewardRedemption = '_isRewardRedemption';
+const String _kRewardBucket = '_rewardBucket';
+const String _kRewardDescription = '_rewardDescription';
+
+String? _rewardBucketForInventoryCategory(String raw) {
+  final c = raw.trim().toLowerCase();
+  if (c == 'donuts' || c == 'donut') return 'donut';
+  if (c == 'drinks' || c == 'drink') return 'drink';
+  if (c == 'pastries' || c == 'pastry') return 'pastry';
+  if (c == 'pizzas' || c == 'pizza') return 'pizza';
+  return null;
+}
+
+String _freeRewardButtonLabel(String bucket) {
+  switch (bucket) {
+    case 'donut':
+      return 'Free Donut';
+    case 'drink':
+      return 'Free Drink';
+    case 'pastry':
+      return 'Free Pastry';
+    case 'pizza':
+      return 'Free Pizza';
+    default:
+      return 'Free Reward';
+  }
+}
+
+/// One line in the open transaction (paid tier, or reward pickup at ₱0).
+class _TxnLine {
+  final String itemName;
+  final double? unitPrice;
+  final String? rewardBucket;
+  final String? rewardDescription;
+
+  const _TxnLine(
+    this.itemName, {
+    this.unitPrice,
+    this.rewardBucket,
+    this.rewardDescription,
+  });
+
+  static const String _sep = '\u241e';
+  static const String _rw = '\u241e@RW@\u241e';
+
+  bool get isReward => rewardBucket != null && rewardBucket!.isNotEmpty;
+
+  String encodeKey() {
+    if (isReward) {
+      return '$itemName${_TxnLine._rw}$rewardBucket';
+    }
+    if (unitPrice != null) {
+      return '$itemName$_sep${unitPrice!.toStringAsFixed(2)}';
+    }
+    return itemName;
+  }
+
+  static _TxnLine decodeKey(String s) {
+    final rw = s.indexOf(_rw);
+    if (rw >= 0) {
+      final name = s.substring(0, rw).trim();
+      final bucket = s.substring(rw + _rw.length).trim();
+      return _TxnLine(name, rewardBucket: bucket.isEmpty ? null : bucket);
+    }
+    final i = s.indexOf(_sep);
+    if (i < 0) return _TxnLine(s.trim());
+    final name = s.substring(0, i).trim();
+    final p = double.tryParse(s.substring(i + _sep.length));
+    return _TxnLine(name, unitPrice: p);
+  }
+
+  String displayLabel() {
+    if (isReward) {
+      return '$itemName (${_freeRewardButtonLabel(rewardBucket!)})';
+    }
+    if (unitPrice == null) return itemName;
+    final p = unitPrice!;
+    final ps = p == p.roundToDouble() ? p.round().toString() : p.toStringAsFixed(2);
+    return '$itemName (₱$ps)';
+  }
+}
+
 class BaristaScannerPage extends StatefulWidget {
   final VoidCallback? onPointsUpdated;
   const BaristaScannerPage({super.key, this.onPointsUpdated});
@@ -37,7 +121,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
   
   // Transaction tracking
   String? _currentTransactionId;
-  final List<String> _currentTransactionItems = [];
+  final List<_TxnLine> _currentTransactionItems = [];
   DateTime? _transactionStartTime;
   static const Duration _transactionTimeout = AppConstants.transactionTimeout;
 
@@ -139,6 +223,118 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     return null;
   }
 
+  static final RegExp _reSelReward =
+      RegExp(r'^(.+)__rw_(donut|drink|pastry|pizza)$');
+  static final RegExp _reSelPrice = RegExp(r'^(.+)__p(\d+)$');
+
+  /// Dialog selection key → base Mongo id (strip `__rw_*` or `__p*` suffix).
+  String _selectionKeyToBaseId(String key) {
+    final rw = _reSelReward.firstMatch(key);
+    if (rw != null) return rw.group(1)!;
+    final m = _reSelPrice.firstMatch(key);
+    if (m != null) return m.group(1)!;
+    return key;
+  }
+
+  double? _selectionKeyToPrice(String key) {
+    if (_reSelReward.hasMatch(key)) return null;
+    final m = _reSelPrice.firstMatch(key);
+    if (m != null) return double.tryParse(m.group(2)!);
+    return null;
+  }
+
+  String? _selectionKeyRewardBucket(String key) {
+    return _reSelReward.firstMatch(key)?.group(2);
+  }
+
+  String _selectionKeyDual(String baseId, double price) =>
+      '${baseId}__p${price.round()}';
+
+  String _selectionKeyReward(String baseId, String bucket) =>
+      '${baseId}__rw_$bucket';
+
+  Map<String, dynamic>? _getItemBySelectionKey(String key) {
+    final rwBucket = _selectionKeyRewardBucket(key);
+    final bid = _selectionKeyToBaseId(key);
+    final inv = _getItemById(bid);
+    if (inv == null) return null;
+    if (rwBucket != null) {
+      final desc = '${_freeRewardButtonLabel(rwBucket)} — ${inv['name'] ?? ''}';
+      return {
+        ...inv,
+        _kIsRewardRedemption: true,
+        _kRewardBucket: rwBucket,
+        _kRewardDescription: desc,
+      };
+    }
+    final p = _selectionKeyToPrice(key);
+    if (p != null) {
+      return {...inv, _kBaristaUnitPrice: p};
+    }
+    return inv;
+  }
+
+  bool _itemHasDualPrice(Map<String, dynamic> item) {
+    final fp = _num(item['firstPrice']);
+    final sp = _num(item['secondPrice']);
+    return fp != null &&
+        fp > 0 &&
+        sp != null &&
+        sp > 0 &&
+        fp != sp;
+  }
+
+  /// One price tier for a dual-priced SKU (₱ button + optional qty stepper).
+  Widget _dualPriceTierColumn({
+    required String label,
+    required String selectionKey,
+    required Map<String, int> tempSelectedItems,
+    required void Function(void Function()) setState,
+  }) {
+    final q = tempSelectedItems[selectionKey] ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton(
+          onPressed: () {
+            setState(() {
+              final cur = tempSelectedItems[selectionKey] ?? 0;
+              tempSelectedItems[selectionKey] = cur + 1;
+            });
+          },
+          child: Text(label),
+        ),
+        if (q > 0) ...[
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, size: 18),
+                onPressed: () {
+                  setState(() {
+                    final cur = tempSelectedItems[selectionKey] ?? 0;
+                    if (cur > 1) {
+                      tempSelectedItems[selectionKey] = cur - 1;
+                    } else {
+                      tempSelectedItems.remove(selectionKey);
+                    }
+                  });
+                },
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                padding: EdgeInsets.zero,
+              ),
+              Text(
+                '$q',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
   static double? _num(dynamic v) {
     if (v == null) return null;
     if (v is num) return v.toDouble();
@@ -177,17 +373,19 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     return {'category': rawCategory.isNotEmpty ? rawCategory : 'General', 'itemType': 'food'};
   }
 
-  /// Builds line items for `/api/loyalty/scan-multiple` from the transaction name list.
+  /// Builds line items for `/api/loyalty/scan-multiple` from the transaction lines (incl. chosen price).
   List<Map<String, dynamic>> _buildLoyaltyLineItemsFromTransaction() {
     final counts = <String, int>{};
-    for (final name in _currentTransactionItems) {
-      final n = name.trim();
-      if (n.isEmpty) continue;
-      counts[n] = (counts[n] ?? 0) + 1;
+    for (final line in _currentTransactionItems) {
+      final k = line.encodeKey();
+      counts[k] = (counts[k] ?? 0) + 1;
     }
     final inv = InventoryScannerService.getAllItems();
     final lines = <Map<String, dynamic>>[];
-    counts.forEach((name, qty) {
+    counts.forEach((encKey, qty) {
+      final line = _TxnLine.decodeKey(encKey);
+      final name = line.itemName;
+      final chosen = line.unitPrice;
       Map<String, dynamic>? row;
       final nameLower = name.toLowerCase();
       for (final e in inv) {
@@ -196,14 +394,47 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
           break;
         }
       }
+      if (line.isReward) {
+        final bucket = line.rewardBucket ?? '';
+        if (row != null) {
+          final cat = (row['category'] ?? '').toString();
+          final m = _loyaltyCategoryAndType(cat);
+          final desc = line.rewardDescription ??
+              '${_freeRewardButtonLabel(bucket)} — ${row['name'] ?? name}';
+          lines.add({
+            'itemName': (row['name'] ?? name).toString(),
+            'itemType': m['itemType']!,
+            'category': m['category']!,
+            'price': 0,
+            'quantity': qty,
+            'isRewardRedemption': true,
+            'rewardBucket': bucket,
+            'rewardDescription': desc,
+          });
+        } else {
+          lines.add({
+            'itemName': name,
+            'itemType': 'unknown',
+            'category': 'General',
+            'price': 0,
+            'quantity': qty,
+            'isRewardRedemption': true,
+            'rewardBucket': bucket,
+            'rewardDescription':
+                line.rewardDescription ?? _freeRewardButtonLabel(bucket),
+          });
+        }
+        return;
+      }
       if (row != null) {
         final cat = (row['category'] ?? '').toString();
         final m = _loyaltyCategoryAndType(cat);
+        final unit = chosen ?? _unitPriceFromInventoryRow(row);
         lines.add({
           'itemName': (row['name'] ?? name).toString(),
           'itemType': m['itemType']!,
           'category': m['category']!,
-          'price': _unitPriceFromInventoryRow(row),
+          'price': unit,
           'quantity': qty,
         });
       } else {
@@ -211,7 +442,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
           'itemName': name,
           'itemType': 'unknown',
           'category': 'General',
-          'price': 0,
+          'price': chosen ?? 0,
           'quantity': qty,
         });
       }
@@ -818,7 +1049,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                   if (_currentTransactionItems.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Current Transaction: ${_currentTransactionItems.join(', ')}',
+                      'Current Transaction: ${_currentTransactionItems.map((l) => l.displayLabel()).join(', ')}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
@@ -855,11 +1086,26 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                                 children: tempSelectedItems.entries.map((entry) {
                                   final itemId = entry.key;
                                   final quantity = entry.value;
-                                  final item = _getItemById(itemId);
+                                  final item = _getItemBySelectionKey(itemId);
                                   final itemName = item?['name'] ?? 'Unknown Item';
+                                  final isRwChip = item?[_kIsRewardRedemption] == true;
+                                  final rwbChip = item?[_kRewardBucket] as String?;
+                                  final p = item?[_kBaristaUnitPrice];
+                                  var priceTag = '';
+                                  if (!isRwChip && p != null) {
+                                    final pd = p is num
+                                        ? p.toDouble()
+                                        : (double.tryParse(p.toString()) ?? 0);
+                                    priceTag = pd == pd.roundToDouble()
+                                        ? ' ₱${pd.round()}'
+                                        : ' ₱${pd.toStringAsFixed(2)}';
+                                  }
+                                  final rwTag = isRwChip && rwbChip != null
+                                      ? ' [${_freeRewardButtonLabel(rwbChip)}]'
+                                      : '';
                                   return Chip(
                                     label: Text(
-                                      '$itemName (x$quantity)',
+                                      '$itemName$priceTag$rwTag (x$quantity)',
                                       style: const TextStyle(fontSize: 10),
                                     ),
                                     deleteIcon: const Icon(Icons.close, size: 16),
@@ -950,13 +1196,18 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                     // Items list
                     Expanded(
                       child: () {
-                        // Combine filtered items with selected items from other categories
+                        // One row per inventory SKU; dual-priced items use two price buttons.
                         final Set<String> allItemIdsToShow = <String>{};
-                        allItemIdsToShow.addAll(filteredItems.map((item) => item['_id'] ?? '').where((id) => id.isNotEmpty).cast<String>());
-                        allItemIdsToShow.addAll(tempSelectedItems.keys);
-                        
+                        for (final fi in filteredItems) {
+                          final id = fi['_id']?.toString() ?? '';
+                          if (id.isNotEmpty) allItemIdsToShow.add(id);
+                        }
+                        for (final k in tempSelectedItems.keys) {
+                          allItemIdsToShow.add(_selectionKeyToBaseId(k));
+                        }
+
                         final List<String> itemIdsToShow = allItemIdsToShow.toList();
-                        
+
                         if (itemIdsToShow.isEmpty) {
                           return const Center(
                             child: Text(
@@ -965,19 +1216,113 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                             ),
                           );
                         }
-                        
+
                         return ListView.builder(
                           itemCount: itemIdsToShow.length,
                           itemBuilder: (context, index) {
-                            final itemId = itemIdsToShow[index];
-                            final item = _getItemById(itemId);
+                            final baseId = itemIdsToShow[index];
+                            final item = _getItemById(baseId);
                             if (item == null) return const SizedBox.shrink();
-                            
+
                             final itemName = item['name'] ?? 'Unknown Item';
                             final category = item['category'] ?? '';
-                            final currentQuantity = tempSelectedItems[itemId] ?? 0;
-                            final isInFilteredList = filteredItems.any((filteredItem) => filteredItem['_id'] == itemId);
-                            
+                            final rewardBucket =
+                                _rewardBucketForInventoryCategory(category);
+                            final dual = _itemHasDualPrice(item);
+                            final fp = _num(item['firstPrice']);
+                            final sp = _num(item['secondPrice']);
+
+                            int currentQuantity;
+                            String? keyFirst;
+                            String? keySecond;
+                            if (dual && fp != null && sp != null) {
+                              keyFirst = _selectionKeyDual(baseId, fp);
+                              keySecond = _selectionKeyDual(baseId, sp);
+                              currentQuantity =
+                                  (tempSelectedItems[keyFirst] ?? 0) +
+                                  (tempSelectedItems[keySecond] ?? 0);
+                            } else {
+                              currentQuantity = tempSelectedItems[baseId] ?? 0;
+                            }
+
+                            final isInFilteredList = filteredItems
+                                .any((filteredItem) => filteredItem['_id'] == baseId);
+
+                            Widget priceControls;
+                            if (dual && fp != null && sp != null && keyFirst != null && keySecond != null) {
+                              priceControls = Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: _dualPriceTierColumn(
+                                      label: '₱${fp.round()}',
+                                      selectionKey: keyFirst,
+                                      tempSelectedItems: tempSelectedItems,
+                                      setState: setState,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _dualPriceTierColumn(
+                                      label: '₱${sp.round()}',
+                                      selectionKey: keySecond,
+                                      tempSelectedItems: tempSelectedItems,
+                                      setState: setState,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            } else {
+                              priceControls = Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (currentQuantity > 0) ...[
+                                    IconButton(
+                                      icon: const Icon(Icons.remove, size: 18),
+                                      onPressed: () {
+                                        setState(() {
+                                          if (currentQuantity > 1) {
+                                            tempSelectedItems[baseId] = currentQuantity - 1;
+                                          } else {
+                                            tempSelectedItems.remove(baseId);
+                                          }
+                                        });
+                                      },
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                    Container(
+                                      width: 40,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '$currentQuantity',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  IconButton(
+                                    icon: const Icon(Icons.add, size: 18),
+                                    onPressed: () {
+                                      setState(() {
+                                        tempSelectedItems[baseId] = currentQuantity + 1;
+                                      });
+                                    },
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ],
+                              );
+                            }
+
                             return Card(
                               margin: const EdgeInsets.symmetric(vertical: 2),
                               color: currentQuantity > 0 ? Colors.blue.withOpacity(0.1) : null,
@@ -986,7 +1331,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Item name and category
                                     Text(
                                       itemName,
                                       style: TextStyle(
@@ -1000,62 +1344,48 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                                       Text(
                                         category,
                                         style: TextStyle(
-                                          fontSize: 12, 
+                                          fontSize: 12,
                                           color: isInFilteredList ? Colors.grey : Colors.grey.shade500,
                                         ),
                                       ),
                                     ],
+                                    if (!dual) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '₱${_unitPriceFromInventoryRow(item).round()}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.blueGrey.shade700,
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 8),
-                                    // Quantity controls below the text
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        // Quantity display and controls
-                                        if (currentQuantity > 0) ...[
-                                          IconButton(
-                                            icon: const Icon(Icons.remove, size: 18),
-                                            onPressed: () {
-                                              setState(() {
-                                                if (currentQuantity > 1) {
-                                                  tempSelectedItems[itemId] = currentQuantity - 1;
-                                                } else {
-                                                  tempSelectedItems.remove(itemId);
-                                                }
-                                              });
-                                            },
-                                            constraints: const BoxConstraints(
-                                              minWidth: 32,
-                                              minHeight: 32,
-                                            ),
-                                            padding: EdgeInsets.zero,
+                                    priceControls,
+                                    if (rewardBucket != null) ...[
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.deepPurple,
+                                            side: const BorderSide(
+                                                color: Colors.deepPurple),
                                           ),
-                                          Container(
-                                            width: 40,
-                                            alignment: Alignment.center,
-                                            child: Text(
-                                              '$currentQuantity',
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                        IconButton(
-                                          icon: const Icon(Icons.add, size: 18),
                                           onPressed: () {
                                             setState(() {
-                                              tempSelectedItems[itemId] = (currentQuantity + 1);
+                                              final rk = _selectionKeyReward(
+                                                  baseId, rewardBucket);
+                                              tempSelectedItems[rk] =
+                                                  (tempSelectedItems[rk] ?? 0) +
+                                                      1;
                                             });
                                           },
-                                          constraints: const BoxConstraints(
-                                            minWidth: 32,
-                                            minHeight: 32,
-                                          ),
-                                          padding: EdgeInsets.zero,
+                                          child: Text(
+                                              _freeRewardButtonLabel(rewardBucket)),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -1086,11 +1416,10 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                           // Convert selected items with quantities to item objects
                           final selectedItems = <Map<String, dynamic>>[];
                           tempSelectedItems.forEach((itemId, quantity) {
-                            final item = _getItemById(itemId);
+                            final item = _getItemBySelectionKey(itemId);
                             if (item != null) {
-                              // Add the item multiple times based on quantity
                               for (int i = 0; i < quantity; i++) {
-                                selectedItems.add(item);
+                                selectedItems.add(Map<String, dynamic>.from(item));
                               }
                             }
                           });
@@ -1125,16 +1454,26 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     final selectedItemsList =
         List<Map<String, dynamic>>.from(selectedItems);
     
-    // Process selected items (all items can complete transactions)
-    // Group items by ID and count quantities
+    // Group by inventory id + chosen price tier (dual-priced SKUs may appear twice).
     Map<String, Map<String, dynamic>> itemQuantities = {};
     for (Map<String, dynamic> item in selectedItemsList) {
       final itemId = item['_id'] ?? '';
-      
-      if (itemQuantities.containsKey(itemId)) {
-        itemQuantities[itemId]!['quantity'] = (itemQuantities[itemId]!['quantity'] as int) + 1;
+      final isRw = item[_kIsRewardRedemption] == true;
+      final rwb = item[_kRewardBucket] as String?;
+      final rawP = item[_kBaristaUnitPrice];
+      final priceKey = !isRw && rawP != null
+          ? (rawP is num ? rawP.toDouble() : (double.tryParse(rawP.toString()) ?? 0))
+              .toStringAsFixed(2)
+          : '';
+      final groupKey = isRw && rwb != null && rwb.isNotEmpty
+          ? '${itemId}_rw_$rwb'
+          : (priceKey.isNotEmpty ? '${itemId}_$priceKey' : itemId);
+
+      if (itemQuantities.containsKey(groupKey)) {
+        itemQuantities[groupKey]!['quantity'] =
+            (itemQuantities[groupKey]!['quantity'] as int) + 1;
       } else {
-        itemQuantities[itemId] = {
+        itemQuantities[groupKey] = {
           'item': item,
           'quantity': 1,
         };
@@ -1142,21 +1481,42 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     }
     
     List<String> processedItemNames = [];
-    for (String itemId in itemQuantities.keys) {
-      final itemData = itemQuantities[itemId]!;
+    for (final groupKey in itemQuantities.keys) {
+      final itemData = itemQuantities[groupKey]!;
       final item = itemData['item'] as Map<String, dynamic>;
       final quantity = itemData['quantity'] as int;
+      final mongoId = item['_id']?.toString() ?? '';
       final itemName = item['name'] ?? 'Unknown Item';
       final currentStock = item['currentStock'] ?? 0;
       final isMenu = item['isMenu'] ?? false;
+
+      Logger.debug(
+          'Processing item: $itemName (ID: $mongoId, isMenu: $isMenu, stock: $currentStock, quantity: $quantity)',
+          'TRANSACTION');
       
-      Logger.debug('Processing item: $itemName (ID: $itemId, isMenu: $isMenu, stock: $currentStock, quantity: $quantity)', 'TRANSACTION');
-      
+      final isRwLine = item[_kIsRewardRedemption] == true;
+      double? chosenPrice;
+      if (!isRwLine) {
+        final rawBp = item[_kBaristaUnitPrice];
+        if (rawBp != null) {
+          chosenPrice = rawBp is num
+              ? rawBp.toDouble()
+              : double.tryParse(rawBp.toString());
+        }
+      }
+
       // For pure menu items (no inventory), we don't need to check stock or decrease it
       if (isMenu) {
-        // Add menu item to transaction multiple times based on quantity
         for (int i = 0; i < quantity; i++) {
-          _addItemToTransaction(itemName);
+          if (isRwLine) {
+            _addItemToTransaction(
+              itemName,
+              rewardBucket: item[_kRewardBucket] as String?,
+              rewardDescription: item[_kRewardDescription] as String?,
+            );
+          } else {
+            _addItemToTransaction(itemName, unitPrice: chosenPrice);
+          }
           processedItemNames.add(itemName);
         }
         Logger.success('Successfully processed menu item: $itemName (x$quantity)', 'MENU');
@@ -1164,11 +1524,12 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
       }
       
       // For inventory items (including menu variations that map to inventory), try to decrease stock
-      Logger.debug('Attempting to decrease stock for inventory item: $itemName (ID: $itemId, quantity: $quantity)', 'INVENTORY');
+      Logger.debug(
+          'Attempting to decrease stock for inventory item: $itemName (ID: $mongoId, quantity: $quantity)',
+          'INVENTORY');
       
-      // Decrease stock by the total quantity
       final stockResult = await InventoryScannerService.decreaseStock(
-        itemId: itemId,
+        itemId: mongoId,
         quantity: quantity,
         reason: 'Sold via QR scan',
       );
@@ -1199,9 +1560,16 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
         Logger.warning('Stock decrease failed for $itemName (x$quantity) - but allowing transaction to continue', 'INVENTORY');
       }
       
-      // Always add to transaction regardless of stock update result
       for (int i = 0; i < quantity; i++) {
-        _addItemToTransaction(itemName);
+        if (isRwLine) {
+          _addItemToTransaction(
+            itemName,
+            rewardBucket: item[_kRewardBucket] as String?,
+            rewardDescription: item[_kRewardDescription] as String?,
+          );
+        } else {
+          _addItemToTransaction(itemName, unitPrice: chosenPrice);
+        }
         processedItemNames.add(itemName);
       }
     }
@@ -1361,20 +1729,37 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     Logger.transaction('Started new transaction (ID: $_currentTransactionId) for QR: $qrCode');
   }
   
-  // Add item to current transaction
-  void _addItemToTransaction(String item) {
-    _currentTransactionItems.add(item);
-    Logger.transaction('Added item: $item (Total items: ${_currentTransactionItems.length})');
+  void _addItemToTransaction(
+    String itemName, {
+    double? unitPrice,
+    String? rewardBucket,
+    String? rewardDescription,
+  }) {
+    final n = itemName.trim();
+    if (n.isEmpty) return;
+    final rb =
+        (rewardBucket != null && rewardBucket.isNotEmpty) ? rewardBucket : null;
+    final line = _TxnLine(
+      n,
+      unitPrice: rb != null ? null : unitPrice,
+      rewardBucket: rb,
+      rewardDescription: rewardDescription,
+    );
+    _currentTransactionItems.add(line);
+    Logger.transaction(
+        'Added item: ${line.displayLabel()} (Total items: ${_currentTransactionItems.length})');
   }
   
   // Complete transaction and add points
   Future<void> _completeTransaction(String qrCode, String selectedDrink) async {
     if (selectedDrink.trim().isNotEmpty) {
-      _addItemToTransaction(selectedDrink);
+      _addItemToTransaction(selectedDrink, unitPrice: null);
     }
 
-    String transactionSummary =
-        _currentTransactionItems.where((s) => s.trim().isNotEmpty).join(', ');
+    String transactionSummary = _currentTransactionItems
+        .map((l) => l.displayLabel())
+        .where((s) => s.trim().isNotEmpty)
+        .join(', ');
     Logger.transaction('Completing transaction with items: $transactionSummary');
 
     final lineItems = _buildLoyaltyLineItemsFromTransaction();
