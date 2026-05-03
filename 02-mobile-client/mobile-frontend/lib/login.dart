@@ -184,12 +184,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 40),
-          _buildLabel("Email Address"),
-          _buildInputField(emailController, hintText: "Enter your email"),
-          const SizedBox(height: 20),
-          _buildLabel("Password"),
-          _buildInputField(passwordController, hintText: "Enter your password", isPassword: true),
+          // Match [SignupPage._buildForm]: section title, then 0.03 vertical gap before first field group.
+          _buildLabel('Login Your Account', mediaSize),
+          SizedBox(height: mediaSize.height * 0.03),
+          _buildLabel('Email Address', mediaSize),
+          const SizedBox(height: 8),
+          _buildInputField(emailController, hintText: 'Enter your email'),
+          SizedBox(height: mediaSize.height * 0.02),
+          _buildLabel('Password', mediaSize),
+          const SizedBox(height: 8),
+          _buildInputField(passwordController, hintText: 'Enter your password', isPassword: true),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -225,12 +229,20 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
  
  
  
-  Widget _buildLabel(String text) {
-    return Text(text, style: const TextStyle(color: Colors.black));
+  /// Same typography as [SignupPage._buildLabel] (bold w600, 14/16 by width).
+  Widget _buildLabel(String text, Size size) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: Colors.black,
+        fontSize: size.width < 400 ? 14 : 16,
+        fontWeight: FontWeight.w600,
+      ),
+    );
   }
- 
+
   Widget _buildInputField(TextEditingController controller,
-      {bool isPassword = false, String hintText = ""}) {
+      {bool isPassword = false, String hintText = ''}) {
     return TextField(
       controller: controller,
       keyboardType: isPassword ? TextInputType.text : TextInputType.emailAddress,
@@ -238,7 +250,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       decoration: InputDecoration(
         hintText: hintText,
         prefixIcon: Icon(
-          isPassword ? Icons.lock : Icons.email,
+          isPassword ? Icons.lock_outline : Icons.email_outlined,
           color: Colors.grey[600],
         ),
         suffixIcon: isPassword
