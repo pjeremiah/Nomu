@@ -220,10 +220,12 @@ function checkCustomerLimits(customerId) {
     throw new Error('Daily scan limit exceeded');
   }
   
+  // Daily points earned today (do not use cumulative customerData.points — it never reset per day)
+  const pointsEarnedToday = dailyScans.reduce((sum, scan) => sum + (Number(scan.points) || 0), 0);
+  
   // Check daily points limit
-  if (customerData.points >= config.customerMaxPointsPerDay) {
-    // Send notification to customer about points limit reached
-    notifyCustomerScanLimit(customerId, 'daily_points', customerData.points, config.customerMaxPointsPerDay);
+  if (pointsEarnedToday >= config.customerMaxPointsPerDay) {
+    notifyCustomerScanLimit(customerId, 'daily_points', pointsEarnedToday, config.customerMaxPointsPerDay);
     throw new Error('Daily points limit exceeded');
   }
   
@@ -235,8 +237,8 @@ function checkCustomerLimits(customerId) {
     notifyCustomerApproachingLimit(customerId, 'daily_scans', dailyScans.length, config.customerMaxScansPerDay);
   }
   
-  if (customerData.points >= pointsWarningThreshold && customerData.points < config.customerMaxPointsPerDay) {
-    notifyCustomerApproachingLimit(customerId, 'daily_points', customerData.points, config.customerMaxPointsPerDay);
+  if (pointsEarnedToday >= pointsWarningThreshold && pointsEarnedToday < config.customerMaxPointsPerDay) {
+    notifyCustomerApproachingLimit(customerId, 'daily_points', pointsEarnedToday, config.customerMaxPointsPerDay);
   }
   
   return true;
@@ -258,7 +260,6 @@ function recordCustomerScan(customerId, pointsEarned = 1) {
   
   // Record scan and points
   customerData.daily.push({ date: today, timestamp: now, points: pointsEarned });
-  customerData.points += pointsEarned;
   customerData.lastScan = now;
   
   // Clean up old data (keep only last 7 days)

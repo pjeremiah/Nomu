@@ -34,6 +34,22 @@ int _parseIntSafe(dynamic v, [int fallback = 0]) {
   return fallback;
 }
 
+DateTime? _parseLoyaltyDate(dynamic v) {
+  if (v == null) return null;
+  if (v is DateTime) return v;
+  return DateTime.tryParse(v.toString());
+}
+
+bool _parseBoolSafe(dynamic v, [bool fallback = false]) {
+  if (v is bool) return v;
+  if (v == null) return fallback;
+  if (v is num) return v != 0;
+  final s = v.toString().toLowerCase();
+  if (s == 'true') return true;
+  if (s == 'false') return false;
+  return fallback;
+}
+
 class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin {
   int? points;
   bool isLoading = true;
@@ -55,6 +71,10 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   Map<String, bool> rewardClaimedStatus = {}; // Track which rewards have been claimed
   Map<String, DateTime> sessionClaimedRewards = {}; // Track rewards claimed in current session
   int currentCycle = 1; // Track current reward cycle
+  /// Server-driven 24h Claim windows + expiry flags (`tier5ClaimBy`, `tier10ClaimBy`, `tier5Expired`, …).
+  Map<String, dynamic>? loyaltyWindows;
+  /// Used with [userId] on socket events so we only react to this customer (not every broadcast).
+  String? _loyaltyUserId;
 
   // Animation controllers
   late AnimationController _fadeController;
@@ -80,6 +100,56 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
 
   /// Set when dispose() runs so we never use animation controllers after dispose (avoids crash).
   bool _controllersDisposed = false;
+
+  bool _isTenStampRewardBanner(int pointsRequired, String rewardTypeLower) {
+    if (pointsRequired >= 10) return true;
+    final t = rewardTypeLower.toLowerCase();
+    return t.contains('pizza') || t.contains('coffee');
+  }
+
+  DateTime? _activeClaimDeadlineForBanner(int pointsRequired, String rewardTypeLower) {
+    final lw = loyaltyWindows;
+    if (lw == null) return null;
+    final ten = _isTenStampRewardBanner(pointsRequired, rewardTypeLower);
+    return _parseLoyaltyDate(ten ? lw['tier10ClaimBy'] : lw['tier5ClaimBy']);
+  }
+
+  bool _claimWindowOpenForBanner(int pointsRequired, String rewardTypeLower) {
+    final end = _activeClaimDeadlineForBanner(pointsRequired, rewardTypeLower);
+    if (end == null) return false;
+    return end.isAfter(DateTime.now());
+  }
+
+  bool _tierWindowExpiredForBanner(int pointsRequired, String rewardTypeLower) {
+    final lw = loyaltyWindows;
+    if (lw == null) return false;
+    if (_isTenStampRewardBanner(pointsRequired, rewardTypeLower)) {
+      final d = _parseLoyaltyDate(lw['tier10ClaimBy']);
+      if (d != null && !d.isAfter(DateTime.now())) return true;
+      return false;
+    }
+    if (_parseBoolSafe(lw['tier5Expired'])) return true;
+    final d = _parseLoyaltyDate(lw['tier5ClaimBy']);
+    if (d != null && !d.isAfter(DateTime.now())) return true;
+    return false;
+  }
+
+  String? _countdownLabelForBanner(int pointsRequired, String rewardTypeLower) {
+    final end = _activeClaimDeadlineForBanner(pointsRequired, rewardTypeLower);
+    if (end == null || !end.isAfter(DateTime.now())) return null;
+    final d = end.difference(DateTime.now());
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    return '${h}h ${m}m ${s}s';
+  }
+
+  Map<String, dynamic>? _readLoyaltyWindows(Map<String, dynamic>? u) {
+    if (u == null) return null;
+    final raw = u['loyaltyWindows'];
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
 
   @override
   void initState() {
@@ -175,9 +245,12 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
           final userId = userResponse['_id'] ?? userResponse['id'];
           final userCycle = _parseIntSafe(userResponse['currentCycle'], 1);
           if (mounted) {
+            final uid = userResponse['_id']?.toString() ?? userResponse['id']?.toString();
             setState(() {
               points = userPoints;
               currentCycle = userCycle;
+              loyaltyWindows = _readLoyaltyWindows(userResponse);
+              if (uid != null) _loyaltyUserId = uid;
               isLoading = false;
             });
           }
@@ -359,12 +432,17 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
             
             LoggingService.instance.loyalty('Checking user match - received: $receivedQrToken, current: ${widget.qrToken}, userId: $receivedUserId');
         
-            // Only update if this is for the current user
-            if (mounted && (receivedQrToken == widget.qrToken || receivedUserId != null)) {
+            final idMatch = receivedUserId != null &&
+                _loyaltyUserId != null &&
+                receivedUserId == _loyaltyUserId;
+            final qrMatch = receivedQrToken != null && receivedQrToken == widget.qrToken;
+            if (mounted && (qrMatch || idMatch)) {
               LoggingService.instance.loyalty('User match confirmed, updating loyalty card');
               _refreshPointsFromSocket(data);
             } else {
-              LoggingService.instance.loyalty('Update not for current user, ignoring - mounted: $mounted, qrMatch: ${receivedQrToken == widget.qrToken}, hasUserId: ${receivedUserId != null}');
+              LoggingService.instance.loyalty(
+                'Update not for current user, ignoring - qrMatch: $qrMatch, idMatch: $idMatch',
+              );
             }
           } catch (e) {
             LoggingService.instance.error('Error processing socket data', e);
@@ -536,6 +614,19 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         iconColor = Colors.yellow;
       }
             
+      final pickupFulfilled = data['rewardPickupsFulfilled'];
+      if (pickupFulfilled is List && pickupFulfilled.isNotEmpty && mounted) {
+        try {
+          final uid = _loyaltyUserId ?? await ApiService.getUserIdByQrToken(widget.qrToken, forceRefresh: true);
+          if (uid != null && mounted) {
+            _loyaltyUserId = uid;
+            await fetchRewardHistory(forceRefresh: true, cachedUserId: uid);
+          }
+        } catch (e, st) {
+          LoggingService.instance.warning('Reward history refresh after pickup failed', e, st);
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1151,9 +1242,12 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
           }
           
           if (mounted) {
+            final uid = response['_id']?.toString() ?? response['id']?.toString();
             setState(() {
               points = validatedPoints;
               currentCycle = fetchedCycle;
+              loyaltyWindows = _readLoyaltyWindows(response);
+              if (uid != null) _loyaltyUserId = uid;
               isLoading = false;
             });
             
@@ -1430,6 +1524,7 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                               ),
                             ),
                           ),
+                        if (!isLoading && errorMsg == null && points != null) _buildPendingShopPickupCard(),
                         if (!isLoading && errorMsg == null && points != null)
                           ...(_isLoadingRewards && activeRewards.isEmpty
                               ? [const Padding(
@@ -1672,6 +1767,151 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   ];
 
   /// Safe wrapper so a single bad reward never crashes the page.
+  String _shopPickupRewardTitle(String typeLower) {
+    switch (typeLower) {
+      case 'donut':
+        return 'Free donut';
+      case 'pastry':
+        return 'Free pastry';
+      case 'coffee':
+        return 'Free coffee';
+      case 'pizza':
+        return 'Free pizza';
+      default:
+        return 'Free reward';
+    }
+  }
+
+  DateTime? _effectiveShopPickupDeadline(Map<String, dynamic> row) {
+    final pd = _parseLoyaltyDate(row['pickupDeadline']);
+    if (pd != null) return pd;
+    final c = _parseLoyaltyDate(row['date']);
+    if (c != null) return c.add(const Duration(days: 14));
+    return null;
+  }
+
+  /// Claims in app but not yet handed over at the counter (or legacy 14-day window).
+  List<Map<String, dynamic>> _openShopPickupsFromHistory() {
+    final now = DateTime.now();
+    final byType = <String, Map<String, dynamic>>{};
+    for (final row in rewardsHistory) {
+      final fulfilled = row['fulfilledAt'];
+      if (fulfilled != null && fulfilled.toString().trim().isNotEmpty && fulfilled.toString() != 'null') {
+        continue;
+      }
+      final t = (row['type'] ?? '').toString().toLowerCase();
+      if (t.isEmpty) continue;
+      final cd = _parseLoyaltyDate(row['date']);
+      final prev = byType[t];
+      if (prev != null) {
+        final prevD = _parseLoyaltyDate(prev['date']);
+        if (cd != null && prevD != null && cd.isBefore(prevD)) continue;
+      }
+      byType[t] = Map<String, dynamic>.from(row);
+    }
+    final out = <Map<String, dynamic>>[];
+    for (final row in byType.values) {
+      final deadline = _parseLoyaltyDate(row['pickupDeadline']);
+      final claimDate = _parseLoyaltyDate(row['date']) ?? DateTime.now();
+      var open = false;
+      if (deadline != null) {
+        open = deadline.isAfter(now);
+      } else {
+        open = now.difference(claimDate) <= const Duration(days: 14);
+      }
+      if (open) out.add(row);
+    }
+    out.sort((a, b) {
+      final da = _effectiveShopPickupDeadline(a) ?? DateTime(2100);
+      final db = _effectiveShopPickupDeadline(b) ?? DateTime(2100);
+      return da.compareTo(db);
+    });
+    return out;
+  }
+
+  String? _formatRemainingClock(DateTime end) {
+    if (!end.isAfter(DateTime.now())) return null;
+    final d = end.difference(DateTime.now());
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    return '${h}h ${m}m ${s}s';
+  }
+
+  Widget _buildPendingShopPickupCard() {
+    if (isLoading || errorMsg != null || points == null) return const SizedBox.shrink();
+    final open = _openShopPickupsFromHistory();
+    if (open.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
+      child: Card(
+        elevation: 2,
+        color: const Color(0xFFE8F5E9),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.store_mall_directory, color: Colors.green.shade800, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pick up at the café',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.green.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Show your loyalty QR to a barista before the timer ends. The register records when the free item is given.',
+                style: TextStyle(fontSize: 12.5, color: Colors.grey.shade800, height: 1.35),
+              ),
+              const SizedBox(height: 10),
+              ...open.map((row) {
+                final t = (row['type'] ?? '').toString().toLowerCase();
+                final title = _shopPickupRewardTitle(t);
+                final end = _effectiveShopPickupDeadline(row);
+                final clock = end != null ? _formatRemainingClock(end) : null;
+                final legacy = row['pickupDeadline'] == null;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      if (clock != null)
+                        Text(
+                          'Time left to collect: $clock',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.orange.shade900,
+                          ),
+                        )
+                      else if (legacy)
+                        const Text(
+                          'Visit soon — legacy claim (ask staff if unsure)',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildDynamicRewardBannersSafe(BuildContext context, [Animation<double>? animation]) {
     try {
       // Removed animation parameter usage to prevent rebuild loops causing MouseTracker errors
@@ -1747,7 +1987,11 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                 rewardType: rewardType,
                 bannerColor: bannerColor,
                 iconName: iconName,
-                isClaimable: hasEnoughPoints && !isClaimed,
+                isClaimable: hasEnoughPoints &&
+                    !isClaimed &&
+                    (!_tierWindowExpiredForBanner(pointsRequired, rewardType.toLowerCase()) &&
+                        (_claimWindowOpenForBanner(pointsRequired, rewardType.toLowerCase()) ||
+                            _activeClaimDeadlineForBanner(pointsRequired, rewardType.toLowerCase()) == null)),
               ),
             ),
           ),
@@ -1838,8 +2082,56 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                   final alreadyClaimed = rewardClaimedStatus[rewardId] == true;
                   final currentPoints = points ?? 0;
                   final canClaimNow = currentPoints >= pointsRequired;
+                  final rtl = rewardType.toLowerCase();
                   final isDonutReward = pointsRequired == 5;
                   final isCoffeeReward = pointsRequired == 10;
+
+                  Widget claimButton(void Function()? onPressed, {String label = 'Claim'}) {
+                    return ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF242C5B),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        minimumSize: const Size(72, 36),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: onPressed,
+                      child: _isClaimingReward
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(label),
+                    );
+                  }
+
+                  Widget claimColumn(void Function()? onPressed, {String label = 'Claim'}) {
+                    final cd = _countdownLabelForBanner(pointsRequired, rtl);
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (cd != null && onPressed != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              'Claim within $cd',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: luminance > 0.5 ? Colors.black87 : Colors.white,
+                              ),
+                              textAlign: TextAlign.end,
+                            ),
+                          ),
+                        claimButton(onPressed, label: label),
+                      ],
+                    );
+                  }
 
                   // Donut (5 points): show "Claim" only if not already claimed this cycle.
                   if (isDonutReward) {
@@ -1850,27 +2142,22 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                       );
                     }
                     if (canClaimNow) {
-                      return ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF242C5B),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          minimumSize: const Size(72, 36),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: _isClaimingReward ? null : () {
-                          _claimDynamicReward(context, rewardId, pointsRequired, rewardType, title);
-                        },
-                        child: _isClaimingReward
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text('Claim'),
+                      final expired = _tierWindowExpiredForBanner(pointsRequired, rtl);
+                      if (expired) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('Expired', style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                        );
+                      }
+                      final windowOpen = _claimWindowOpenForBanner(pointsRequired, rtl);
+                      final dl = _activeClaimDeadlineForBanner(pointsRequired, rtl);
+                      final canPress = !expired && (windowOpen || dl == null);
+                      return claimColumn(
+                        _isClaimingReward || !canPress
+                            ? null
+                            : () {
+                                _claimDynamicReward(context, rewardId, pointsRequired, rewardType, title);
+                              },
                       );
                     }
                     return Padding(
@@ -1891,27 +2178,22 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                       );
                     }
                     if (canClaimNow) {
-                      return ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF242C5B),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          minimumSize: const Size(72, 36),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: _isClaimingReward ? null : () {
-                          _claimDynamicReward(context, rewardId, pointsRequired, rewardType, title);
-                        },
-                        child: _isClaimingReward
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text('Claim'),
+                      final expired = _tierWindowExpiredForBanner(pointsRequired, rtl);
+                      if (expired) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('Expired', style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                        );
+                      }
+                      final windowOpen = _claimWindowOpenForBanner(pointsRequired, rtl);
+                      final dl = _activeClaimDeadlineForBanner(pointsRequired, rtl);
+                      final canPress = !expired && (windowOpen || dl == null);
+                      return claimColumn(
+                        _isClaimingReward || !canPress
+                            ? null
+                            : () {
+                                _claimDynamicReward(context, rewardId, pointsRequired, rewardType, title);
+                              },
                       );
                     }
                     if (alreadyClaimed) {
@@ -2071,7 +2353,9 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Reward claimed!'),
-                  content: Text('You\'re in! You claimed: $title. Claim at any Nomu Cafe branch.'),
+                  content: Text(
+                    'You\'re in! You claimed: $title. Visit any Nomu Café within 24 hours (same day) and show your QR so a barista can complete your pickup.',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
@@ -2243,6 +2527,46 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
               Text(dateStr, style: TextStyle(color: Colors.grey[600])),
               if (r['cycle'] != null)
                 Text('Cycle ${r['cycle']}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+              Builder(
+                builder: (context) {
+                  final fulfilledAt = _parseLoyaltyDate(r['fulfilledAt']);
+                  if (fulfilledAt != null) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Picked up at café · ${fulfilledAt.toLocal().toString().split('.').first}',
+                        style: TextStyle(
+                          color: Colors.green.shade800,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  }
+                  final deadline = _parseLoyaltyDate(r['pickupDeadline']);
+                  final now = DateTime.now();
+                  if (deadline != null && deadline.isAfter(now)) {
+                    final left = _formatRemainingClock(deadline);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        left != null ? 'Awaiting pickup at café · $left left' : 'Awaiting pickup at café',
+                        style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                    );
+                  }
+                  if (deadline != null && !deadline.isAfter(now)) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Pickup window ended (not recorded at counter)',
+                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ),
           trailing: localDate != null
@@ -2423,14 +2747,10 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   // Start time update timer for real-time relative dates
   void _startTimeUpdateTimer() {
     _timeUpdateTimer?.cancel();
-    _timeUpdateTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted && rewardsHistory.isNotEmpty) {
-        // Trigger a rebuild to update relative time display
-        if (mounted) {
-          setState(() {
-            // This will cause the reward history to rebuild with updated times
-          });
-        }
+    _timeUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (loyaltyWindows != null || rewardsHistory.isNotEmpty) {
+        setState(() {});
       }
     });
   }

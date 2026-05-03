@@ -145,6 +145,9 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
   DateTime? _transactionStartTime;
   static const Duration _transactionTimeout = AppConstants.transactionTimeout;
 
+  /// Physical stock is reduced only after `/loyalty/scan-multiple` succeeds (see `_applyPendingStockDecreases`).
+  final List<Map<String, dynamic>> _pendingStockDecreases = [];
+
   @override
   void initState() {
     super.initState();
@@ -1566,43 +1569,16 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
         continue;
       }
       
-      // For inventory items (including menu variations that map to inventory), try to decrease stock
+      // Inventory: defer stock decrease until loyalty API succeeds (avoids selling stock when scan fails).
       Logger.debug(
-          'Attempting to decrease stock for inventory item: $itemName (ID: $mongoId, quantity: $quantity)',
+          'Queueing stock decrease for after loyalty success: $itemName (ID: $mongoId, quantity: $quantity)',
           'INVENTORY');
-      
-      final stockResult = await InventoryScannerService.decreaseStock(
+      _queueInventoryStockForCompletion(
         itemId: mongoId,
         quantity: quantity,
-        reason: 'Sold via QR scan',
+        itemName: itemName,
       );
-      
-      Logger.debug('Stock decrease result for $itemName (x$quantity): $stockResult', 'INVENTORY');
-      
-      if (stockResult != null && stockResult.containsKey('error')) {
-        Logger.warning('Failed to decrease stock for $itemName (x$quantity): ${stockResult['error']} - but allowing transaction to continue', 'INVENTORY');
-        // Show warning to user but don't block transaction
-        if (mounted) {
-          CustomToast.showWarning(
-            context,
-            message: 'Could not update stock for $itemName (x$quantity), but transaction will continue',
-            duration: const Duration(seconds: 3),
-          );
-        }
-      } else if (stockResult != null && stockResult.containsKey('item')) {
-        // Show success feedback
-        if (mounted) {
-          CustomToast.showSuccess(
-            context,
-            message: 'Stock decreased for $itemName (x$quantity)',
-              duration: const Duration(seconds: 2),
-          );
-        }
-        Logger.success('Successfully processed $itemName (x$quantity) and decreased stock', 'INVENTORY');
-      } else {
-        Logger.warning('Stock decrease failed for $itemName (x$quantity) - but allowing transaction to continue', 'INVENTORY');
-      }
-      
+
       for (int i = 0; i < quantity; i++) {
         if (isRwLine) {
           _addItemToTransaction(
@@ -1768,8 +1744,68 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
   void _startNewTransaction(String qrCode) {
     _currentTransactionId = DateTime.now().millisecondsSinceEpoch.toString();
     _currentTransactionItems.clear();
+    _pendingStockDecreases.clear();
     _transactionStartTime = DateTime.now();
     Logger.transaction('Started new transaction (ID: $_currentTransactionId) for QR: $qrCode');
+  }
+
+  void _queueInventoryStockForCompletion({
+    required String itemId,
+    required int quantity,
+    required String itemName,
+  }) {
+    if (itemId.isEmpty || quantity <= 0) return;
+    final i = _pendingStockDecreases.indexWhere((e) => e['itemId'] == itemId);
+    if (i >= 0) {
+      _pendingStockDecreases[i]['quantity'] =
+          (_pendingStockDecreases[i]['quantity'] as int) + quantity;
+    } else {
+      _pendingStockDecreases.add({
+        'itemId': itemId,
+        'quantity': quantity,
+        'itemName': itemName,
+      });
+    }
+  }
+
+  Future<void> _applyPendingStockDecreases() async {
+    for (final p in List<Map<String, dynamic>>.from(_pendingStockDecreases)) {
+      final mongoId = p['itemId'] as String? ?? '';
+      final quantity = p['quantity'] as int? ?? 0;
+      final itemName = p['itemName'] as String? ?? 'Item';
+      if (mongoId.isEmpty || quantity <= 0) continue;
+
+      final stockResult = await InventoryScannerService.decreaseStock(
+        itemId: mongoId,
+        quantity: quantity,
+        reason: 'Sold via QR scan',
+      );
+
+      if (stockResult != null && stockResult.containsKey('error')) {
+        Logger.warning(
+            'Post-sale stock update failed for $itemName (x$quantity): ${stockResult['error']}',
+            'INVENTORY');
+        if (mounted) {
+          CustomToast.showWarning(
+            context,
+            message:
+                'Loyalty saved but stock sync failed for $itemName — adjust inventory in admin if needed',
+            duration: const Duration(seconds: 4),
+          );
+        }
+      } else if (stockResult != null && stockResult.containsKey('item')) {
+        if (mounted) {
+          CustomToast.showSuccess(
+            context,
+            message: 'Stock decreased for $itemName (x$quantity)',
+            duration: const Duration(seconds: 2),
+          );
+        }
+        Logger.success(
+            'Stock decreased after successful loyalty: $itemName (x$quantity)', 'INVENTORY');
+      }
+    }
+    _pendingStockDecreases.clear();
   }
   
   void _addItemToTransaction(
@@ -1834,21 +1870,36 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
     if (result != null) {
       // Check if this is an error response (400 or 429 status)
       if (result.containsKey('error')) {
-        Logger.error('Error response detected: ${result['error']}', 'TRANSACTION');
-        Logger.transaction('Points in error response: ${result['points']}');
-        
-        // Check if it's a rate limit error (429)
-        if (result['code'] == 'RATE_LIMIT_EXCEEDED' || result['statusCode'] == 429) {
+        final err = result['error']?.toString() ?? 'Unknown error';
+        final code = result['code']?.toString();
+        final statusCode = result['statusCode'];
+        Logger.error('Error response detected: $err (code: $code)', 'TRANSACTION');
+
+        if (code == 'RATE_LIMIT_EXCEEDED' || statusCode == 429) {
           Logger.error('Rate limit exceeded - customer has reached daily scan limit', 'TRANSACTION');
           await _showRateLimitDialog(result);
-        } else {
-          // Handle other error cases - customer has reached maximum points
+        } else if (_isLoyaltyCardFullError(code, err)) {
           await _showCardFullDialog(result);
+        } else if (code == 'REWARD_ALREADY_PICKED_UP' ||
+            code == 'REWARD_PICKUP_EXPIRED' ||
+            code == 'REWARD_NOT_CLAIMED') {
+          final detail = result['message']?.toString();
+          final title = code == 'REWARD_ALREADY_PICKED_UP'
+              ? 'Already picked up'
+              : (code == 'REWARD_PICKUP_EXPIRED' ? 'Pickup window ended' : 'Claim in app first');
+          final msg = (detail != null && detail.isNotEmpty) ? detail : err;
+          _showErrorDialog(title, msg);
+        } else {
+          final detail = result['message']?.toString();
+          final msg = (detail != null && detail.isNotEmpty && detail != err)
+              ? '$err\n\n$detail'
+              : err;
+          _showErrorDialog('Transaction Failed', msg);
         }
         _resetTransaction();
       } else {
         Logger.success('Success response detected', 'TRANSACTION');
-        // Show success dialog with transaction details
+        await _applyPendingStockDecreases();
         await _showTransactionSuccessDialog(result, transactionSummary);
         _resetTransaction();
       }
@@ -1864,8 +1915,27 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
   void _resetTransaction() {
     _currentTransactionId = null;
     _currentTransactionItems.clear();
+    _pendingStockDecreases.clear();
     _transactionStartTime = null;
     Logger.transaction('Transaction reset');
+  }
+
+  bool _isLoyaltyCardFullError(String? code, String err) {
+    if (code == 'CARD_FULL' || code == 'MAX_POINTS') return true;
+    final lower = err.toLowerCase().trim();
+    if (lower.contains('card full')) return true;
+    // Legacy barista backends only — avoid matching unrelated errors that mention "10" or "stamps".
+    if (RegExp(r'already has \d+\s+stamps').hasMatch(lower)) return true;
+    if (lower == 'customer already has 10 stamps') return true;
+    return false;
+  }
+
+  String _readableStampCountForDialog(Map<String, dynamic> result) {
+    final p = result['points'] ?? result['currentPoints'];
+    if (p == null) return 'the maximum';
+    if (p is num) return p.round().toString();
+    final s = p.toString().trim();
+    return s.isEmpty ? 'the maximum' : s;
   }
   
   // Show transaction success dialog
@@ -1950,6 +2020,22 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                       _buildDetailRow('📊', AppConstants.totalPointsLabel, '${result['points']}'),
                       SizedBox(height: MediaQuery.of(context).size.height * 0.01),
                       _buildDetailRow('📋', AppConstants.totalOrdersLabel, '${result['totalOrders']}'),
+                      if (result['fulfilledRewardBuckets'] is List &&
+                          (result['fulfilledRewardBuckets'] as List).isNotEmpty) ...[
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+                        _buildDetailRow(
+                          '🎁',
+                          'Reward pickup',
+                          (result['fulfilledRewardBuckets'] as List)
+                              .map((e) {
+                                if (e is Map) {
+                                  return (e['rewardBucket'] ?? 'item').toString();
+                                }
+                                return e.toString();
+                              })
+                              .join(', '),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -2102,7 +2188,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'This customer already has ${result['points']} stamps. No more can be added.',
+                    'This customer already has ${_readableStampCountForDialog(result)} stamps. No more can be added.',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: MediaQuery.of(context).size.width * 0.04,

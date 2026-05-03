@@ -1472,21 +1472,21 @@ app.post('/api/loyalty/scan', async (req, res) => {
     let customer = null;
     let foundInCollection = '';
     
-    // Try to find in customers collection first
-    console.log('🔍 [DEBUG] Checking customers collection...');
-    customer = await Customer.findOne({ qrToken });
+    // Prefer users collection (same source as customer app + claim-reward resets).
+    // Stale legacy Customer rows could still show 10 stamps after User.points was reset to 0.
+    console.log('🔍 [DEBUG] Checking users collection first...');
+    customer = await User.findOne({ qrToken });
     if (customer) {
-      foundInCollection = 'customers';
-      console.log('✅ [DEBUG] Found in customers collection');
+      foundInCollection = 'users';
+      console.log('✅ [DEBUG] Found in users collection');
     }
-    
-    // If not found in customers, try users collection
+
     if (!customer) {
-      console.log('🔍 [DEBUG] Checking users collection...');
-      customer = await User.findOne({ qrToken });
+      console.log('🔍 [DEBUG] Checking customers collection (legacy)...');
+      customer = await Customer.findOne({ qrToken });
       if (customer) {
-        foundInCollection = 'users';
-        console.log('✅ [DEBUG] Found in users collection');
+        foundInCollection = 'customers';
+        console.log('✅ [DEBUG] Found in customers collection');
       }
     }
     
@@ -1499,15 +1499,15 @@ app.post('/api/loyalty/scan', async (req, res) => {
         const qrTokenWithoutHyphens = qrToken.replace(/-/g, '');
         console.log('🔍 [DEBUG] Trying without hyphens:', qrTokenWithoutHyphens);
         
-        customer = await Customer.findOne({ qrToken: qrTokenWithoutHyphens });
+        customer = await User.findOne({ qrToken: qrTokenWithoutHyphens });
         if (customer) {
-          foundInCollection = 'customers';
-          console.log('✅ [DEBUG] Found in customers collection (without hyphens)');
+          foundInCollection = 'users';
+          console.log('✅ [DEBUG] Found in users collection (without hyphens)');
         } else {
-          customer = await User.findOne({ qrToken: qrTokenWithoutHyphens });
+          customer = await Customer.findOne({ qrToken: qrTokenWithoutHyphens });
           if (customer) {
-            foundInCollection = 'users';
-            console.log('✅ [DEBUG] Found in users collection (without hyphens)');
+            foundInCollection = 'customers';
+            console.log('✅ [DEBUG] Found in customers collection (without hyphens)');
           }
         }
       }
@@ -1517,15 +1517,15 @@ app.post('/api/loyalty/scan', async (req, res) => {
         const qrTokenWithHyphens = `${qrToken.substring(0, 8)}-${qrToken.substring(8, 12)}-${qrToken.substring(12, 16)}-${qrToken.substring(16, 20)}-${qrToken.substring(20, 36)}`;
         console.log('🔍 [DEBUG] Trying with hyphens:', qrTokenWithHyphens);
         
-        customer = await Customer.findOne({ qrToken: qrTokenWithHyphens });
+        customer = await User.findOne({ qrToken: qrTokenWithHyphens });
         if (customer) {
-          foundInCollection = 'customers';
-          console.log('✅ [DEBUG] Found in customers collection (with hyphens)');
+          foundInCollection = 'users';
+          console.log('✅ [DEBUG] Found in users collection (with hyphens)');
         } else {
-          customer = await User.findOne({ qrToken: qrTokenWithHyphens });
+          customer = await Customer.findOne({ qrToken: qrTokenWithHyphens });
           if (customer) {
-            foundInCollection = 'users';
-            console.log('✅ [DEBUG] Found in users collection (with hyphens)');
+            foundInCollection = 'customers';
+            console.log('✅ [DEBUG] Found in customers collection (with hyphens)');
           }
         }
       }

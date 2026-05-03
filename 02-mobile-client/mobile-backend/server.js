@@ -462,7 +462,7 @@ function rewardTypeDisplayMeta(rewardType) {
 }
 
 // Customer picked up a claimed reward at the counter (barista scan).
-async function sendRewardFulfilledAtCounterEmail(email, name, lines) {
+async function sendRewardFulfilledAtCounterEmail(email, name, lines, opts = {}) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     console.error('❌ [REWARD PICKUP EMAIL] Invalid email format:', email);
@@ -473,6 +473,11 @@ async function sendRewardFulfilledAtCounterEmail(email, name, lines) {
     return false;
   }
   if (!lines || !lines.length) return false;
+
+  const orderId = opts.orderId ? String(opts.orderId) : '';
+  const when = opts.fulfilledAt instanceof Date ? opts.fulfilledAt : new Date();
+  const whenStr = when.toLocaleString();
+  const whenIso = when.toISOString();
 
   const rows = lines
     .map(
@@ -485,13 +490,18 @@ async function sendRewardFulfilledAtCounterEmail(email, name, lines) {
     )
     .join('');
 
-  const subject = '🎁 Your free reward was served at Nomu Cafe';
+  const subject = '🎁 Nomu: your free reward was picked up at the café';
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px;">
         <div style="background: white; padding: 24px; border-radius: 10px;">
           <h1 style="color: #2d3748; margin-top: 0;">Hello ${name}!</h1>
-          <p style="color: #4a5568; line-height: 1.6;">This confirms your <strong>claimed reward</strong> was given to you at the counter. Enjoy!</p>
+          <p style="color: #4a5568; line-height: 1.6;">This email is your <strong>confirmation of pickup</strong>: your claimed free reward was <strong>completed at the Nomu counter</strong> when your QR was scanned for this transaction. Keep this message if you ever need proof that the item was already received.</p>
+          <div style="background:#edf2f7;border-radius:8px;padding:14px;margin:16px 0;font-size:14px;color:#2d3748;">
+            <p style="margin:0 0 8px 0;"><strong>Pickup recorded:</strong> ${whenStr}</p>
+            <p style="margin:0 0 8px 0;"><strong>Time (ISO):</strong> ${whenIso}</p>
+            ${orderId ? `<p style="margin:0;"><strong>Order / transaction ref:</strong> ${orderId}</p>` : ''}
+          </div>
           <table style="width:100%; border-collapse:collapse; margin: 16px 0; font-size: 14px;">
             <thead>
               <tr style="background:#f7fafc;">
@@ -502,7 +512,7 @@ async function sendRewardFulfilledAtCounterEmail(email, name, lines) {
             </thead>
             <tbody>${rows}</tbody>
           </table>
-          <p style="color: #718096; font-size: 13px;">Thank you for being part of Nomu Cafe.</p>
+          <p style="color: #718096; font-size: 13px;">Questions? Reply to this email or ask in-store. Thank you for choosing Nomu Cafe.</p>
         </div>
       </div>
     </div>
@@ -560,7 +570,7 @@ async function sendRewardClaimEmail(email, name, rewardType, description, remain
         </div>
         <div style="background: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 8px; margin: 20px 0;">
           <p style="color: #c53030; margin: 0; font-size: 14px;">
-            <strong>How to redeem:</strong> Show this email or your loyalty card to any Nomu Cafe barista to claim your reward!
+            <strong>How to redeem:</strong> Show this email or your loyalty QR to any Nomu Cafe barista within <strong>24 hours</strong> of claiming—pickup must be completed in that window.
           </p>
         </div>
         <p style="color: #4a5568; margin: 20px 0;">Thank you for being a loyal customer. Enjoy your reward!</p>
@@ -865,6 +875,16 @@ const userSchema = new mongoose.Schema({
   password: String,
   points: { type: Number, default: 0 },
   currentCycle: { type: Number, default: 1 },
+  /** 24h claim windows from tier unlock; 24h barista pickup after Claim (see LOYALTY_* constants). */
+  loyaltyWindows: {
+    cycle: { type: Number },
+    tier5EligibleAt: { type: Date },
+    tier5ClaimBy: { type: Date },
+    tier5Expired: { type: Boolean, default: false },
+    tier10EligibleAt: { type: Date },
+    tier10ClaimBy: { type: Date },
+    tier10Expired: { type: Boolean, default: false }
+  },
   reviewPoints: { type: Number, default: 0 },
   lastOrder: { type: String, default: '' },
   qrToken: String,
@@ -953,7 +973,9 @@ const rewardClaimSchema = new mongoose.Schema({
   description: String,
   date: { type: Date, default: Date.now },
   cycle: { type: Number, default: 0 }, // Track which cycle this reward was claimed in
-  pointsAtClaim: { type: Number, default: 0 } // Track points at the time of claim
+  pointsAtClaim: { type: Number, default: 0 }, // Track points at the time of claim
+  pickupDeadline: { type: Date }, // barista must complete pickup by this time (Claim + 24h)
+  fulfilledAt: { type: Date, default: null } // set when barista scan-multiple fulfills pickup
 });
 const RewardClaim = mongoose.model('RewardClaim', rewardClaimSchema);
 
@@ -1126,6 +1148,10 @@ function inventoryCategoryToRewardBucket(rawCategory) {
 }
 
 const REWARD_CLAIM_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+/** Time from reaching 5/10 stamps to tap Claim in the app. */
+const LOYALTY_TIER_CLAIM_MS = 24 * 60 * 60 * 1000;
+/** Time after Claim to pick up at barista (second deadline). */
+const LOYALTY_PICKUP_AFTER_CLAIM_MS = 24 * 60 * 60 * 1000;
 
 function rewardHistoryTypesForBucket(bucket) {
   const b = String(bucket || '').toLowerCase();
@@ -1136,7 +1162,7 @@ function rewardHistoryTypesForBucket(bucket) {
   return [];
 }
 
-/** Customer must have claimed the matching reward in the app recently before barista can give it free. */
+/** Customer must have claimed the matching reward in the app before barista can give it free (pickup within deadline). */
 function userHasRecentRewardClaimForBucket(user, rewardBucket) {
   const types = rewardHistoryTypesForBucket(rewardBucket);
   if (!types.length) return false;
@@ -1148,6 +1174,266 @@ function userHasRecentRewardClaimForBucket(user, rewardBucket) {
     const d = h.date ? new Date(h.date).getTime() : 0;
     return d >= cutoff;
   });
+}
+
+function _loyaltyWindowsPlain(user) {
+  const w = user.loyaltyWindows;
+  if (!w) return {};
+  if (typeof w.toObject === 'function') return w.toObject();
+  return { ...w };
+}
+
+/** Start 24h claim windows when crossing 5 / 10 stamps (per cycle). */
+function updateLoyaltyWindowsOnPointEarn(user, prevPoints, newPoints) {
+  if (newPoints <= prevPoints) return;
+  const cycle = user.currentCycle || 1;
+  let w = _loyaltyWindowsPlain(user);
+  if (w.cycle != null && w.cycle !== cycle) {
+    w = { cycle };
+  }
+  const nowMs = Date.now();
+  if (newPoints >= 5 && prevPoints < 5 && !w.tier5ClaimBy) {
+    w.tier5EligibleAt = new Date(nowMs);
+    w.tier5ClaimBy = new Date(nowMs + LOYALTY_TIER_CLAIM_MS);
+    w.tier5Expired = false;
+    w.cycle = cycle;
+  }
+  if (newPoints >= 10 && prevPoints < 10 && !w.tier10ClaimBy) {
+    w.tier10EligibleAt = new Date(nowMs);
+    w.tier10ClaimBy = new Date(nowMs + LOYALTY_TIER_CLAIM_MS);
+    w.tier10Expired = false;
+    w.cycle = cycle;
+  }
+  user.loyaltyWindows = w;
+  user.markModified('loyaltyWindows');
+}
+
+/**
+ * Legacy / first-load: open missing 24h windows when stamps already meet threshold (not if that tier already expired this cycle).
+ * @returns {boolean} whether [user].loyaltyWindows was updated
+ */
+function backfillLoyaltyWindowsIfMissing(user) {
+  const cycle = user.currentCycle || 1;
+  let w = _loyaltyWindowsPlain(user);
+  if (w.cycle != null && w.cycle !== cycle) {
+    return false;
+  }
+  const nowMs = Date.now();
+  const pts = user.points || 0;
+  let changed = false;
+  if (!w || Object.keys(w).length === 0) {
+    w = { cycle };
+  }
+  if (pts >= 5 && !w.tier5ClaimBy && !w.tier5Expired) {
+    w.tier5EligibleAt = new Date(nowMs);
+    w.tier5ClaimBy = new Date(nowMs + LOYALTY_TIER_CLAIM_MS);
+    w.tier5Expired = false;
+    w.cycle = cycle;
+    changed = true;
+  }
+  if (pts >= 10 && !w.tier10ClaimBy && !w.tier10Expired) {
+    w.tier10EligibleAt = new Date(nowMs);
+    w.tier10ClaimBy = new Date(nowMs + LOYALTY_TIER_CLAIM_MS);
+    w.tier10Expired = false;
+    w.cycle = cycle;
+    changed = true;
+  }
+  if (changed) {
+    user.loyaltyWindows = w;
+    user.markModified('loyaltyWindows');
+  }
+  return changed;
+}
+
+async function refreshLoyaltyStateForUserDoc(user) {
+  let changed = await applyLoyaltyTierExpiry(user);
+  changed = backfillLoyaltyWindowsIfMissing(user) || changed;
+  return changed;
+}
+
+/**
+ * Expire 5-tier claim offer without resetting points; expire 10-tier → new cycle + 0 points if never claimed.
+ * Mutates [user]; caller should save if returns true or if other fields changed.
+ */
+async function applyLoyaltyTierExpiry(user) {
+  const now = new Date();
+  const cycle = user.currentCycle || 1;
+  let w = _loyaltyWindowsPlain(user);
+  if (!w || Object.keys(w).length === 0) return false;
+  if (w.cycle != null && w.cycle !== cycle) {
+    user.loyaltyWindows = { cycle, tier5Expired: false, tier10Expired: false };
+    user.markModified('loyaltyWindows');
+    return true;
+  }
+  let modified = false;
+  const uid = user._id;
+
+  if (w.tier5ClaimBy && now > new Date(w.tier5ClaimBy)) {
+    const claimed5 = await RewardClaim.findOne({
+      userId: uid,
+      cycle,
+      type: { $in: ['donut', 'pastry'] }
+    }).lean();
+    if (!claimed5) {
+      const nw = { ...w };
+      delete nw.tier5ClaimBy;
+      delete nw.tier5EligibleAt;
+      nw.tier5Expired = true;
+      nw.cycle = cycle;
+      user.loyaltyWindows = nw;
+      user.markModified('loyaltyWindows');
+      modified = true;
+      w = nw;
+    }
+  }
+
+  if (w.tier10ClaimBy && now > new Date(w.tier10ClaimBy)) {
+    const claimed10 = await RewardClaim.findOne({
+      userId: uid,
+      cycle,
+      type: { $in: ['coffee', 'pizza'] }
+    }).lean();
+    if (!claimed10) {
+      user.points = 0;
+      user.currentCycle = cycle + 1;
+      user.loyaltyWindows = {
+        cycle: user.currentCycle,
+        tier5Expired: false,
+        tier10Expired: false
+      };
+      user.markModified('loyaltyWindows');
+      user.markModified('points');
+      user.markModified('currentCycle');
+      modified = true;
+    }
+  }
+  return modified;
+}
+
+/** Barista pickup: open RewardClaim with pickup still valid (24h after Claim, or legacy 14d from claim date). */
+async function userHasOpenRewardPickupForBucket(user, rewardBucket) {
+  const types = rewardHistoryTypesForBucket(rewardBucket);
+  if (!types.length) return false;
+  const cycle = user.currentCycle || 1;
+  const now = new Date();
+  const legacyCutoff = new Date(Date.now() - REWARD_CLAIM_LOOKBACK_MS);
+
+  const claim = await RewardClaim.findOne({
+    userId: user._id,
+    cycle,
+    type: { $in: types },
+    $and: [
+      { $or: [{ fulfilledAt: null }, { fulfilledAt: { $exists: false } }] },
+      {
+        $or: [
+          { pickupDeadline: { $gt: now } },
+          {
+            $and: [
+              { $or: [{ pickupDeadline: null }, { pickupDeadline: { $exists: false } }] },
+              { date: { $gte: legacyCutoff } }
+            ]
+          }
+        ]
+      }
+    ]
+  })
+    .sort({ date: -1 })
+    .lean();
+
+  return !!claim;
+}
+
+/**
+ * When barista scan cannot redeem a reward line, explain why (not claimed vs already served vs expired).
+ * Helps staff handle disputes: "already picked up" is backed by [fulfilledAt] on the RewardClaim.
+ */
+async function rewardPickupDenialInfo(user, rewardBucket) {
+  const types = rewardHistoryTypesForBucket(rewardBucket);
+  if (!types.length) {
+    return {
+      code: 'REWARD_NOT_CLAIMED',
+      message:
+        'This line is not a valid reward bucket. The customer must tap Claim in the Nomu app first; pickup is within 24 hours of Claim.'
+    };
+  }
+  const cycle = user.currentCycle || 1;
+  const now = new Date();
+  const legacyCutoff = new Date(Date.now() - REWARD_CLAIM_LOOKBACK_MS);
+  const latest = await RewardClaim.findOne({
+    userId: user._id,
+    cycle,
+    type: { $in: types }
+  })
+    .sort({ date: -1 })
+    .lean();
+  if (!latest) {
+    return {
+      code: 'REWARD_NOT_CLAIMED',
+      message:
+        'The customer must tap Claim in the Nomu app first. After Claim, pickup at the barista is valid for 24 hours (legacy claims: within 14 days of Claim).'
+    };
+  }
+  if (latest.fulfilledAt) {
+    const when = new Date(latest.fulfilledAt).toLocaleString();
+    return {
+      code: 'REWARD_ALREADY_PICKED_UP',
+      message: `This reward was already served at the counter (${when}). Do not issue it again for this claim; check with a manager if the customer disagrees.`
+    };
+  }
+  if (latest.pickupDeadline && new Date(latest.pickupDeadline) <= now) {
+    return {
+      code: 'REWARD_PICKUP_EXPIRED',
+      message:
+        'The 24-hour pickup window for this claim has ended. The customer needs to earn and claim a new reward in the app.'
+    };
+  }
+  if (!latest.pickupDeadline && (!latest.date || new Date(latest.date) < legacyCutoff)) {
+    return {
+      code: 'REWARD_PICKUP_EXPIRED',
+      message:
+        'This reward claim is too old to pick up under the legacy rules. The customer should claim again after qualifying in the app.'
+    };
+  }
+  return {
+    code: 'REWARD_NOT_CLAIMED',
+    message:
+      'Reward cannot be picked up right now. Ask the customer to open the Nomu app and confirm their reward status.'
+  };
+}
+
+async function markRewardPickupsFulfilled(user, enrichedItems) {
+  const cycle = user.currentCycle || 1;
+  const now = new Date();
+  const legacyCutoff = new Date(Date.now() - REWARD_CLAIM_LOOKBACK_MS);
+  for (const item of enrichedItems) {
+    if (!item.excludeFromAnalytics || !item.rewardBucket) continue;
+    const b = String(item.rewardBucket).toLowerCase();
+    const types = rewardHistoryTypesForBucket(b);
+    if (!types.length) continue;
+    await RewardClaim.findOneAndUpdate(
+      {
+        userId: user._id,
+        cycle,
+        type: { $in: types },
+        $and: [
+          { $or: [{ fulfilledAt: null }, { fulfilledAt: { $exists: false } }] },
+          {
+            $or: [
+              { pickupDeadline: { $gt: now } },
+              {
+                $and: [
+                  { $or: [{ pickupDeadline: null }, { pickupDeadline: { $exists: false } }] },
+                  { date: { $gte: legacyCutoff } }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      { $set: { fulfilledAt: now } },
+      { sort: { date: -1 } }
+    );
+  }
 }
 
 function inventoryUnitPrice(inv) {
@@ -2997,8 +3283,18 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
     _log(`Claiming reward: ${type} - ${description} for user ${req.params.id}`);
     await ensureConnection();
 
-    const user = await User.findById(req.params.id);
+    let user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
+
+    try {
+      const loyaltyChanged = await refreshLoyaltyStateForUserDoc(user);
+      if (loyaltyChanged || user.isModified()) {
+        await user.save();
+        user = await User.findById(req.params.id);
+      }
+    } catch (loyEx) {
+      _log('⚠️ [CLAIM] refreshLoyaltyStateForUserDoc:', (loyEx && loyEx.message) || loyEx);
+    }
     
     // Validate points and reward type
     if (user.points < 0) {
@@ -3022,22 +3318,48 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       });
     }
 
+    const now = new Date();
+    const lw = _loyaltyWindowsPlain(user);
+    if (type === 'donut' || type === 'pastry') {
+      if (lw.tier5Expired) {
+        return res.status(400).json({
+          error:
+            'The 24-hour Claim window for your 5-stamp reward has expired. You can still earn your 10-stamp reward if that window is open.'
+        });
+      }
+      const by5 = lw.tier5ClaimBy ? new Date(lw.tier5ClaimBy) : null;
+      if (!by5 || now > by5) {
+        return res.status(400).json({
+          error:
+            'Claim is only open for 24 hours after you unlock this reward. Visit a Nomu Café to earn your next stamp.'
+        });
+      }
+    }
+    if (type === 'coffee' || type === 'pizza') {
+      const by10 = lw.tier10ClaimBy ? new Date(lw.tier10ClaimBy) : null;
+      if (!by10 || now > by10) {
+        return res.status(400).json({
+          error:
+            'The 24-hour Claim window for your 10-stamp reward is not active or has expired. Earn stamps again to unlock a new window.'
+        });
+      }
+    }
+
     if (type === 'donut' || type === 'pastry') {
       _log(`${type} claim - user has ${user.points} points`);
     }
     
     // Use current cycle from user data
     const currentCycle = user.currentCycle || 1;
-    
-    // Create the reward claim with proper timezone
-    const now = new Date();
+    const pickupDeadline = new Date(now.getTime() + LOYALTY_PICKUP_AFTER_CLAIM_MS);
     const rewardClaim = await RewardClaim.create({
       userId: user._id,
       type,
       description,
       date: now,
       cycle: currentCycle,
-      pointsAtClaim: user.points
+      pointsAtClaim: user.points,
+      pickupDeadline
     });
     
     _log(`Reward claim created at: ${now.toISOString()} (${now.toLocaleString()})`);
@@ -3073,7 +3395,25 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
     if (type === 'coffee' || type === 'pizza') {
       user.points = 0;
       user.currentCycle = (user.currentCycle || 1) + 1;
+      user.loyaltyWindows = {
+        cycle: user.currentCycle,
+        tier5Expired: false,
+        tier10Expired: false
+      };
+      user.markModified('loyaltyWindows');
       _log(`Reset points after ${type} claim, cycle advanced to: ${user.currentCycle}`);
+    } else if (type === 'donut' || type === 'pastry') {
+      // 5-stamp rewards: consume stamps so the card is not stuck at 10 after claim.
+      const spent = 5;
+      user.points = Math.max(0, (user.points || 0) - spent);
+      const nw = { ..._loyaltyWindowsPlain(user) };
+      delete nw.tier5ClaimBy;
+      delete nw.tier5EligibleAt;
+      nw.tier5Expired = false;
+      nw.cycle = user.currentCycle || 1;
+      user.loyaltyWindows = nw;
+      user.markModified('loyaltyWindows');
+      _log(`${type} reward claimed, stamps after deducting ${spent}: ${user.points}`);
     } else {
       _log(`${type} reward claimed, points remain at: ${user.points}`);
     }
@@ -3148,12 +3488,21 @@ app.get('/api/user/:userId/data', async (req, res) => {
   try {
     const { userId } = req.params;
     
-    const user = await User.findById(userId);
+    let user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ 
         success: false,
         error: 'User not found' 
       });
+    }
+    try {
+      const loyaltyChanged = await refreshLoyaltyStateForUserDoc(user);
+      if (loyaltyChanged || user.isModified()) {
+        await user.save();
+        user = await User.findById(userId);
+      }
+    } catch (loyEx) {
+      _log('⚠️ [USER DATA] refreshLoyaltyStateForUserDoc:', (loyEx && loyEx.message) || loyEx);
     }
     
     res.json({
@@ -3162,7 +3511,8 @@ app.get('/api/user/:userId/data', async (req, res) => {
         id: user._id,
         points: user.points,
         currentCycle: user.currentCycle || 1,
-        rewardsHistory: user.rewardsHistory || []
+        rewardsHistory: user.rewardsHistory || [],
+        loyaltyWindows: _loyaltyWindowsPlain(user)
       }
     });
   } catch (err) {
@@ -4228,6 +4578,16 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       });
     }
 
+    try {
+      const loyaltyChanged = await refreshLoyaltyStateForUserDoc(user);
+      if (loyaltyChanged || user.isModified()) {
+        await user.save();
+        user = await User.findById(user._id);
+      }
+    } catch (loyEx) {
+      _log('⚠️ [LOYALTY] refreshLoyaltyStateForUserDoc:', (loyEx && loyEx.message) || loyEx);
+    }
+
     if (!usedShortLivedScanToken) {
       if (!user.qrToken || user.qrToken === '') {
         user.qrToken = generateQrToken(user._id);
@@ -4262,12 +4622,15 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
         String(raw.isRewardRedemption).toLowerCase() === 'true';
       if (!isR) continue;
       const b = String(raw.rewardBucket || '').toLowerCase();
-      if (!userHasRecentRewardClaimForBucket(user, b)) {
+      const okPickup = await userHasOpenRewardPickupForBucket(user, b);
+      if (!okPickup) {
+        const denial = await rewardPickupDenialInfo(user, b);
         return res.status(400).json({
           success: false,
           error: 'Reward not available for pickup',
-          message:
-            'The customer must claim this reward in the Nomu mobile app first. Claims are valid for pickup within 14 days.'
+          message: denial.message,
+          code: denial.code,
+          rewardBucket: b
         });
       }
     }
@@ -4314,6 +4677,7 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       } else {
         user.points = newPoints;
       }
+      updateLoyaltyWindowsOnPointEarn(user, currentPoints, user.points);
       pointsAdded = 1;
     } else if (paidSubtotal < MINIMUM_SPENDING && enrichedItems.some((i) => i.excludeFromAnalytics)) {
       _log(
@@ -4379,7 +4743,13 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     await user.save();
 
     try {
-      recordCustomerScan(user._id.toString(), 1);
+      await markRewardPickupsFulfilled(user, enrichedItems);
+    } catch (fulErr) {
+      _log('⚠️ [LOYALTY] markRewardPickupsFulfilled:', (fulErr && fulErr.message) || fulErr);
+    }
+
+    try {
+      recordCustomerScan(user._id.toString(), pointsAdded);
       if (employeeId) {
         recordEmployeeScan(employeeId, user._id.toString());
       }
@@ -4421,14 +4791,26 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       });
     if (pickupLines.length > 0) {
       try {
-        await sendRewardFulfilledAtCounterEmail(user.email, user.fullName, pickupLines);
+        const fulfilledAt = new Date();
+        await sendRewardFulfilledAtCounterEmail(user.email, user.fullName, pickupLines, {
+          orderId,
+          fulfilledAt
+        });
       } catch (pickupEmailErr) {
         _log('⚠️ [REWARD PICKUP EMAIL] failed:', pickupEmailErr.message);
       }
     }
 
+    const fulfilledRewardBuckets = enrichedItems
+      .filter((i) => i.excludeFromAnalytics && i.rewardBucket)
+      .map((i) => ({
+        rewardBucket: String(i.rewardBucket).toLowerCase(),
+        fulfilledAt: new Date().toISOString()
+      }));
+
     // Emit real-time notification to all connected clients with user identification
     const itemNames = newOrder.items.map(item => item.itemName).join(', ');
+    const pickupFulfilled = fulfilledRewardBuckets.length > 0;
     io.emit('loyalty-point-added', {
       qrToken: user.qrToken,
       userId: user._id != null ? user._id.toString() : null,
@@ -4438,7 +4820,12 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       points: Number(user.points) || 0,
       totalOrders: user.pastOrders ? user.pastOrders.length : 0,
       timestamp: new Date(),
-      message: `New order: ${itemNames} (${newOrder.items.length} items) - User now has ${user.points} points`
+      message: `New order: ${itemNames} (${newOrder.items.length} items) - User now has ${user.points} points`,
+      rewardPickupsFulfilled: pickupFulfilled ? fulfilledRewardBuckets : undefined,
+      customerMessage: pickupFulfilled
+        ? 'Your free reward was recorded at the café. Open Reward history below to see pickup details.'
+        : undefined,
+      messageType: pickupFulfilled ? 'success' : undefined
     });
 
     res.json({
@@ -4449,7 +4836,8 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       totalOrders: user.pastOrders ? user.pastOrders.length : 0,
       orderId: orderId,
       totalPrice: totalPrice,
-      itemCount: newOrder.items.length
+      itemCount: newOrder.items.length,
+      fulfilledRewardBuckets
     });
   } catch (err) {
     console.error('❌ [LOYALTY] Error adding loyalty point for multiple items:', err);
@@ -4605,19 +4993,31 @@ app.post('/api/customer/scan-token', async (req, res) => {
   }
 });
 
-// Get user by QR token (for customer info display)
+// Get user by QR token (for customer info display; supports UUID with/without hyphens)
 app.get('/api/customer/qr/:qrToken', async (req, res) => {
   try {
-    const { qrToken } = req.params;
-    
-    
-    const user = await User.findOne({ qrToken: qrToken });
+    let { qrToken } = req.params;
+    let user = await User.findOne({ qrToken }).select('-password');
+    if (!user && qrToken.includes('-')) {
+      user = await User.findOne({ qrToken: qrToken.replace(/-/g, '') }).select('-password');
+    }
+    if (!user && !qrToken.includes('-') && qrToken.length === 36) {
+      const withHyphens = `${qrToken.substring(0, 8)}-${qrToken.substring(8, 12)}-${qrToken.substring(12, 16)}-${qrToken.substring(16, 20)}-${qrToken.substring(20, 36)}`;
+      user = await User.findOne({ qrToken: withHyphens }).select('-password');
+    }
     if (!user) {
       _log('❌ [USER] User not found for QR token:', qrToken);
       return res.status(404).json({ error: 'User not found' });
     }
-    
-
+    try {
+      const loyaltyChanged = await refreshLoyaltyStateForUserDoc(user);
+      if (loyaltyChanged || user.isModified()) {
+        await user.save();
+        user = await User.findOne({ _id: user._id }).select('-password');
+      }
+    } catch (loyEx) {
+      _log('⚠️ [USER] refreshLoyaltyStateForUserDoc (customer qr):', (loyEx && loyEx.message) || loyEx);
+    }
     res.json(user);
   } catch (err) {
     console.error('❌ [USER] Error fetching user by QR token:', err);
@@ -4742,25 +5142,6 @@ app.get('/api/inventory/search/:query', async (req, res) => {
   } catch (err) {
     console.error('[INVENTORY] search error:', err);
     res.status(500).json({ error: 'Failed to search inventory' });
-  }
-});
-
-app.get('/api/customer/qr/:qrToken', async (req, res) => {
-  try {
-    let { qrToken } = req.params;
-    let customer = await User.findOne({ qrToken });
-    if (!customer && qrToken.includes('-')) {
-      customer = await User.findOne({ qrToken: qrToken.replace(/-/g, '') });
-    }
-    if (!customer && !qrToken.includes('-') && qrToken.length === 36) {
-      const withHyphens = `${qrToken.substring(0, 8)}-${qrToken.substring(8, 12)}-${qrToken.substring(12, 16)}-${qrToken.substring(16, 20)}-${qrToken.substring(20, 36)}`;
-      customer = await User.findOne({ qrToken: withHyphens });
-    }
-    if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    res.json(customer);
-  } catch (err) {
-    console.error('[CUSTOMER QR] error:', err);
-    res.status(500).json({ error: err.message });
   }
 });
 

@@ -384,7 +384,9 @@ class ApiService {
           final errorData = jsonDecode(response.body) as Map<String, dynamic>;
           return {
             'error': errorData['error'] ?? errorData['message'],
+            'message': errorData['message'],
             'points': errorData['points'],
+            'code': errorData['code'],
           };
         }
         if (response.statusCode >= 500 && attempt < maxRetries) {
