@@ -882,6 +882,8 @@ const userSchema = new mongoose.Schema({
     tier5EligibleAt: { type: Date },
     tier5ClaimBy: { type: Date },
     tier5Expired: { type: Boolean, default: false },
+    /** After 5-stamp reward is claimed in-app, stamps stay on the card; no second 5-tier window until next cycle. */
+    tier5RewardClaimed: { type: Boolean, default: false },
     tier10EligibleAt: { type: Date },
     tier10ClaimBy: { type: Date },
     tier10Expired: { type: Boolean, default: false }
@@ -1208,7 +1210,7 @@ function updateLoyaltyWindowsOnPointEarn(user, prevPoints, newPoints) {
     w = { cycle };
   }
   const nowMs = Date.now();
-  if (newPoints >= 5 && prevPoints < 5 && !w.tier5ClaimBy) {
+  if (newPoints >= 5 && prevPoints < 5 && !w.tier5ClaimBy && !w.tier5RewardClaimed) {
     w.tier5EligibleAt = new Date(nowMs);
     w.tier5ClaimBy = new Date(nowMs + LOYALTY_TIER_CLAIM_MS);
     w.tier5Expired = false;
@@ -1240,7 +1242,7 @@ function backfillLoyaltyWindowsIfMissing(user) {
   if (!w || Object.keys(w).length === 0) {
     w = { cycle };
   }
-  if (pts >= 5 && !w.tier5ClaimBy && !w.tier5Expired) {
+  if (pts >= 5 && !w.tier5ClaimBy && !w.tier5Expired && !w.tier5RewardClaimed) {
     w.tier5EligibleAt = new Date(nowMs);
     w.tier5ClaimBy = new Date(nowMs + LOYALTY_TIER_CLAIM_MS);
     w.tier5Expired = false;
@@ -1277,7 +1279,12 @@ async function applyLoyaltyTierExpiry(user) {
   let w = _loyaltyWindowsPlain(user);
   if (!w || Object.keys(w).length === 0) return false;
   if (w.cycle != null && w.cycle !== cycle) {
-    user.loyaltyWindows = { cycle, tier5Expired: false, tier10Expired: false };
+    user.loyaltyWindows = {
+      cycle,
+      tier5Expired: false,
+      tier10Expired: false,
+      tier5RewardClaimed: false
+    };
     user.markModified('loyaltyWindows');
     return true;
   }
@@ -1316,17 +1323,30 @@ async function applyLoyaltyTierExpiry(user) {
       ]
     }).lean();
     if (!claimed10) {
-      user.points = 0;
-      user.currentCycle = cycle + 1;
-      user.loyaltyWindows = {
-        cycle: user.currentCycle,
-        tier5Expired: false,
-        tier10Expired: false
-      };
-      user.markModified('loyaltyWindows');
-      user.markModified('points');
-      user.markModified('currentCycle');
-      modified = true;
+      const pts = user.points || 0;
+      if (pts >= 10) {
+        user.points = 0;
+        user.currentCycle = cycle + 1;
+        user.loyaltyWindows = {
+          cycle: user.currentCycle,
+          tier5Expired: false,
+          tier10Expired: false,
+          tier5RewardClaimed: false
+        };
+        user.markModified('loyaltyWindows');
+        user.markModified('points');
+        user.markModified('currentCycle');
+        modified = true;
+      } else {
+        const nw = { ...w };
+        delete nw.tier10ClaimBy;
+        delete nw.tier10EligibleAt;
+        nw.tier10Expired = false;
+        nw.cycle = cycle;
+        user.loyaltyWindows = nw;
+        user.markModified('loyaltyWindows');
+        modified = true;
+      }
     }
   }
   return modified;
@@ -3491,27 +3511,39 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       // Continue with the claim even if rewardsHistory fails
     }
     
+    /**
+     * Product rule: claiming the 5-stamp reward never ends the cycle or clears stamps.
+     * Stamps reset to 0 and currentCycle increments only when the customer claims the 10-stamp
+     * (10+ pointsRequired) reward — e.g. claim 5-tier first, then 10-tier; reset happens on the 10 claim only.
+     */
     if (useTenStampWindow) {
       user.points = 0;
       user.currentCycle = (user.currentCycle || 1) + 1;
       user.loyaltyWindows = {
         cycle: user.currentCycle,
         tier5Expired: false,
-        tier10Expired: false
+        tier10Expired: false,
+        tier5RewardClaimed: false
       };
       user.markModified('loyaltyWindows');
       _log(`Reset card after ${type} claim (10+ stamp tier), cycle advanced to: ${user.currentCycle}`);
     } else {
-      const spent = minPoints;
-      user.points = Math.max(0, (user.points || 0) - spent);
+      /** 5-tier: stamps stay on the card; no cycle advance here. */
+      const pts = user.points || 0;
       const nw = { ..._loyaltyWindowsPlain(user) };
       delete nw.tier5ClaimBy;
       delete nw.tier5EligibleAt;
       nw.tier5Expired = false;
+      nw.tier5RewardClaimed = true;
       nw.cycle = user.currentCycle || 1;
+      if (pts < 10) {
+        delete nw.tier10ClaimBy;
+        delete nw.tier10EligibleAt;
+        nw.tier10Expired = false;
+      }
       user.loyaltyWindows = nw;
       user.markModified('loyaltyWindows');
-      _log(`${type} reward claimed, stamps after deducting ${spent}: ${user.points}`);
+      _log(`${type} (5-tier) reward claimed; stamps unchanged at ${user.points}`);
     }
     
     await user.save();
@@ -4504,7 +4536,7 @@ app.post('/api/loyalty/scan', async (req, res) => {
     
     // Record scan for security tracking
     try {
-      recordCustomerScan(user._id.toString(), 1);
+      recordCustomerScan(user._id.toString(), pointsAdded);
       if (employeeId) {
         recordEmployeeScan(employeeId, user._id.toString());
       }
@@ -4907,6 +4939,19 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     // Emit real-time notification to all connected clients with user identification
     const itemNames = newOrder.items.map(item => item.itemName).join(', ');
     const pickupFulfilled = fulfilledRewardBuckets.length > 0;
+    let customerMessage;
+    let messageType;
+    if (pointsAdded > 0) {
+      customerMessage = `✅ You earned 1 stamp! You now have ${user.points} ${user.points === 1 ? 'stamp' : 'stamps'}.`;
+      messageType = 'success';
+    } else if (pickupFulfilled) {
+      customerMessage =
+        'Your free reward was recorded at the café. Open Reward history below to see pickup details.';
+      messageType = 'success';
+    } else {
+      customerMessage = `No stamp this visit: paid items ₱${paidSubtotal.toFixed(2)} (minimum ₱${MINIMUM_SPENDING} to earn 1 stamp).`;
+      messageType = 'info';
+    }
     io.emit('loyalty-point-added', {
       qrToken: user.qrToken,
       userId: user._id != null ? user._id.toString() : null,
@@ -4914,19 +4959,25 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       itemType: 'multiple',
       category: 'order',
       points: Number(user.points) || 0,
+      pointsAdded,
+      paidSubtotal,
+      isEligibleForPoints,
+      minimumSpending: MINIMUM_SPENDING,
       totalOrders: user.pastOrders ? user.pastOrders.length : 0,
       timestamp: new Date(),
       message: `New order: ${itemNames} (${newOrder.items.length} items) - User now has ${user.points} points`,
       rewardPickupsFulfilled: pickupFulfilled ? fulfilledRewardBuckets : undefined,
-      customerMessage: pickupFulfilled
-        ? 'Your free reward was recorded at the café. Open Reward history below to see pickup details.'
-        : undefined,
-      messageType: pickupFulfilled ? 'success' : undefined
+      customerMessage,
+      messageType
     });
 
     res.json({
       success: true,
       points: user.points,
+      pointsAdded,
+      isEligibleForPoints,
+      paidSubtotal,
+      minimumSpending: MINIMUM_SPENDING,
       lastOrder: user.lastOrder,
       pastOrders: user.pastOrders,
       totalOrders: user.pastOrders ? user.pastOrders.length : 0,

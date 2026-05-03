@@ -44,6 +44,11 @@ class RealtimeNotificationService {
 
   // Handle loyalty point updates and create notifications
   void _handleLoyaltyPointUpdate(Map<String, dynamic> data) {
+    final rawPa = data['pointsAdded'];
+    final int pointsAdded =
+        rawPa is num ? rawPa.toInt() : int.tryParse(rawPa?.toString() ?? '') ?? 0;
+    if (pointsAdded <= 0) return;
+
     final newPoints = data['points'] as int?;
     final message = data['message'] as String?;
     final drink = data['drink'] as String?;
@@ -111,14 +116,6 @@ class RealtimeNotificationService {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-        ),
-        action: SnackBarAction(
-          label: 'View',
-          textColor: Colors.white,
-          onPressed: () {
-            // Navigate to loyalty page or refresh
-            // This could be customized based on your navigation structure
-          },
         ),
       ),
     );

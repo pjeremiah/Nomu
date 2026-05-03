@@ -524,9 +524,12 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         // Check if this notification is for the current user
         if (qrToken == widget.qrToken && notificationType == 'order_completion') {
           LoggingService.instance.loyalty('Received order completion notification', data);
-          
-          // Show the notification in the UI
-          OrderCompletionNotificationService.showOrderCompletionDialog(context, data);
+          final rawPa = data['pointsAdded'];
+          final ptsAdded =
+              rawPa is num ? rawPa.toInt() : int.tryParse(rawPa?.toString() ?? '') ?? 0;
+          if (ptsAdded > 0) {
+            OrderCompletionNotificationService.showOrderCompletionDialog(context, data);
+          }
         }
       });
       
@@ -553,7 +556,11 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       final message = data['message'] as String?;
       final customerMessage = data['customerMessage'] as String?;
       final messageType = data['messageType'] as String? ?? 'info';
-      final isEligibleForPoints = data['isEligibleForPoints'] as bool? ?? true;
+      final rawPa = data['pointsAdded'];
+      final int pointsAdded =
+          rawPa is num ? rawPa.toInt() : int.tryParse(rawPa?.toString() ?? '') ?? 0;
+      final isEligibleForPoints =
+          _parseBoolSafe(data['isEligibleForPoints'], pointsAdded > 0);
       final drink = data['itemName'] as String?;
       final qrToken = data['qrToken'] as String?;
       
@@ -592,47 +599,12 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         }
       }
       
-      // Show notification with customer message (even if points didn't change)
-      String notificationMessage;
-      IconData icon;
-      Color backgroundColor;
-      Color iconColor;
-      
-      if (customerMessage != null && customerMessage.isNotEmpty) {
-        notificationMessage = customerMessage;
-      } else if (message != null && message.isNotEmpty) {
-        notificationMessage = message;
-      } else if (newPoints != null) {
-        notificationMessage = drink != null 
-            ? 'New order: $drink! You now have $newPoints stamps'
-            : 'Points updated! You now have $newPoints stamps';
-      } else {
-        notificationMessage = 'Scan processed';
-      }
-      
-      // Determine icon and color based on message type
-      if (messageType == 'success' || isEligibleForPoints) {
-        if (newPoints != null && (newPoints == 5 || newPoints == 10)) {
-          icon = Icons.celebration;
-          backgroundColor = const Color(0xFF4CAF50); // Green for milestones
-          iconColor = Colors.amber;
-        } else {
-          icon = Icons.check_circle;
-          backgroundColor = const Color(0xFF4CAF50); // Green for success
-          iconColor = Colors.white;
-        }
-      } else if (messageType == 'warning') {
-        icon = Icons.warning;
-        backgroundColor = Colors.orange;
-        iconColor = Colors.white;
-      } else {
-        icon = Icons.info;
-        backgroundColor = const Color(0xFF242C5B);
-        iconColor = Colors.yellow;
-      }
-            
       final pickupFulfilled = data['rewardPickupsFulfilled'];
-      if (pickupFulfilled is List && pickupFulfilled.isNotEmpty && mounted) {
+      final bool hadRewardPickup =
+          pickupFulfilled is List && pickupFulfilled.isNotEmpty;
+      final bool showStampSnack = pointsAdded > 0;
+
+      if (hadRewardPickup && mounted) {
         try {
           final uid = _loyaltyUserId ?? await ApiService.getUserIdByQrToken(widget.qrToken, forceRefresh: true);
           if (uid != null && mounted) {
@@ -644,7 +616,43 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         }
       }
 
-      if (mounted) {
+      if (showStampSnack && mounted) {
+        String notificationMessage;
+        if (customerMessage != null && customerMessage.isNotEmpty) {
+          notificationMessage = customerMessage;
+        } else if (message != null && message.isNotEmpty) {
+          notificationMessage = message;
+        } else if (newPoints != null) {
+          notificationMessage = drink != null
+              ? 'New order: $drink! You now have $newPoints stamps'
+              : 'Points updated! You now have $newPoints stamps';
+        } else {
+          notificationMessage = 'You earned a stamp';
+        }
+
+        IconData icon;
+        Color backgroundColor;
+        Color iconColor;
+        if (messageType == 'success' || isEligibleForPoints) {
+          if (newPoints != null && (newPoints == 5 || newPoints == 10)) {
+            icon = Icons.celebration;
+            backgroundColor = const Color(0xFF4CAF50);
+            iconColor = Colors.amber;
+          } else {
+            icon = Icons.check_circle;
+            backgroundColor = const Color(0xFF4CAF50);
+            iconColor = Colors.white;
+          }
+        } else if (messageType == 'warning') {
+          icon = Icons.warning;
+          backgroundColor = Colors.orange;
+          iconColor = Colors.white;
+        } else {
+          icon = Icons.check_circle;
+          backgroundColor = const Color(0xFF4CAF50);
+          iconColor = Colors.white;
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -663,21 +671,11 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
               ],
             ),
             backgroundColor: backgroundColor,
-            duration: Duration(seconds: messageType == 'warning' ? 5 : 4),
+            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            action: isEligibleForPoints && newPoints != null
-                ? SnackBarAction(
-                    label: 'Refresh',
-                    textColor: Colors.white,
-                    onPressed: () {
-                      fetchPoints(forceRefresh: true);
-                      fetchRewardHistory();
-                    },
-                  )
-                : null,
           ),
         );
       }

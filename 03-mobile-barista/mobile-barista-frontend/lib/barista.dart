@@ -1940,6 +1940,13 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
   
   // Show transaction success dialog
   Future<void> _showTransactionSuccessDialog(Map<String, dynamic> result, String transactionSummary) async {
+    final rawEarned = result['pointsAdded'];
+    final int earned = rawEarned is num
+        ? rawEarned.toInt()
+        : int.tryParse(rawEarned?.toString() ?? '') ?? 0;
+    final earnedLabel = earned == 1
+        ? '1 ${AppConstants.pointLabel}'
+        : '$earned ${AppConstants.pointsLabel}';
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -2015,7 +2022,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                     children: [
                       _buildDetailRow('✅', AppConstants.itemsLabel, transactionSummary),
                       SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                      _buildDetailRow('🎯', AppConstants.customerEarnedLabel, '1 ${AppConstants.pointLabel}'),
+                      _buildDetailRow('🎯', AppConstants.customerEarnedLabel, earnedLabel),
                       SizedBox(height: MediaQuery.of(context).size.height * 0.01),
                       _buildDetailRow('📊', AppConstants.totalPointsLabel, '${result['points']}'),
                       SizedBox(height: MediaQuery.of(context).size.height * 0.01),

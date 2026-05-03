@@ -327,9 +327,15 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
         });
         
         // Update points immediately from socket data
-        final newPoints = data['points'] as int?;
+        final rawPts = data['points'];
+        final int? newPoints = rawPts is num
+            ? rawPts.toInt()
+            : int.tryParse(rawPts?.toString() ?? '');
         final qrToken = data['qrToken'] as String?;
         final userId = data['userId'] as String?;
+        final rawPa = data['pointsAdded'];
+        final int pointsAdded =
+            rawPa is num ? rawPa.toInt() : int.tryParse(rawPa?.toString() ?? '') ?? 0;
         
         // Only update if this is for the current user
         if (mounted && newPoints != null && 
@@ -349,45 +355,33 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
             (_loyaltyPageKey.currentState as dynamic).updatePointsFromExternal(newPoints);
           }
           
-          // Show notification
-          final drink = data['drink'] as String?;
-          final message = drink != null 
-              ? 'New order: $drink! You now have $newPoints stamps'
-              : 'Points updated! You now have $newPoints stamps';
-              
-          if (mounted) {
+          if (pointsAdded > 0 && mounted) {
+            final drink = data['itemName'] as String? ?? data['drink'] as String?;
+            final message = drink != null
+                ? 'New order: $drink! You now have $newPoints stamps'
+                : 'Points updated! You now have $newPoints stamps';
             ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.star, color: Colors.yellow, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      message,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.star, color: Colors.yellow, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                backgroundColor: const Color(0xFF4CAF50),
+                duration: const Duration(seconds: 4),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              backgroundColor: const Color(0xFF242C5B),
-              duration: const Duration(seconds: 4),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              action: SnackBarAction(
-                label: 'Refresh',
-                textColor: Colors.white,
-                onPressed: () {
-                  fetchPoints();
-                  if (_loyaltyPageKey.currentState != null) {
-                    (_loyaltyPageKey.currentState as dynamic).forceRefreshPoints();
-                  }
-                },
-              ),
-            ),
-          );
+            );
           }
         } else {
           LoggingService.instance.homepage('Update not for current user, ignoring');
