@@ -294,15 +294,17 @@ class ApiService {
           return data;
         } else if (response.statusCode == 429) {
           // Handle rate limiting and abuse detection
-          final errorData = jsonDecode(response.body);
+          final errorData = jsonDecode(response.body) as Map<String, dynamic>;
           Logger.error('429 Error - Rate limit exceeded:', 'API');
           Logger.error('   - Error message: ${errorData['error'] ?? errorData['message'] ?? 'Daily scan limit reached'}', 'API');
           Logger.error('   - Customer points: ${errorData['points']}', 'API');
           return {
             'error': errorData['error'] ?? errorData['message'] ?? 'Daily scan limit reached',
             'points': errorData['points'],
-            'code': 'RATE_LIMIT_EXCEEDED',
-            'statusCode': 429
+            'code': errorData['code'] ?? 'RATE_LIMIT_EXCEEDED',
+            'statusCode': 429,
+            if (errorData['maxScansPerDay'] != null) 'maxScansPerDay': errorData['maxScansPerDay'],
+            if (errorData['maxPointsPerDay'] != null) 'maxPointsPerDay': errorData['maxPointsPerDay'],
           };
         } else if (response.statusCode == 400) {
           // For 400 errors (like max points reached), return the error data immediately
@@ -376,8 +378,10 @@ class ApiService {
           return {
             'error': errorData['error'] ?? errorData['message'] ?? 'Daily scan limit reached',
             'points': errorData['points'],
-            'code': 'RATE_LIMIT_EXCEEDED',
-            'statusCode': 429
+            'code': errorData['code'] ?? 'RATE_LIMIT_EXCEEDED',
+            'statusCode': 429,
+            if (errorData['maxScansPerDay'] != null) 'maxScansPerDay': errorData['maxScansPerDay'],
+            if (errorData['maxPointsPerDay'] != null) 'maxPointsPerDay': errorData['maxPointsPerDay'],
           };
         }
         if (response.statusCode == 400) {

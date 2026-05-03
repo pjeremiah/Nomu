@@ -4433,7 +4433,9 @@ app.post('/api/loyalty/scan', async (req, res) => {
       _log('🚨 [SECURITY] Security check failed:', securityError.message);
       return res.status(429).json({ 
         error: securityError.message,
-        code: 'RATE_LIMIT_EXCEEDED'
+        code: 'RATE_LIMIT_EXCEEDED',
+        maxScansPerDay: config.customerMaxScansPerDay,
+        maxPointsPerDay: config.customerMaxPointsPerDay
       });
     }
     
@@ -4727,7 +4729,6 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     }
 
     try {
-      checkCustomerLimits(user._id.toString());
       if (employeeId) {
         checkEmployeeLimits(employeeId);
         if (detectAbuse(employeeId, user._id.toString())) {
@@ -4740,7 +4741,9 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     } catch (securityError) {
       return res.status(429).json({
         error: securityError.message,
-        code: 'RATE_LIMIT_EXCEEDED'
+        code: 'RATE_LIMIT_EXCEEDED',
+        maxScansPerDay: config.customerMaxScansPerDay,
+        maxPointsPerDay: config.customerMaxPointsPerDay
       });
     }
 
@@ -4786,6 +4789,25 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
       if (item.excludeFromAnalytics) return sum;
       return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
     }, 0);
+
+    // Free reward pickup only: do not apply customer daily scan/points caps (still enforces employee limits above).
+    const rewardOnlyPickup =
+      enrichedItems.length > 0 &&
+      paidSubtotal <= 0 &&
+      enrichedItems.every((item) => item.excludeFromAnalytics === true);
+
+    if (!rewardOnlyPickup) {
+      try {
+        checkCustomerLimits(user._id.toString());
+      } catch (securityError) {
+        return res.status(429).json({
+          error: securityError.message,
+          code: 'RATE_LIMIT_EXCEEDED',
+          maxScansPerDay: config.customerMaxScansPerDay,
+          maxPointsPerDay: config.customerMaxPointsPerDay
+        });
+      }
+    }
 
     const MINIMUM_SPENDING = 100;
     const isEligibleForPoints = paidSubtotal >= MINIMUM_SPENDING;
@@ -4877,7 +4899,7 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     }
 
     try {
-      recordCustomerScan(user._id.toString(), pointsAdded);
+      recordCustomerScan(user._id.toString(), pointsAdded, !rewardOnlyPickup);
       if (employeeId) {
         recordEmployeeScan(employeeId, user._id.toString());
       }

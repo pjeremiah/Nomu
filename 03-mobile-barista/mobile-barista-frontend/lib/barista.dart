@@ -1875,7 +1875,9 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
         final statusCode = result['statusCode'];
         Logger.error('Error response detected: $err (code: $code)', 'TRANSACTION');
 
-        if (code == 'RATE_LIMIT_EXCEEDED' || statusCode == 429) {
+        if (code == 'ABUSE_DETECTED') {
+          _showErrorDialog('Scan blocked', err);
+        } else if (code == 'RATE_LIMIT_EXCEEDED' || statusCode == 429) {
           Logger.error('Rate limit exceeded - customer has reached daily scan limit', 'TRANSACTION');
           await _showRateLimitDialog(result);
         } else if (_isLoyaltyCardFullError(code, err)) {
@@ -2247,6 +2249,22 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
 
   // Show rate limit dialog when customer has reached daily scan limit
   Future<void> _showRateLimitDialog(Map<String, dynamic> result) async {
+    final errLower = (result['error']?.toString() ?? '').toLowerCase();
+    final isPointsLimit = errLower.contains('points');
+    final maxScans = result['maxScansPerDay'];
+    final maxPoints = result['maxPointsPerDay'];
+    final int? maxScansInt = maxScans is num ? maxScans.toInt() : int.tryParse(maxScans?.toString() ?? '');
+    final int? maxPointsInt = maxPoints is num ? maxPoints.toInt() : int.tryParse(maxPoints?.toString() ?? '');
+
+    final title = isPointsLimit ? 'Daily Points Limit Reached' : 'Daily Scan Limit Reached';
+    final String body = isPointsLimit
+        ? (maxPointsInt != null
+            ? 'This customer has reached their daily points limit ($maxPointsInt points per day). Please ask them to return tomorrow.'
+            : 'This customer has reached their daily points limit. Please ask them to return tomorrow.')
+        : (maxScansInt != null
+            ? 'This customer has reached their daily scan limit ($maxScansInt scans per day). Please ask them to return tomorrow.'
+            : 'This customer has reached their daily scan limit. Please ask them to return tomorrow.');
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -2296,7 +2314,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
               
               // Title
               Text(
-                'Daily Scan Limit Reached',
+                title,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: MediaQuery.of(context).size.width * 0.05,
@@ -2317,7 +2335,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'This customer has reached their daily scan limit (3 scans per day). Please ask them to return tomorrow.',
+                    body,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: MediaQuery.of(context).size.width * 0.04,

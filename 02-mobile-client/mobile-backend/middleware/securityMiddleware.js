@@ -244,7 +244,7 @@ function checkCustomerLimits(customerId) {
   return true;
 }
 
-function recordCustomerScan(customerId, pointsEarned = 1) {
+function recordCustomerScan(customerId, pointsEarned = 1, countTowardDailyScan = true) {
   const now = Date.now();
   const today = new Date().toDateString();
   
@@ -258,8 +258,10 @@ function recordCustomerScan(customerId, pointsEarned = 1) {
   
   const customerData = customerScans.get(customerId);
   
-  // Record scan and points
-  customerData.daily.push({ date: today, timestamp: now, points: pointsEarned });
+  // Reward-only pickup (0 paid merchandise) should not consume daily scan/points quota.
+  if (countTowardDailyScan) {
+    customerData.daily.push({ date: today, timestamp: now, points: pointsEarned });
+  }
   customerData.lastScan = now;
   
   // Clean up old data (keep only last 7 days)
