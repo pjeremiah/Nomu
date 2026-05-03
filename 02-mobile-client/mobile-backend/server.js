@@ -5349,6 +5349,8 @@ function lineCountsTowardBestSellerAnalytics(line) {
   if (!line) return false;
   if (line.excludeFromAnalytics === true) return false;
   if (String(line.excludeFromAnalytics).toLowerCase() === 'true') return false;
+  const rb = line.rewardBucket != null && String(line.rewardBucket).trim() !== '';
+  if (rb) return false;
   return true;
 }
 

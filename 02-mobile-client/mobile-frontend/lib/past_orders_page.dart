@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'order_line_display.dart';
 
 /// Full-screen Past Orders page (replaces the modal).
 class PastOrdersPage extends StatelessWidget {
@@ -75,9 +76,12 @@ class PastOrdersPage extends StatelessWidget {
                 final items = order['items'] as List<dynamic>?;
                 final isMultipleItems = items != null && items.isNotEmpty;
                 final firstItem = isMultipleItems ? items.first : order;
-                final itemName = firstItem['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
-                final itemType = firstItem['itemType'] ?? order['itemType'] ?? 'drink';
-                final category = firstItem['category'] ?? order['category'] ?? 'coffee';
+                final firstLine = orderLineAsMap(firstItem);
+                final itemNameRaw =
+                    firstLine['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
+                final itemName = orderLineDisplayName(itemNameRaw.toString(), firstLine);
+                final itemType = firstLine['itemType'] ?? order['itemType'] ?? 'drink';
+                final category = firstLine['category'] ?? order['category'] ?? 'coffee';
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -113,7 +117,7 @@ class PastOrdersPage extends StatelessWidget {
                                 children: [
                                   Text(
                                     isMultipleItems
-                                        ? '${itemName} +${items.length - 1} more'
+                                        ? '$itemName +${items.length - 1} more'
                                         : itemName,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,

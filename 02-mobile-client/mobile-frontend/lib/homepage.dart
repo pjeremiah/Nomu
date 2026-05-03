@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'past_orders_page.dart';
+import 'order_line_display.dart';
 import 'theme/app_theme.dart';
 
 /// Formats an order date as "Xm ago", "Xh ago", "Xd ago", or "MMM d, y".
@@ -1403,9 +1404,12 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
     
     // For multiple items, use the first item for main display
     final firstItem = isMultipleItems ? items.first : order;
-    final itemName = firstItem['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
-    final itemType = firstItem['itemType'] ?? order['itemType'] ?? 'drink';
-    final category = firstItem['category'] ?? order['category'] ?? 'coffee';
+    final firstLine = orderLineAsMap(firstItem);
+    final itemNameRaw =
+        firstLine['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
+    final itemName = orderLineDisplayName(itemNameRaw.toString(), firstLine);
+    final itemType = firstLine['itemType'] ?? order['itemType'] ?? 'drink';
+    final category = firstLine['category'] ?? order['category'] ?? 'coffee';
     
     return GestureDetector(
       onTap: onTap,
@@ -1485,8 +1489,8 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                   children: [
                     Expanded(
                       child: Text(
-                        isMultipleItems 
-                            ? '${itemName} +${items.length - 1} more'
+                        isMultipleItems
+                            ? '$itemName +${items.length - 1} more'
                             : itemName,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
@@ -1579,7 +1583,12 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  '${item['itemName']} (${_getItemTypeDisplayName(item['itemType'] ?? 'item')})',
+                                  orderLineBulletLabel(
+                                    (item['itemName'] ?? '').toString(),
+                                    orderLineAsMap(item),
+                                    _getItemTypeDisplayName(item['itemType'] ?? 'item'),
+                                    quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+                                  ),
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: Colors.grey[600],
@@ -1588,7 +1597,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                               ),
                             ],
                           ),
-                        )).toList(),
+                        )),
                         if (items.length > 3)
                           Text(
                             '... and ${items.length - 3} more items',
@@ -1653,9 +1662,11 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
     final items = order['items'] as List<dynamic>?;
     final isMultipleItems = items != null && items.isNotEmpty;
     final firstItem = isMultipleItems ? items.first : order;
-    final itemName = firstItem['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
-    final itemType = firstItem['itemType'] ?? order['itemType'] ?? 'drink';
-    final category = firstItem['category'] ?? order['category'] ?? 'coffee';
+    final firstLine = orderLineAsMap(firstItem);
+    final itemNameRaw =
+        firstLine['itemName'] ?? order['itemName'] ?? order['drink'] ?? 'Unknown Item';
+    final itemName = orderLineDisplayName(itemNameRaw.toString(), firstLine);
+    final itemType = firstLine['itemType'] ?? order['itemType'] ?? 'drink';
 
     showDialog(
       context: context,
@@ -1683,7 +1694,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isMultipleItems ? '${itemName} +${items!.length - 1} more' : itemName,
+                isMultipleItems ? '$itemName +${items.length - 1} more' : itemName,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -1715,12 +1726,18 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                 ),
               ),
               const SizedBox(height: 8),
-              ...(isMultipleItems && items != null
+              ...(isMultipleItems
                   ? items.asMap().entries.map((e) {
                       final item = e.value;
-                      final name = item['itemName'] ?? item['name'] ?? 'Item';
+                      final line = orderLineAsMap(item);
                       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
                       final type = _getItemTypeDisplayName(item['itemType'] ?? 'item');
+                      final bullet = orderLineBulletLabel(
+                        (item['itemName'] ?? item['name'] ?? 'Item').toString(),
+                        line,
+                        type,
+                        quantity: qty,
+                      );
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Row(
@@ -1738,7 +1755,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                '$name${qty > 1 ? ' × $qty' : ''} ($type)',
+                                bullet,
                                 style: TextStyle(fontSize: 14, color: Colors.grey[800]),
                               ),
                             ),
@@ -1764,7 +1781,12 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                '$itemName (${_getItemTypeDisplayName(itemType)})',
+                                orderLineBulletLabel(
+                                  itemNameRaw.toString(),
+                                  orderLineAsMap(order),
+                                  _getItemTypeDisplayName(itemType),
+                                  quantity: (order['quantity'] as num?)?.toInt() ?? 1,
+                                ),
                                 style: TextStyle(fontSize: 14, color: Colors.grey[800]),
                               ),
                             ),
