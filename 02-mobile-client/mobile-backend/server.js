@@ -1180,6 +1180,42 @@ function rewardClaimTypesForPickupBucket(bucket) {
   return [...specifics, 'bonus'];
 }
 
+/**
+ * RewardClaim rows store [cycle] from the moment of Claim. Claiming the 10-tier advances
+ * [user.currentCycle] immediately after the row is created, so open pickups often sit on
+ * the previous cycle. Barista pickup + fulfillment must match both current and prior cycle.
+ */
+function rewardClaimCycleMatchForPickup(user) {
+  const c = user.currentCycle || 1;
+  const prev = Math.max(1, c - 1);
+  if (prev === c) return { cycle: c };
+  return { cycle: { $in: [c, prev] } };
+}
+
+/** Disambiguate open [bonus] rows: 5-tier vs 10-tier for barista bucket. */
+function rewardClaimTypeMatchForBucket(rewardBucket) {
+  const specifics = rewardHistoryTypesForBucket(rewardBucket);
+  if (!specifics.length) return { type: { $in: [] } };
+  const b = String(rewardBucket || '').toLowerCase();
+  const or = [{ type: { $in: specifics } }];
+  if (b === 'donut' || b === 'pastry') {
+    or.push({ type: 'bonus', loyaltyStampTier: 5 });
+    or.push({
+      type: 'bonus',
+      $or: [{ loyaltyStampTier: { $exists: false } }, { loyaltyStampTier: null }]
+    });
+  } else if (b === 'drink' || b === 'pizza') {
+    or.push({ type: 'bonus', loyaltyStampTier: 10 });
+    or.push({
+      type: 'bonus',
+      $or: [{ loyaltyStampTier: { $exists: false } }, { loyaltyStampTier: null }]
+    });
+  } else {
+    or.push({ type: 'bonus' });
+  }
+  return { $or: or };
+}
+
 /** Customer must have claimed the matching reward in the app before barista can give it free (pickup within deadline). */
 function userHasRecentRewardClaimForBucket(user, rewardBucket) {
   const types = rewardHistoryTypesForBucket(rewardBucket);
@@ -1294,7 +1330,7 @@ async function applyLoyaltyTierExpiry(user) {
   if (w.tier5ClaimBy && now > new Date(w.tier5ClaimBy)) {
     const claimed5 = await RewardClaim.findOne({
       userId: uid,
-      cycle,
+      ...rewardClaimCycleMatchForPickup(user),
       $or: [
         { type: { $in: ['donut', 'pastry'] } },
         { type: 'bonus', loyaltyStampTier: 5 }
@@ -1316,7 +1352,7 @@ async function applyLoyaltyTierExpiry(user) {
   if (w.tier10ClaimBy && now > new Date(w.tier10ClaimBy)) {
     const claimed10 = await RewardClaim.findOne({
       userId: uid,
-      cycle,
+      ...rewardClaimCycleMatchForPickup(user),
       $or: [
         { type: { $in: ['coffee', 'pizza'] } },
         { type: 'bonus', loyaltyStampTier: 10 }
@@ -1400,16 +1436,14 @@ function rewardClaimPickupWindowAndOpenFilter(now) {
 
 /** Barista pickup: open RewardClaim with pickup still valid (24h after Claim; legacy rows use claim date + 24h). */
 async function userHasOpenRewardPickupForBucket(user, rewardBucket) {
-  const types = rewardClaimTypesForPickupBucket(rewardBucket);
-  if (!types.length) return false;
-  const cycle = user.currentCycle || 1;
+  if (!rewardHistoryTypesForBucket(rewardBucket).length) return false;
   const now = new Date();
 
   const claim = await RewardClaim.findOne({
     $and: [
       { userId: user._id },
-      { cycle },
-      { type: { $in: types } },
+      rewardClaimCycleMatchForPickup(user),
+      rewardClaimTypeMatchForBucket(rewardBucket),
       ...rewardClaimPickupWindowAndOpenFilter(now).$and
     ]
   })
@@ -1424,20 +1458,18 @@ async function userHasOpenRewardPickupForBucket(user, rewardBucket) {
  * Helps staff handle disputes: "already picked up" is backed by [fulfilledAt] on the RewardClaim.
  */
 async function rewardPickupDenialInfo(user, rewardBucket) {
-  const types = rewardClaimTypesForPickupBucket(rewardBucket);
-  if (!types.length) {
+  if (!rewardHistoryTypesForBucket(rewardBucket).length) {
     return {
       code: 'REWARD_NOT_CLAIMED',
       message:
         'This line is not a valid reward bucket. The customer must tap Claim in the Nomu app first; pickup is within 24 hours of Claim.'
     };
   }
-  const cycle = user.currentCycle || 1;
   const now = new Date();
   const latest = await RewardClaim.findOne({
     userId: user._id,
-    cycle,
-    type: { $in: types }
+    ...rewardClaimCycleMatchForPickup(user),
+    ...rewardClaimTypeMatchForBucket(rewardBucket)
   })
     .sort({ date: -1 })
     .lean();
@@ -1484,18 +1516,16 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
 }
 
 async function markRewardPickupsFulfilled(user, enrichedItems) {
-  const cycle = user.currentCycle || 1;
   const now = new Date();
   for (const item of enrichedItems) {
     if (!item.excludeFromAnalytics || !item.rewardBucket) continue;
     const b = String(item.rewardBucket).toLowerCase();
-    const types = rewardClaimTypesForPickupBucket(b);
-    if (!types.length) continue;
+    if (!rewardHistoryTypesForBucket(b).length) continue;
     const filter = {
       $and: [
         { userId: user._id },
-        { cycle },
-        { type: { $in: types } },
+        rewardClaimCycleMatchForPickup(user),
+        rewardClaimTypeMatchForBucket(b),
         ...rewardClaimPickupWindowAndOpenFilter(now).$and
       ]
     };

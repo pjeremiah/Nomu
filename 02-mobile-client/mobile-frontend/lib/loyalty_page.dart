@@ -1821,9 +1821,10 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   }
 
   /// Claims in app but not yet handed over at the counter (24h after Claim, or legacy rows without deadline).
+  /// One row per RewardClaim — no collapsing by [type], so two bonus tiers (5 + 10) both show with their own timers.
   List<Map<String, dynamic>> _openShopPickupsFromHistory() {
     final now = DateTime.now();
-    final byType = <String, Map<String, dynamic>>{};
+    final out = <Map<String, dynamic>>[];
     for (final row in rewardsHistory) {
       final fulfilled = row['fulfilledAt'];
       if (fulfilled != null && fulfilled.toString().trim().isNotEmpty && fulfilled.toString() != 'null') {
@@ -1831,16 +1832,6 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       }
       final t = (row['type'] ?? '').toString().toLowerCase();
       if (t.isEmpty) continue;
-      final cd = _parseLoyaltyDate(row['date']);
-      final prev = byType[t];
-      if (prev != null) {
-        final prevD = _parseLoyaltyDate(prev['date']);
-        if (cd != null && prevD != null && cd.isBefore(prevD)) continue;
-      }
-      byType[t] = Map<String, dynamic>.from(row);
-    }
-    final out = <Map<String, dynamic>>[];
-    for (final row in byType.values) {
       final deadline = _parseLoyaltyDate(row['pickupDeadline']);
       final claimDate = _parseLoyaltyDate(row['date']) ?? DateTime.now();
       var open = false;
@@ -1849,7 +1840,7 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       } else {
         open = claimDate.add(const Duration(hours: 24)).isAfter(now);
       }
-      if (open) out.add(row);
+      if (open) out.add(Map<String, dynamic>.from(row));
     }
     out.sort((a, b) {
       final da = _effectiveShopPickupDeadline(a) ?? DateTime(2100);
@@ -1907,16 +1898,29 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
               const SizedBox(height: 10),
               ...open.map((row) {
                 final t = (row['type'] ?? '').toString().toLowerCase();
-                final title = _shopPickupRewardTitle(t);
+                final desc = row['description']?.toString().trim() ?? '';
+                final title = desc.isNotEmpty ? desc : _shopPickupRewardTitle(t);
+                final tier = _parseIntSafe(row['loyaltyStampTier'], 0);
+                final cycle = row['cycle'];
                 final end = _effectiveShopPickupDeadline(row);
                 final clock = end != null ? _formatRemainingClock(end) : null;
                 final legacy = row['pickupDeadline'] == null;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      if (tier == 5 || tier == 10)
+                        Text(
+                          tier == 10 ? '10-stamp reward · collect at counter' : '5-stamp reward · collect at counter',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.2),
+                        ),
+                      if (cycle != null)
+                        Text(
+                          'Cycle $cycle',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        ),
                       if (clock != null)
                         Text(
                           'Time left to collect: $clock',
@@ -1926,11 +1930,11 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                             color: Colors.orange.shade900,
                           ),
                         )
-                        else if (legacy)
-                          const Text(
-                            'Pickup within 24 hours of Claim (older claim without deadline)',
-                            style: TextStyle(fontSize: 12.5),
-                          ),
+                      else if (legacy)
+                        const Text(
+                          'Pickup within 24 hours of Claim (older claim without deadline)',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
                     ],
                   ),
                 );
