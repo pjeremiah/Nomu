@@ -50,6 +50,24 @@ bool _parseBoolSafe(dynamic v, [bool fallback = false]) {
   return fallback;
 }
 
+/// Maps web admin [rewardType] → API claim `type`.
+///
+/// Admin "Loyalty Bonus" / "Special" has no product category — use `bonus` so the barista app
+/// can fulfill with Free Donut / Pastry / Drink / Pizza buttons; pickup allows multiple SKUs per claim tier.
+String loyaltyClaimTypeFromAdminReward(String rewardType, int pointsRequired, String title) {
+  final rt = rewardType.trim().toLowerCase();
+  if (rt == 'donut') return 'donut';
+  if (rt == 'pastry') return 'pastry';
+  if (rt == 'coffee') return 'coffee';
+  if (rt == 'pizza' || rt == 'pizzas') return 'pizza';
+  if (rt == 'special' || rt == 'loyalty bonus') return 'bonus';
+  if (rt.contains('pizza')) return 'pizza';
+  if (rt.contains('pastry')) return 'pastry';
+  if (rt.contains('donut')) return 'donut';
+  if (rt.contains('coffee')) return 'coffee';
+  return 'bonus';
+}
+
 class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin {
   int? points;
   bool isLoading = true;
@@ -101,10 +119,9 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   /// Set when dispose() runs so we never use animation controllers after dispose (avoids crash).
   bool _controllersDisposed = false;
 
+  /// Which 24h claim window applies: admin sets threshold via [pointsRequired] (not hardcoded 5/10).
   bool _isTenStampRewardBanner(int pointsRequired, String rewardTypeLower) {
-    if (pointsRequired >= 10) return true;
-    final t = rewardTypeLower.toLowerCase();
-    return t.contains('pizza') || t.contains('coffee');
+    return pointsRequired >= 10;
   }
 
   DateTime? _activeClaimDeadlineForBanner(int pointsRequired, String rewardTypeLower) {
@@ -1040,14 +1057,15 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         final claimCycle = _parseIntSafe(claim['cycle'], 0);
         if (claimCycle < 1 || claimCycle != effectiveCycle) continue; // only consider current cycle; ignore cycle 0
         final claimType = (claim['type'] as String? ?? '').toLowerCase();
+        final claimDesc = (claim['description'] as String? ?? '').trim().toLowerCase();
+        final titleLower = title.trim().toLowerCase();
+        final expectedClaim =
+            loyaltyClaimTypeFromAdminReward(rewardType, pointsRequired, title);
         bool isMatch = false;
-        if (pointsRequired == 5) {
-          isMatch = claimType == 'donut' || claimType == 'pastry';
-        } else if (pointsRequired == 10) {
-          isMatch = claimType == 'coffee' || claimType == 'pizza';
+        if (expectedClaim == 'bonus') {
+          isMatch = claimType == 'bonus' && claimDesc == titleLower;
         } else {
-          final claimDesc = (claim['description'] as String? ?? '').toLowerCase();
-          isMatch = claimDesc.contains(title.toLowerCase()) || title.toLowerCase().contains(claimDesc);
+          isMatch = claimType == expectedClaim;
         }
         if (isMatch) {
           wasClaimed = true;
@@ -1103,11 +1121,23 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
     for (final r in rewardsHistory) {
       final claimDate = DateTime.tryParse(r['date'].toString());
       if (claimDate == null) continue;
-      
-      if (r['type'] == 'coffee' && (lastCoffeeClaim == null || claimDate.isAfter(lastCoffeeClaim))) {
-        lastCoffeeClaim = claimDate;
-      } else if (r['type'] == 'donut' && (lastDonutClaimData == null || claimDate.isAfter(DateTime.tryParse(lastDonutClaimData['date'].toString()) ?? DateTime(1970)))) {
-        lastDonutClaimData = r;
+      final t = (r['type'] as String? ?? '').toLowerCase();
+      final tier = _parseIntSafe(r['loyaltyStampTier'], -1);
+
+      if (t == 'coffee' || t == 'pizza' || (t == 'bonus' && tier == 10)) {
+        if (lastCoffeeClaim == null || claimDate.isAfter(lastCoffeeClaim)) {
+          lastCoffeeClaim = claimDate;
+        }
+      }
+      if (t == 'donut' ||
+          t == 'pastry' ||
+          (t == 'bonus' && tier != 10)) {
+        if (lastDonutClaimData == null ||
+            claimDate.isAfter(
+                DateTime.tryParse(lastDonutClaimData['date'].toString()) ??
+                    DateTime(1970))) {
+          lastDonutClaimData = r;
+        }
       }
     }
 
@@ -1777,6 +1807,8 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         return 'Free coffee';
       case 'pizza':
         return 'Free pizza';
+      case 'bonus':
+        return 'Loyalty reward';
       default:
         return 'Free reward';
     }
@@ -1786,11 +1818,11 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
     final pd = _parseLoyaltyDate(row['pickupDeadline']);
     if (pd != null) return pd;
     final c = _parseLoyaltyDate(row['date']);
-    if (c != null) return c.add(const Duration(days: 14));
+    if (c != null) return c.add(const Duration(hours: 24));
     return null;
   }
 
-  /// Claims in app but not yet handed over at the counter (or legacy 14-day window).
+  /// Claims in app but not yet handed over at the counter (24h after Claim, or legacy rows without deadline).
   List<Map<String, dynamic>> _openShopPickupsFromHistory() {
     final now = DateTime.now();
     final byType = <String, Map<String, dynamic>>{};
@@ -1817,7 +1849,7 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       if (deadline != null) {
         open = deadline.isAfter(now);
       } else {
-        open = now.difference(claimDate) <= const Duration(days: 14);
+        open = claimDate.add(const Duration(hours: 24)).isAfter(now);
       }
       if (open) out.add(row);
     }
@@ -1896,11 +1928,11 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                             color: Colors.orange.shade900,
                           ),
                         )
-                      else if (legacy)
-                        const Text(
-                          'Visit soon — legacy claim (ask staff if unsure)',
-                          style: TextStyle(fontSize: 12.5),
-                        ),
+                        else if (legacy)
+                          const Text(
+                            'Pickup within 24 hours of Claim (older claim without deadline)',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
                     ],
                   ),
                 );
@@ -2083,8 +2115,6 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                   final currentPoints = points ?? 0;
                   final canClaimNow = currentPoints >= pointsRequired;
                   final rtl = rewardType.toLowerCase();
-                  final isDonutReward = pointsRequired == 5;
-                  final isCoffeeReward = pointsRequired == 10;
 
                   Widget claimButton(void Function()? onPressed, {String label = 'Claim'}) {
                     return ElevatedButton(
@@ -2133,44 +2163,8 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                     );
                   }
 
-                  // Donut (5 points): show "Claim" only if not already claimed this cycle.
-                  if (isDonutReward) {
-                    if (canClaimNow && alreadyClaimed) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('Claimed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                      );
-                    }
-                    if (canClaimNow) {
-                      final expired = _tierWindowExpiredForBanner(pointsRequired, rtl);
-                      if (expired) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('Expired', style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold)),
-                        );
-                      }
-                      final windowOpen = _claimWindowOpenForBanner(pointsRequired, rtl);
-                      final dl = _activeClaimDeadlineForBanner(pointsRequired, rtl);
-                      final canPress = !expired && (windowOpen || dl == null);
-                      return claimColumn(
-                        _isClaimingReward || !canPress
-                            ? null
-                            : () {
-                                _claimDynamicReward(context, rewardId, pointsRequired, rewardType, title);
-                              },
-                      );
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        'Need ${pointsRequired - currentPoints} more points',
-                        style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                      ),
-                    );
-                  }
-
-                  // Coffee (10 points): show "Claim" only if not already claimed this cycle.
-                  if (isCoffeeReward) {
+                  // Admin-defined stamp threshold ([pointsRequired]) and rewardType drive tier + claim mapping.
+                  if (pointsRequired > 0) {
                     if (canClaimNow && alreadyClaimed) {
                       return const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 8),
@@ -2310,33 +2304,27 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       if (widget.qrToken.isNotEmpty) {
         final userId = await ApiService.getUserIdByQrToken(widget.qrToken);
         if (userId != null) {
-          // Map admin reward banner → backend claim type (must match barista fulfillment buckets).
-          String claimType = 'donut';
-          final rt = rewardType.toLowerCase();
-          if (rt.contains('pizza')) {
-            claimType = 'pizza';
-          } else if (rt.contains('pastry') || rt.contains('pastries')) {
-            claimType = 'pastry';
-          } else if (rt.contains('coffee') ||
-              rt.contains('drink') ||
-              pointsRequired == 10) {
-            claimType = 'coffee';
-          } else if (rt.contains('donut') || pointsRequired == 5) {
-            claimType = 'donut';
-          }
-          
-          final result = await ApiService.claimReward(userId, claimType, title);
+          final claimType = loyaltyClaimTypeFromAdminReward(rewardType, pointsRequired, title);
+          final result = await ApiService.claimReward(
+            userId,
+            claimType,
+            title,
+            pointsRequired: pointsRequired,
+          );
           
           if (result != null && result['success'] != false) {
             // Update local state: points and cycle from server (coffee = reset to 0, cycle advances)
             final newPoints = _parseIntSafe(result['newPoints'], points ?? 0);
-            final newCycle = _parseIntSafe(result['currentCycle'], currentCycle + (pointsRequired == 10 ? 1 : 0));
+            final newCycle = _parseIntSafe(
+              result['currentCycle'],
+              currentCycle + (pointsRequired >= 10 ? 1 : 0),
+            );
             if (mounted) {
               setState(() {
-                points = newPoints; // Coffee: 0; donut: unchanged
-                currentCycle = newCycle; // Coffee: cycle advances 1->2->3...
+                points = newPoints;
+                currentCycle = newCycle;
                 rewardClaimedStatus[rewardId] = true;
-                if (pointsRequired == 10) rewardClaimed10 = true;
+                if (pointsRequired >= 10) rewardClaimed10 = true;
                 sessionClaimedRewards[rewardId] = DateTime.now();
               });
             }
@@ -2487,6 +2475,7 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       }
       final type = (r['type'] as String? ?? '').toLowerCase();
       final isDonut = type == 'donut';
+      final isBonus = type == 'bonus';
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
@@ -2500,21 +2489,25 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isDonut ? Colors.orange[100] : Colors.brown[100],
+              color: isBonus
+                  ? Colors.purple[50]
+                  : (isDonut ? Colors.orange[100] : Colors.brown[100]),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
-              child: Image.asset(
-                isDonut ? 'assets/images/donut.png' : 'assets/images/coffee.png',
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Icon(
-                  isDonut ? Icons.cake : Icons.local_cafe,
-                  size: 24,
-                  color: isDonut ? Colors.orange[700] : Colors.brown[700],
-                ),
-              ),
+              child: isBonus
+                  ? Icon(Icons.card_giftcard, size: 24, color: Colors.purple[700])
+                  : Image.asset(
+                      isDonut ? 'assets/images/donut.png' : 'assets/images/coffee.png',
+                      width: 24,
+                      height: 24,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Icon(
+                        isDonut ? Icons.cake : Icons.local_cafe,
+                        size: 24,
+                        color: isDonut ? Colors.orange[700] : Colors.brown[700],
+                      ),
+                    ),
             ),
           ),
           title: Text(

@@ -458,6 +458,7 @@ function rewardTypeDisplayMeta(rewardType) {
   if (t === 'coffee' || t === 'drink') return { emoji: '☕', name: 'Free Drink' };
   if (t === 'pastry') return { emoji: '🥐', name: 'Free Pastry' };
   if (t === 'pizza') return { emoji: '🍕', name: 'Free Pizza' };
+  if (t === 'bonus') return { emoji: '🎁', name: 'Loyalty reward' };
   return { emoji: '🍩', name: 'Free Donut' };
 }
 
@@ -913,7 +914,8 @@ const userSchema = new mongoose.Schema({
       type: String,
       description: String,
       date: { type: Date, default: Date.now },
-      cycle: Number
+      cycle: Number,
+      loyaltyStampTier: { type: Number }
     }
   ],
   createdAt: { type: Date, default: Date.now },
@@ -969,13 +971,20 @@ const Chat = mongoose.model('Chat', chatSchema);
 // RewardClaim model for reward history
 const rewardClaimSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  type: String, // 'donut' or 'coffee'
+  type: String, // 'donut' | 'coffee' | 'pastry' | 'pizza' | 'bonus' (admin "Loyalty Bonus" — barista picks SKU)
   description: String,
   date: { type: Date, default: Date.now },
   cycle: { type: Number, default: 0 }, // Track which cycle this reward was claimed in
   pointsAtClaim: { type: Number, default: 0 }, // Track points at the time of claim
   pickupDeadline: { type: Date }, // barista must complete pickup by this time (Claim + 24h)
-  fulfilledAt: { type: Date, default: null } // set when barista scan-multiple fulfills pickup
+  fulfilledAt: { type: Date, default: null }, // set when barista scan-multiple fulfills pickup
+  /** 5- vs 10-stamp tier (for expiry); set on every new claim. */
+  loyaltyStampTier: { type: Number },
+  /**
+   * For type `bonus` only: how many barista free-line redemptions this claim allows before fulfilledAt.
+   * Tier-10 defaults to 2 (e.g. drink + pastry); tier-5 defaults to 1.
+   */
+  bonusPickupsRemaining: { type: Number, default: null }
 });
 const RewardClaim = mongoose.model('RewardClaim', rewardClaimSchema);
 
@@ -1162,6 +1171,13 @@ function rewardHistoryTypesForBucket(bucket) {
   return [];
 }
 
+/** Barista bucket can redeem an explicit claim type or a generic admin "bonus" claim. */
+function rewardClaimTypesForPickupBucket(bucket) {
+  const specifics = rewardHistoryTypesForBucket(bucket);
+  if (!specifics.length) return [];
+  return [...specifics, 'bonus'];
+}
+
 /** Customer must have claimed the matching reward in the app before barista can give it free (pickup within deadline). */
 function userHasRecentRewardClaimForBucket(user, rewardBucket) {
   const types = rewardHistoryTypesForBucket(rewardBucket);
@@ -1272,7 +1288,10 @@ async function applyLoyaltyTierExpiry(user) {
     const claimed5 = await RewardClaim.findOne({
       userId: uid,
       cycle,
-      type: { $in: ['donut', 'pastry'] }
+      $or: [
+        { type: { $in: ['donut', 'pastry'] } },
+        { type: 'bonus', loyaltyStampTier: 5 }
+      ]
     }).lean();
     if (!claimed5) {
       const nw = { ...w };
@@ -1291,7 +1310,10 @@ async function applyLoyaltyTierExpiry(user) {
     const claimed10 = await RewardClaim.findOne({
       userId: uid,
       cycle,
-      type: { $in: ['coffee', 'pizza'] }
+      $or: [
+        { type: { $in: ['coffee', 'pizza'] } },
+        { type: 'bonus', loyaltyStampTier: 10 }
+      ]
     }).lean();
     if (!claimed10) {
       user.points = 0;
@@ -1310,31 +1332,65 @@ async function applyLoyaltyTierExpiry(user) {
   return modified;
 }
 
-/** Barista pickup: open RewardClaim with pickup still valid (24h after Claim, or legacy 14d from claim date). */
-async function userHasOpenRewardPickupForBucket(user, rewardBucket) {
-  const types = rewardHistoryTypesForBucket(rewardBucket);
-  if (!types.length) return false;
-  const cycle = user.currentCycle || 1;
-  const now = new Date();
-  const legacyCutoff = new Date(Date.now() - REWARD_CLAIM_LOOKBACK_MS);
+/** RewardClaim rows without pickupDeadline: treat pickup end as claim date + same window as pickupDeadline (24h). */
+function legacyPickupWithinWindowExpr(now) {
+  const hours = Math.max(1, Math.round(LOYALTY_PICKUP_AFTER_CLAIM_MS / (60 * 60 * 1000)));
+  return {
+    $gt: [{ $dateAdd: { startDate: '$date', unit: 'hour', amount: hours } }, now]
+  };
+}
 
-  const claim = await RewardClaim.findOne({
-    userId: user._id,
-    cycle,
-    type: { $in: types },
+function rewardClaimPickupWindowAndOpenFilter(now) {
+  return {
     $and: [
-      { $or: [{ fulfilledAt: null }, { fulfilledAt: { $exists: false } }] },
+      {
+        $or: [
+          {
+            type: 'bonus',
+            $or: [
+              { bonusPickupsRemaining: { $gt: 0 } },
+              {
+                $and: [
+                  { $or: [{ bonusPickupsRemaining: null }, { bonusPickupsRemaining: { $exists: false } }] },
+                  { $or: [{ fulfilledAt: null }, { fulfilledAt: { $exists: false } }] }
+                ]
+              }
+            ]
+          },
+          {
+            type: { $ne: 'bonus' },
+            $or: [{ fulfilledAt: null }, { fulfilledAt: { $exists: false } }]
+          }
+        ]
+      },
       {
         $or: [
           { pickupDeadline: { $gt: now } },
           {
             $and: [
               { $or: [{ pickupDeadline: null }, { pickupDeadline: { $exists: false } }] },
-              { date: { $gte: legacyCutoff } }
+              { $expr: legacyPickupWithinWindowExpr(now) }
             ]
           }
         ]
       }
+    ]
+  };
+}
+
+/** Barista pickup: open RewardClaim with pickup still valid (24h after Claim; legacy rows use claim date + 24h). */
+async function userHasOpenRewardPickupForBucket(user, rewardBucket) {
+  const types = rewardClaimTypesForPickupBucket(rewardBucket);
+  if (!types.length) return false;
+  const cycle = user.currentCycle || 1;
+  const now = new Date();
+
+  const claim = await RewardClaim.findOne({
+    $and: [
+      { userId: user._id },
+      { cycle },
+      { type: { $in: types } },
+      ...rewardClaimPickupWindowAndOpenFilter(now).$and
     ]
   })
     .sort({ date: -1 })
@@ -1348,7 +1404,7 @@ async function userHasOpenRewardPickupForBucket(user, rewardBucket) {
  * Helps staff handle disputes: "already picked up" is backed by [fulfilledAt] on the RewardClaim.
  */
 async function rewardPickupDenialInfo(user, rewardBucket) {
-  const types = rewardHistoryTypesForBucket(rewardBucket);
+  const types = rewardClaimTypesForPickupBucket(rewardBucket);
   if (!types.length) {
     return {
       code: 'REWARD_NOT_CLAIMED',
@@ -1358,7 +1414,6 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
   }
   const cycle = user.currentCycle || 1;
   const now = new Date();
-  const legacyCutoff = new Date(Date.now() - REWARD_CLAIM_LOOKBACK_MS);
   const latest = await RewardClaim.findOne({
     userId: user._id,
     cycle,
@@ -1370,11 +1425,15 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
     return {
       code: 'REWARD_NOT_CLAIMED',
       message:
-        'The customer must tap Claim in the Nomu app first. After Claim, pickup at the barista is valid for 24 hours (legacy claims: within 14 days of Claim).'
+        'The customer must tap Claim in the Nomu app first. After Claim, pickup at the barista is valid for 24 hours only.'
     };
   }
-  if (latest.fulfilledAt) {
-    const when = new Date(latest.fulfilledAt).toLocaleString();
+  const bonusExhausted =
+    String(latest.type || '').toLowerCase() === 'bonus' &&
+    typeof latest.bonusPickupsRemaining === 'number' &&
+    latest.bonusPickupsRemaining <= 0;
+  if (latest.fulfilledAt || bonusExhausted) {
+    const when = new Date(latest.fulfilledAt || now).toLocaleString();
     return {
       code: 'REWARD_ALREADY_PICKED_UP',
       message: `This reward was already served at the counter (${when}). Do not issue it again for this claim; check with a manager if the customer disagrees.`
@@ -1387,12 +1446,15 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
         'The 24-hour pickup window for this claim has ended. The customer needs to earn and claim a new reward in the app.'
     };
   }
-  if (!latest.pickupDeadline && (!latest.date || new Date(latest.date) < legacyCutoff)) {
-    return {
-      code: 'REWARD_PICKUP_EXPIRED',
-      message:
-        'This reward claim is too old to pick up under the legacy rules. The customer should claim again after qualifying in the app.'
-    };
+  if (!latest.pickupDeadline && latest.date) {
+    const syntheticEnd = new Date(new Date(latest.date).getTime() + LOYALTY_PICKUP_AFTER_CLAIM_MS);
+    if (syntheticEnd <= now) {
+      return {
+        code: 'REWARD_PICKUP_EXPIRED',
+        message:
+          'The 24-hour pickup window from this claim has ended. The customer should claim again after qualifying in the app.'
+      };
+    }
   }
   return {
     code: 'REWARD_NOT_CLAIMED',
@@ -1404,35 +1466,46 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
 async function markRewardPickupsFulfilled(user, enrichedItems) {
   const cycle = user.currentCycle || 1;
   const now = new Date();
-  const legacyCutoff = new Date(Date.now() - REWARD_CLAIM_LOOKBACK_MS);
   for (const item of enrichedItems) {
     if (!item.excludeFromAnalytics || !item.rewardBucket) continue;
     const b = String(item.rewardBucket).toLowerCase();
-    const types = rewardHistoryTypesForBucket(b);
+    const types = rewardClaimTypesForPickupBucket(b);
     if (!types.length) continue;
-    await RewardClaim.findOneAndUpdate(
-      {
-        userId: user._id,
-        cycle,
-        type: { $in: types },
-        $and: [
-          { $or: [{ fulfilledAt: null }, { fulfilledAt: { $exists: false } }] },
-          {
-            $or: [
-              { pickupDeadline: { $gt: now } },
-              {
-                $and: [
-                  { $or: [{ pickupDeadline: null }, { pickupDeadline: { $exists: false } }] },
-                  { date: { $gte: legacyCutoff } }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      { $set: { fulfilledAt: now } },
-      { sort: { date: -1 } }
-    );
+    const filter = {
+      $and: [
+        { userId: user._id },
+        { cycle },
+        { type: { $in: types } },
+        ...rewardClaimPickupWindowAndOpenFilter(now).$and
+      ]
+    };
+    const claim = await RewardClaim.findOne(filter).sort({ date: -1 });
+    if (!claim) continue;
+    if (String(claim.type || '').toLowerCase() === 'bonus') {
+      const rem =
+        typeof claim.bonusPickupsRemaining === 'number'
+          ? claim.bonusPickupsRemaining
+          : 1;
+      if (rem <= 1) {
+        await RewardClaim.updateOne(
+          { _id: claim._id },
+          { $set: { fulfilledAt: now, bonusPickupsRemaining: 0 } }
+        );
+      } else {
+        await RewardClaim.updateOne(
+          { _id: claim._id },
+          { $set: { bonusPickupsRemaining: rem - 1 } }
+        );
+      }
+    } else {
+      await RewardClaim.updateOne(
+        {
+          _id: claim._id,
+          $or: [{ fulfilledAt: null }, { fulfilledAt: { $exists: false } }]
+        },
+        { $set: { fulfilledAt: now } }
+      );
+    }
   }
 }
 
@@ -3279,8 +3352,8 @@ app.patch('/api/user/qr/:qrToken', async (req, res) => {
 // Claim reward endpoint (add to RewardClaim collection)
 app.post('/api/user/:id/claim-reward', async (req, res) => {
   try {
-    const { type, description } = req.body;
-    _log(`Claiming reward: ${type} - ${description} for user ${req.params.id}`);
+    const { type, description, pointsRequired: prRaw } = req.body;
+    _log(`Claiming reward: ${type} - ${description} for user ${req.params.id} pointsRequired=${prRaw}`);
     await ensureConnection();
 
     let user = await User.findById(req.params.id);
@@ -3300,31 +3373,49 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
     if (user.points < 0) {
       return res.status(400).json({ error: 'Invalid points balance. Please contact support.' });
     }
-    
-    if ((type === 'donut' || type === 'pastry') && user.points < 5) {
+
+    if (!['donut', 'coffee', 'pastry', 'pizza', 'bonus'].includes(type)) {
       return res.status(400).json({
-        error: `You need at least 5 points to claim this reward. You currently have ${user.points} points.`
-      });
-    }
-    if ((type === 'coffee' || type === 'pizza') && user.points < 10) {
-      return res.status(400).json({
-        error: `You need at least 10 points to claim this reward. You currently have ${user.points} points.`
+        error: 'Invalid reward type. Use donut, coffee, pastry, pizza, or bonus.'
       });
     }
 
-    if (!['donut', 'coffee', 'pastry', 'pizza'].includes(type)) {
+    const prNum = Number(prRaw);
+    let minPoints;
+    if (type === 'bonus') {
+      if (!Number.isFinite(prNum) || prNum <= 0) {
+        return res.status(400).json({
+          error:
+            'pointsRequired is required for Loyalty Bonus rewards (set it in admin reward management).'
+        });
+      }
+      minPoints = Math.min(1000, prNum);
+    } else {
+      const isTopCatalogType = type === 'coffee' || type === 'pizza';
+      if (Number.isFinite(prNum) && prNum > 0) {
+        minPoints = isTopCatalogType ? Math.max(10, prNum) : prNum;
+      } else {
+        minPoints = isTopCatalogType ? 10 : 5;
+      }
+      if (minPoints > 1000) minPoints = 1000;
+    }
+
+    if (user.points < minPoints) {
       return res.status(400).json({
-        error: 'Invalid reward type. Use donut, coffee, pastry, or pizza.'
+        error: `You need at least ${minPoints} points to claim this reward. You currently have ${user.points} points.`
       });
     }
+
+    /** Stamp tier for 24h claim windows: admin [pointsRequired] (e.g. 5 vs 10), not the free item label alone. */
+    const useTenStampWindow = minPoints >= 10;
 
     const now = new Date();
     const lw = _loyaltyWindowsPlain(user);
-    if (type === 'donut' || type === 'pastry') {
+    if (!useTenStampWindow) {
       if (lw.tier5Expired) {
         return res.status(400).json({
           error:
-            'The 24-hour Claim window for your 5-stamp reward has expired. You can still earn your 10-stamp reward if that window is open.'
+            'The 24-hour Claim window for your lower-tier reward has expired. You can still claim a 10+ stamp reward if that window is open.'
         });
       }
       const by5 = lw.tier5ClaimBy ? new Date(lw.tier5ClaimBy) : null;
@@ -3334,33 +3425,40 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
             'Claim is only open for 24 hours after you unlock this reward. Visit a Nomu Café to earn your next stamp.'
         });
       }
-    }
-    if (type === 'coffee' || type === 'pizza') {
+    } else {
       const by10 = lw.tier10ClaimBy ? new Date(lw.tier10ClaimBy) : null;
       if (!by10 || now > by10) {
         return res.status(400).json({
           error:
-            'The 24-hour Claim window for your 10-stamp reward is not active or has expired. Earn stamps again to unlock a new window.'
+            'The 24-hour Claim window for your 10+ stamp reward is not active or has expired. Earn stamps again to unlock a new window.'
         });
       }
     }
 
-    if (type === 'donut' || type === 'pastry') {
-      _log(`${type} claim - user has ${user.points} points`);
+    if (!useTenStampWindow) {
+      _log(`${type} claim (lower tier, minPoints=${minPoints}) - user has ${user.points} points`);
+    } else {
+      _log(`${type} claim (10+ tier, minPoints=${minPoints}) - user has ${user.points} points`);
     }
     
     // Use current cycle from user data
     const currentCycle = user.currentCycle || 1;
     const pickupDeadline = new Date(now.getTime() + LOYALTY_PICKUP_AFTER_CLAIM_MS);
-    const rewardClaim = await RewardClaim.create({
+    const stampTier = useTenStampWindow ? 10 : 5;
+    const claimDoc = {
       userId: user._id,
       type,
       description,
       date: now,
       cycle: currentCycle,
       pointsAtClaim: user.points,
-      pickupDeadline
-    });
+      pickupDeadline,
+      loyaltyStampTier: stampTier
+    };
+    if (type === 'bonus') {
+      claimDoc.bonusPickupsRemaining = useTenStampWindow ? 2 : 1;
+    }
+    const rewardClaim = await RewardClaim.create(claimDoc);
     
     _log(`Reward claim created at: ${now.toISOString()} (${now.toLocaleString()})`);
     
@@ -3378,7 +3476,8 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
         type: type,
         description: description,
         date: now,
-        cycle: currentCycle
+        cycle: currentCycle,
+        loyaltyStampTier: stampTier
       });
       
       // Keep only last 50 reward entries
@@ -3392,7 +3491,7 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       // Continue with the claim even if rewardsHistory fails
     }
     
-    if (type === 'coffee' || type === 'pizza') {
+    if (useTenStampWindow) {
       user.points = 0;
       user.currentCycle = (user.currentCycle || 1) + 1;
       user.loyaltyWindows = {
@@ -3401,10 +3500,9 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
         tier10Expired: false
       };
       user.markModified('loyaltyWindows');
-      _log(`Reset points after ${type} claim, cycle advanced to: ${user.currentCycle}`);
-    } else if (type === 'donut' || type === 'pastry') {
-      // 5-stamp rewards: consume stamps so the card is not stuck at 10 after claim.
-      const spent = 5;
+      _log(`Reset card after ${type} claim (10+ stamp tier), cycle advanced to: ${user.currentCycle}`);
+    } else {
+      const spent = minPoints;
       user.points = Math.max(0, (user.points || 0) - spent);
       const nw = { ..._loyaltyWindowsPlain(user) };
       delete nw.tier5ClaimBy;
@@ -3414,8 +3512,6 @@ app.post('/api/user/:id/claim-reward', async (req, res) => {
       user.loyaltyWindows = nw;
       user.markModified('loyaltyWindows');
       _log(`${type} reward claimed, stamps after deducting ${spent}: ${user.points}`);
-    } else {
-      _log(`${type} reward claimed, points remain at: ${user.points}`);
     }
     
     await user.save();

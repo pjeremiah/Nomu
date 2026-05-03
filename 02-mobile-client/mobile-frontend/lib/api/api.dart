@@ -603,10 +603,15 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> claimReward(String userId, String type, String description) async {
+  static Future<Map<String, dynamic>?> claimReward(
+    String userId,
+    String type,
+    String description, {
+    int? pointsRequired,
+  }) async {
     try {
       if (kDebugMode) {
-        _log('Claiming reward for user $userId: $type - $description');
+        _log('Claiming reward for user $userId: $type - $description (pointsRequired=$pointsRequired)');
       }
       
       // Validate inputs
@@ -625,10 +630,14 @@ class ApiService {
       }
       
       final apiBaseUrl = await Config.apiBaseUrl;
+      final body = <String, dynamic>{'type': type, 'description': description};
+      if (pointsRequired != null && pointsRequired > 0) {
+        body['pointsRequired'] = pointsRequired;
+      }
       final response = await http.post(
         Uri.parse('$apiBaseUrl/user/$userId/claim-reward'),
         headers: _headers,
-        body: jsonEncode({'type': type, 'description': description}),
+        body: jsonEncode(body),
       ).timeout(const Duration(seconds: 10));
       
       if (kDebugMode) {
