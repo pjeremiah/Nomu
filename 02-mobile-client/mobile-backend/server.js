@@ -5344,6 +5344,14 @@ app.get('/api/inventory/search/:query', async (req, res) => {
   }
 });
 
+/** Skip loyalty free/redemption lines — same rule as web admin `pastOrderLineItemStages`. */
+function lineCountsTowardBestSellerAnalytics(line) {
+  if (!line) return false;
+  if (line.excludeFromAnalytics === true) return false;
+  if (String(line.excludeFromAnalytics).toLowerCase() === 'true') return false;
+  return true;
+}
+
 app.get('/api/analytics/top-selling-items', async (req, res) => {
   try {
     const users = await User.find({}, 'pastOrders');
@@ -5354,6 +5362,7 @@ app.get('/api/analytics/top-selling-items', async (req, res) => {
           const items = po.items || [];
           if (items.length > 0) {
             items.forEach((line) => {
+              if (!lineCountsTowardBestSellerAnalytics(line)) return;
               const name = line.itemName || line.drink;
               if (name) {
                 allPastOrders.push({ drink: name, quantity: line.quantity || 1 });
@@ -5409,6 +5418,7 @@ app.get('/api/analytics/best-sellers-by-category', async (req, res) => {
           const items = po.items || [];
           if (items.length > 0) {
             items.forEach((line) => {
+              if (!lineCountsTowardBestSellerAnalytics(line)) return;
               const name = line.itemName || line.drink;
               if (name) {
                 allPastOrders.push({ drink: name, quantity: line.quantity || 1 });

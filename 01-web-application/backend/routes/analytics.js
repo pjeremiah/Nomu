@@ -123,8 +123,17 @@ function pastOrderLineItemStages(dateFilterOnPastOrders) {
                                 ]
                               },
                               category: '$$it.category',
+                              // Free loyalty redemptions: explicit flag and/or rewardBucket (older rows may lack the flag).
                               excludeFromAnalytics: {
-                                $eq: [{ $ifNull: ['$$it.excludeFromAnalytics', false] }, true]
+                                $or: [
+                                  { $eq: [{ $ifNull: ['$$it.excludeFromAnalytics', false] }, true] },
+                                  {
+                                    $gt: [
+                                      { $strLenCP: { $toString: { $ifNull: ['$$it.rewardBucket', ''] } } },
+                                      0
+                                    ]
+                                  }
+                                ]
                               }
                             }
                           }
