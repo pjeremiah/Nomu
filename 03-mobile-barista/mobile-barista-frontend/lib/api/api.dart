@@ -5,6 +5,31 @@ import '../config.dart';
 import '../constants/app_constants.dart';
 import '../utils/logger.dart';
 
+/// Outcome of POST /mobile/admin/login (OTP required vs. server remembered session).
+class MobileAdminLoginResult {
+  final UserModel user;
+  final bool requiresOtp;
+  /// ISO 8601 end of "remember this account" window when server skips OTP.
+  final String? rememberUntilIso;
+
+  const MobileAdminLoginResult({
+    required this.user,
+    required this.requiresOtp,
+    this.rememberUntilIso,
+  });
+}
+
+/// Outcome of POST /mobile/admin/verify-otp.
+class MobileAdminVerifyResult {
+  final UserModel user;
+  final String? rememberUntilIso;
+
+  const MobileAdminVerifyResult({
+    required this.user,
+    this.rememberUntilIso,
+  });
+}
+
 class ApiService {
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',
@@ -123,7 +148,11 @@ class ApiService {
   }
 
   // Mobile admin OTP verification (all roles)
-  static Future<UserModel?> verifyMobileAdminOTP(String email, String otp) async {
+  static Future<MobileAdminVerifyResult?> verifyMobileAdminOTP(
+    String email,
+    String otp, {
+    bool rememberFor1Day = false,
+  }) async {
     try {
       Logger.auth('Verifying mobile admin OTP for email: $email');
       final verifyUrl = await Config.mobileAdminVerifyOTPUrl;
@@ -133,7 +162,11 @@ class ApiService {
           .post(
             Uri.parse(verifyUrl),
             headers: _headers,
-            body: jsonEncode({'email': email, 'otp': otp}),
+            body: jsonEncode({
+              'email': email,
+              'otp': otp,
+              'rememberFor1Day': rememberFor1Day,
+            }),
           )
           .timeout(AppConstants.apiTimeout);
 
@@ -141,28 +174,25 @@ class ApiService {
       Logger.api('Mobile admin verify response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         Logger.success('Mobile admin OTP verification successful! Response data: $data', 'API');
-        
-        // Enhanced debugging for response structure
-        Logger.debug('Response data keys: ${data.keys.toList()}', 'API');
-        Logger.debug('Response data type: ${data.runtimeType}', 'API');
-        Logger.debug('User field exists: ${data.containsKey('user')}', 'API');
-        Logger.debug('User field value: ${data['user']}', 'API');
-        Logger.debug('User field type: ${data['user']?.runtimeType}', 'API');
         
         if (data['user'] != null) {
           try {
-            final user = UserModel.fromJson(data['user']);
+            final userMap = Map<String, dynamic>.from(data['user'] as Map);
+            final user = UserModel.fromJson(userMap);
             Logger.auth('Mobile admin user model created:');
             Logger.auth('   - ID: ${user.id}');
             Logger.auth('   - Name: ${user.name}');
             Logger.auth('   - Email: ${user.email}');
-            Logger.auth('   - Username: ${user.username}');
-            Logger.auth('   - User Type: ${user.userType}');
             Logger.auth('   - Role: ${user.role}');
-            
-            return user;
+
+            final rememberUntilIso = data['rememberUntil']?.toString();
+
+            return MobileAdminVerifyResult(
+              user: user,
+              rememberUntilIso: rememberUntilIso,
+            );
           } catch (e) {
             Logger.error('Error creating UserModel from response: $e', 'API');
             Logger.error('User data that caused error: ${data['user']}', 'API');
@@ -170,7 +200,6 @@ class ApiService {
           }
         } else {
           Logger.error('No user data in mobile admin OTP verification response', 'API');
-          Logger.error('Available fields in response: ${data.keys.toList()}', 'API');
           return null;
         }
       } else {
@@ -184,8 +213,23 @@ class ApiService {
     }
   }
 
+  static UserModel _tempOtpUser(String email) {
+    return UserModel(
+      id: 'temp',
+      name: 'Admin',
+      email: email,
+      username: email,
+      birthday: '',
+      gender: '',
+      userType: 'admin',
+      role: 'admin',
+      points: 0,
+      qrToken: '',
+    );
+  }
+
   // Mobile admin login (email + password verification for all roles)
-  static Future<UserModel?> login(String email, String password) async {
+  static Future<MobileAdminLoginResult?> login(String email, String password) async {
     try {
       Logger.auth('Mobile admin login attempt for email: $email');
       final loginUrl = await Config.mobileAdminLoginUrl;
@@ -207,36 +251,43 @@ class ApiService {
       Logger.api('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         Logger.success('Mobile admin login successful! Response data: $data', 'API');
-        
-        // The mobile admin login returns { message, email, expiresIn }
-        // We need to create a temporary user object for OTP flow
-        if (data['email'] != null) {
-          final user = UserModel(
-            id: 'temp',
-            name: 'Admin', // Will be updated after OTP verification
-            email: data['email'],
-            username: data['email'],
-            birthday: '', // Not needed for admin
-            gender: '', // Not needed for admin
-            userType: 'admin', // Generic admin type
-            role: 'admin', // Will be updated after OTP verification
-            points: 0,
-            qrToken: '',
+
+        // Server session still valid: token + user (no OTP) — same idea as web admin remember-for-24h
+        if (data['token'] != null &&
+            data['user'] != null &&
+            data['requiresOTP'] != true) {
+          final userMap = Map<String, dynamic>.from(data['user'] as Map);
+          final user = UserModel.fromJson(userMap);
+          return MobileAdminLoginResult(
+            user: user,
+            requiresOtp: false,
+            rememberUntilIso: data['rememberUntil']?.toString(),
           );
-          
-          Logger.auth('Temporary user model created for OTP flow:');
-          Logger.auth('   - Email: ${user.email}');
-          Logger.auth('   - User Type: ${user.userType}');
-          Logger.auth('   - Role: ${user.role}');
-          Logger.auth('   - OTP expires in: ${data['expiresIn']}');
-          
-          return user;
-        } else {
-          Logger.error('No email in mobile admin login response', 'API');
-          return null;
         }
+
+        // Web-style: OTP required (email included for mobile client)
+        if (data['requiresOTP'] == true) {
+          final otpEmail = (data['email'] ?? email).toString();
+          return MobileAdminLoginResult(
+            user: _tempOtpUser(otpEmail),
+            requiresOtp: true,
+          );
+        }
+
+        // Barista standalone backend: { message, email, expiresIn }
+        if (data['email'] != null) {
+          final otpEmail = data['email'].toString();
+          Logger.auth('Temporary user model created for OTP flow (email in body)');
+          return MobileAdminLoginResult(
+            user: _tempOtpUser(otpEmail),
+            requiresOtp: true,
+          );
+        }
+
+        Logger.error('Unrecognized mobile admin login response shape', 'API');
+        return null;
       } else {
         final errorData = jsonDecode(response.body);
         Logger.error("Mobile admin login failed with status ${response.statusCode}: ${errorData['message'] ?? 'Unknown error'}", 'API');

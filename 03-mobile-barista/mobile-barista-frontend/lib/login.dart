@@ -204,6 +204,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 value: rememberUser,
                 onChanged: (value) => setState(() => rememberUser = value ?? false),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                checkColor: Colors.white,
+                fillColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return myColor;
+                  }
+                  return null;
+                }),
               ),
               GestureDetector(
                 onTap: () => setState(() => rememberUser = !rememberUser),
@@ -357,12 +364,53 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   setState(() => _isLoading = true);
                   Logger.auth('Starting barista login process for email: $email');
 
-                  final user = await ApiService.login(email, password);
+                  final loginResult = await ApiService.login(email, password);
 
-                  if (user != null) {
+                  if (loginResult != null) {
+                    final prefs = await SharedPreferences.getInstance();
+
+                    // Server already trusts this device (DB rememberUntil) — same as web admin after OTP + remember.
+                    if (!loginResult.requiresOtp) {
+                      final user = loginResult.user;
+                      Logger.success(
+                        'Mobile admin login without OTP (remember-until active): ${user.email}',
+                        'LOGIN',
+                      );
+                      await prefs.setString('user_email', user.email);
+                      await prefs.setString('user_name', user.name);
+                      await prefs.setString('user_id', user.id);
+                      await prefs.setString(
+                        'user_type',
+                        user.userType.isNotEmpty ? user.userType : 'admin',
+                      );
+                      await prefs.setBool('is_logged_in', true);
+                      final untilIso = loginResult.rememberUntilIso ??
+                          DateTime.now()
+                              .add(const Duration(hours: 24))
+                              .toIso8601String();
+                      await prefs.setBool('remember_me', true);
+                      await prefs.setString('remember_until', untilIso);
+                      await _persistRememberMeCredentials(prefs, email, password);
+                      setState(() => _isLoading = false);
+                      try {
+                        await SocketService.initialize();
+                        Logger.success('Socket initialized after login', 'LOGIN');
+                      } catch (e) {
+                        Logger.warning('Socket initialization failed: $e', 'LOGIN');
+                      }
+                      if (mounted) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const BaristaScannerPage(),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
                     Logger.success('Mobile admin login successful, OTP sent to: $email', 'LOGIN');
 
-                    final prefs = await SharedPreferences.getInstance();
                     final rememberMe = prefs.getBool('remember_me') ?? false;
                     final rememberUntilStr = prefs.getString('remember_until');
                     final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
@@ -400,6 +448,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       }
                     }
 
+                    final user = loginResult.user;
                     await _persistRememberMeCredentials(prefs, email, password);
 
                     setState(() => _isLoading = false);

@@ -83,6 +83,62 @@ adminEmailTransporter.verify((error, success) => {
 // Store OTP codes temporarily (in production, use Redis)
 const otpStore = new Map();
 
+/** Same validity window as web admin (`otpService.js` / `emailService.js`): 10 minutes. */
+const ADMIN_OTP_TTL_MS = 10 * 60 * 1000;
+
+/** Minimum seconds between OTP send/resend (barista app verification UI). */
+const ADMIN_OTP_RESEND_COOLDOWN_MS = 25 * 1000;
+
+/**
+ * HTML for admin login OTP — matches `01-web-application/backend/services/emailService.js`
+ * `getOTPEmailTemplate(otpCode, 'admin_login')` so web and barista emails look identical.
+ */
+function buildNomuAdminLoginOtpEmailHtml(otpCode) {
+  const typeText = 'Admin Login Verification';
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nomu Cafe - ${typeText}</title>
+    </head>
+    <body style="margin:0; padding:20px; background-color:#f4f4f4;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+            <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:left;">
+                <div style="margin-bottom:24px; text-align:center;">
+                    <div style="font-size:28px; font-weight:bold; color:#232c53;">☕ Nomu Cafe</div>
+                    <h2 style="margin:10px 0 0 0; font-size:20px; font-weight:bold; color:#232c53;">${typeText}</h2>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">Hello,</p>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">You have requested ${typeText.toLowerCase()} for your Nomu Cafe admin account. Please use the following verification code:</p>
+                <div style="background-color:#232c53; color:white; font-size:32px; font-weight:bold; text-align:center; padding:20px; border-radius:8px; letter-spacing:5px; margin:20px 0; font-family:'Courier New',monospace;">${otpCode}</div>
+                <div style="background-color:#fff3cd; border:1px solid #ffeaa7; color:#856404; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold;">⚠️ Important:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">This code will expire in <strong>10 minutes</strong></li>
+                        <li style="margin-bottom:6px;">Do not share this code with anyone</li>
+                        <li style="margin-bottom:0;">If you didn't request this code, please ignore this email</li>
+                    </ul>
+                </div>
+                <div style="background-color:#f8f9fa; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#232c53;">🔒 Security Tips:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">Always verify the sender's email address</li>
+                        <li style="margin-bottom:6px;">Never share your verification codes</li>
+                        <li style="margin-bottom:6px;">Use strong, unique passwords</li>
+                        <li style="margin-bottom:0;">Enable two-factor authentication when available</li>
+                    </ul>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">If you have any questions or concerns, please contact our support team.</p>
+                <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+            </td></tr>
+        </table>
+    </body>
+    </html>
+    `;
+}
+
 // Generate OTP
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -94,56 +150,22 @@ function generateQRToken() {
 }
 
 // Send OTP email for admin login (all roles: superadmin, manager, staff)
+// Uses same HTML as web admin (`emailService.getOTPEmailTemplate` admin_login).
 async function sendAdminLoginOTP(email, name, role) {
   const otp = generateOTP();
-  
-  // Use admin email transporter (already verified at startup)
-
-  const roleDisplayName = role === 'superadmin' ? 'Super Admin' : 
-                         role === 'manager' ? 'Manager' : 
-                         role === 'staff' ? 'Staff' : 'Admin';
 
   const mailOptions = {
-    from: `"NOMU Cafe Admin Login" <${process.env.EMAIL_USER}>`,
+    from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
     to: email,
-    subject: `NOMU Cafe - ${roleDisplayName} Login Verification Code`,
-    text: `Your OTP is: ${otp} (Valid for 10 minutes)`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">🔐 ${roleDisplayName} Login Verification</h1>
-        <p style="color: white; margin: 10px 0; font-size: 16px;">Your login verification code</p>
-        </div>
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-          <h2 style="color: #333; text-align: center; margin-bottom: 20px;">Hello ${name}! 👋</h2>
-          <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-          You're attempting to log in to the NOMU Cafe Admin Panel as a <strong>${roleDisplayName}</strong>. Please use the verification code below:
-          </p>
-          <div style="background: #fff; border: 2px solid #667eea; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
-          <h1 style="color: #667eea; font-size: 48px; text-align: center; letter-spacing: 8px; margin: 0;">${otp}</h1>
-          </div>
-          <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; padding: 20px; margin: 20px 0;">
-          <h4 style="color: #856404; margin: 0 0 15px 0;">⚠️ Security Notice</h4>
-            <ul style="color: #856404; margin: 0; padding-left: 20px; text-align: left;">
-            <li>This code will expire in 10 minutes</li>
-            <li>Never share this code with anyone</li>
-            <li>If you didn't request this code, please ignore this email</li>
-            </ul>
-          </div>
-          <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-          Enter this code in the app to complete your login.
-          </p>
-          <div style="text-align: center; margin-top: 30px;">
-          <p style="color: #999; font-size: 14px;">Best regards,<br>The NOMU Cafe Security Team</p>
-          </div>
-        </div>
-      </div>
-    `
+    subject: 'Nomu Cafe - Admin Login Verification Code',
+    text: `Your Nomu Cafe admin login verification code is: ${otp}. It expires in 10 minutes.`,
+    html: buildNomuAdminLoginOtpEmailHtml(otp),
   };
 
   try {
     await adminEmailTransporter.sendMail(mailOptions);
-    console.log(`✅ ${roleDisplayName} login OTP sent to: ${email}`);
+    const roleLabel = role === 'superadmin' ? 'Super Admin' : role === 'manager' ? 'Manager' : role === 'staff' ? 'Staff' : 'Admin';
+    console.log(`✅ ${roleLabel} login OTP sent to: ${email}`);
     return otp;
   } catch (error) {
     console.error('❌ Admin email sending error:', error);
@@ -173,6 +195,8 @@ const adminSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
   lastLoginAt: { type: Date, default: Date.now },
   firstLoginCompleted: { type: Boolean, default: true },
+  /** When set, password login skips OTP until this time (aligned with web admin remember-for-24h). */
+  rememberUntil: { type: Date, default: null },
 });
 
 const Admin = mongoose.model('Admin', adminSchema);
@@ -518,8 +542,8 @@ app.post('/api/admin/send-login-otp', async (req, res) => {
     const now = Date.now();
     otpStore.set(email, {
       otp,
-      expiresAt: now + 60 * 60 * 1000, // 60 minutes (1 hour)
-      cooldownUntil: now + 60 * 1000, // 1 minute cooldown
+      expiresAt: now + ADMIN_OTP_TTL_MS,
+      cooldownUntil: now + ADMIN_OTP_RESEND_COOLDOWN_MS,
       purpose: 'admin_login',
       adminId: admin._id
     });
@@ -529,7 +553,7 @@ app.post('/api/admin/send-login-otp', async (req, res) => {
     res.json({ 
       message: 'OTP sent successfully to your email',
       email: email,
-      expiresIn: '60 minutes'
+      expiresIn: '10 minutes'
     });
   } catch (err) {
     console.error('❌ [ADMIN OTP] Error sending OTP:', err);
@@ -681,8 +705,8 @@ app.post('/api/barista/send-login-otp', async (req, res) => {
     const now = Date.now();
     otpStore.set(email, {
       otp,
-      expiresAt: now + 60 * 60 * 1000, // 60 minutes (1 hour)
-      cooldownUntil: now + 60 * 1000, // 1 minute cooldown
+      expiresAt: now + ADMIN_OTP_TTL_MS,
+      cooldownUntil: now + ADMIN_OTP_RESEND_COOLDOWN_MS,
       purpose: 'barista_login',
       adminId: admin._id
     });
@@ -692,7 +716,7 @@ app.post('/api/barista/send-login-otp', async (req, res) => {
     res.json({ 
       message: 'OTP sent successfully to your email',
       email: email,
-      expiresIn: '60 minutes'
+      expiresIn: '10 minutes'
     });
   } catch (err) {
     console.error('❌ [BARISTA OTP] Error sending OTP:', err);
@@ -886,6 +910,40 @@ app.post('/api/mobile/admin/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid password' });
     }
 
+    if (admin.rememberUntil) {
+      const rememberUntilDate = admin.rememberUntil instanceof Date
+        ? admin.rememberUntil
+        : new Date(admin.rememberUntil);
+      if (new Date() < rememberUntilDate) {
+        admin.status = 'active';
+        admin.lastLoginAt = new Date();
+        admin.updatedAt = new Date();
+        await admin.save();
+
+        const token = jwt.sign(
+          {
+            adminId: admin._id,
+            email: admin.email,
+            role: admin.role,
+            fullName: admin.fullName,
+            platform: 'mobile'
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+
+        const { password: __, ...adminData } = admin.toObject();
+        console.log('✅ [MOBILE ADMIN] Skipping OTP (rememberUntil valid):', admin.email);
+        return res.json({
+          message: 'Admin login successful',
+          token,
+          user: adminData,
+          rememberUntil: rememberUntilDate.toISOString(),
+          platform: 'mobile'
+        });
+      }
+    }
+
     // ✅ Update admin status to active and lastLoginAt
     admin.status = 'active';
     admin.lastLoginAt = new Date();
@@ -905,8 +963,8 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     
     otpStore.set(admin.email, {
       otp,
-      expiresAt: now + 60 * 60 * 1000, // 60 minutes (1 hour)
-      cooldownUntil: now + 60 * 1000, // 1 minute cooldown
+      expiresAt: now + ADMIN_OTP_TTL_MS,
+      cooldownUntil: now + ADMIN_OTP_RESEND_COOLDOWN_MS,
       purpose: 'mobile_admin_login',
       adminId: admin._id
     });
@@ -914,44 +972,14 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     console.log('✅ [DEBUG] OTP stored successfully');
     console.log('   - Store now contains keys:', Array.from(otpStore.keys()));
 
-    // ✅ Send OTP email
+    // ✅ Send OTP email (same layout as web admin)
     try {
       await adminEmailTransporter.sendMail({
-        from: `"NOMU Mobile Admin Login" <${process.env.EMAIL_USER}>`,
+        from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
         to: admin.email,
-        subject: "Your NOMU Mobile Admin OTP Code",
-        text: `Your OTP is: ${otp} (Valid for 10 minutes)`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">📱 Mobile Admin Login</h1>
-              <p style="color: white; margin: 10px 0; font-size: 16px;">Your mobile admin verification code</p>
-            </div>
-            <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #333; text-align: center; margin-bottom: 20px;">Hello ${admin.fullName}! 👋</h2>
-              <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-                You're attempting to log in to the NOMU Mobile Admin Panel. Please use the verification code below:
-              </p>
-              <div style="background: #fff; border: 2px solid #667eea; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #667eea; font-size: 48px; text-align: center; letter-spacing: 8px; margin: 0;">${otp}</h1>
-              </div>
-              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; padding: 20px; margin: 20px 0;">
-                <h4 style="color: #856404; margin: 0 0 15px 0;">⚠️ Security Notice</h4>
-                <ul style="color: #856404; margin: 0; padding-left: 20px; text-align: left;">
-                  <li>This code will expire in 60 minutes</li>
-                  <li>Never share this code with anyone</li>
-                  <li>If you didn't request this code, please ignore this email</li>
-                </ul>
-              </div>
-              <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-                Enter this code in the mobile app to complete your login.
-              </p>
-              <div style="text-align: center; margin-top: 30px;">
-                <p style="color: #999; font-size: 14px;">Best regards,<br>The NOMU Mobile Security Team</p>
-              </div>
-            </div>
-          </div>
-        `
+        subject: 'Nomu Cafe - Admin Login Verification Code',
+        text: `Your Nomu Cafe admin login verification code is: ${otp}. It expires in 10 minutes.`,
+        html: buildNomuAdminLoginOtpEmailHtml(otp),
       });
     } catch (err) {
       console.error("⚠️ Failed to send OTP email:", err.message);
@@ -963,7 +991,7 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     res.json({
       message: 'OTP sent to registered email',
       email: admin.email,
-      expiresIn: '60 minutes'
+      expiresIn: '10 minutes'
     });
   } catch (err) {
     console.error('❌ [MOBILE ADMIN] Login error:', err);
@@ -975,7 +1003,8 @@ app.post('/api/mobile/admin/login', async (req, res) => {
 app.post('/api/mobile/admin/verify-otp', async (req, res) => {
   console.log('🔐 [MOBILE ADMIN OTP] OTP verification for:', req.body.email);
   try {
-    const { email, otp } = req.body;
+    const { email, otp, rememberFor1Day } = req.body;
+    const remember24h = rememberFor1Day === true || rememberFor1Day === 'true';
 
     if (!email || !otp) {
       return res.status(400).json({ message: 'Email and OTP are required' });
@@ -1049,10 +1078,13 @@ app.post('/api/mobile/admin/verify-otp', async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Valid admin account required.' });
     }
 
-    // ✅ Update admin status to active and lastLoginAt
+    const rememberUntil = remember24h ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+
+    // ✅ Update admin status to active and lastLoginAt; persist 24h window like web admin
     admin.status = 'active';
     admin.lastLoginAt = new Date();
     admin.updatedAt = new Date();
+    admin.rememberUntil = rememberUntil;
     await admin.save();
 
     // ✅ Create JWT
@@ -1080,6 +1112,7 @@ app.post('/api/mobile/admin/verify-otp', async (req, res) => {
       message: 'Mobile admin login successful',
       token,
       user: adminData,
+      rememberUntil: rememberUntil ? rememberUntil.toISOString() : null,
       platform: 'mobile'
     });
   } catch (err) {
@@ -1139,8 +1172,8 @@ app.post('/api/mobile/admin/resend-otp', async (req, res) => {
     
     otpStore.set(admin.email, {
       otp,
-      expiresAt: now + 60 * 60 * 1000, // 60 minutes (1 hour)
-      cooldownUntil: now + 60 * 1000, // 1 minute cooldown
+      expiresAt: now + ADMIN_OTP_TTL_MS,
+      cooldownUntil: now + ADMIN_OTP_RESEND_COOLDOWN_MS,
       purpose: 'mobile_admin_login',
       adminId: admin._id
     });
@@ -1148,44 +1181,14 @@ app.post('/api/mobile/admin/resend-otp', async (req, res) => {
     console.log('✅ [DEBUG] Resend OTP stored successfully');
     console.log('   - Store now contains keys:', Array.from(otpStore.keys()));
 
-    // Send OTP email
+    // Send OTP email (same layout as web admin)
     try {
       await adminEmailTransporter.sendMail({
-        from: `"NOMU Mobile Admin Login" <${process.env.EMAIL_USER}>`,
+        from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
         to: admin.email,
-        subject: "Your NOMU Mobile Admin OTP Code (Resent)",
-        text: `Your OTP is: ${otp} (Valid for 10 minutes)`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">📱 Mobile Admin Login</h1>
-              <p style="color: white; margin: 10px 0; font-size: 16px;">Your mobile admin verification code (resent)</p>
-            </div>
-            <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #333; text-align: center; margin-bottom: 20px;">Hello ${admin.fullName}! 👋</h2>
-              <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-                You requested a new verification code for the NOMU Mobile Admin Panel. Please use the code below:
-              </p>
-              <div style="background: #fff; border: 2px solid #667eea; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #667eea; font-size: 48px; text-align: center; letter-spacing: 8px; margin: 0;">${otp}</h1>
-              </div>
-              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; padding: 20px; margin: 20px 0;">
-                <h4 style="color: #856404; margin: 0 0 15px 0;">⚠️ Security Notice</h4>
-                <ul style="color: #856404; margin: 0; padding-left: 20px; text-align: left;">
-                  <li>This code will expire in 60 minutes</li>
-                  <li>Never share this code with anyone</li>
-                  <li>If you didn't request this code, please ignore this email</li>
-                </ul>
-              </div>
-              <p style="color: #666; text-align: center; margin-bottom: 20px; line-height: 1.6;">
-                Enter this code in the mobile app to complete your login.
-              </p>
-              <div style="text-align: center; margin-top: 30px;">
-                <p style="color: #999; font-size: 14px;">Best regards,<br>The NOMU Mobile Security Team</p>
-              </div>
-            </div>
-          </div>
-        `
+        subject: 'Nomu Cafe - Admin Login Verification Code',
+        text: `Your Nomu Cafe admin login verification code is: ${otp}. It expires in 10 minutes.`,
+        html: buildNomuAdminLoginOtpEmailHtml(otp),
       });
     } catch (err) {
       console.error("⚠️ Failed to send resend OTP email:", err.message);
@@ -1196,7 +1199,7 @@ app.post('/api/mobile/admin/resend-otp', async (req, res) => {
     res.json({
       message: 'OTP resent successfully to your email',
       email: admin.email,
-      expiresIn: '60 minutes'
+      expiresIn: '10 minutes'
     });
   } catch (err) {
     console.error('❌ [MOBILE ADMIN RESEND] Error resending OTP:', err);

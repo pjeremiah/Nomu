@@ -1409,18 +1409,19 @@ router.post('/mobile/admin/login',
           principalType: 'admin' 
         }, JWT_SECRET, { expiresIn: '1d' }); // 24 hours, consistent with "Remember me for 24 hours"
         
-        return res.status(200).json({
-          message: 'Admin login successful',
-          token,
-          user: {
-            id: admin._id,
-            email: admin.email,
-            fullName: admin.fullName,
-            role: role,
-            status: 'active',
-            isFirstLogin: false
-          }
-        });
+            return res.status(200).json({
+              message: 'Admin login successful',
+              token,
+              user: {
+                id: admin._id,
+                email: admin.email,
+                fullName: admin.fullName,
+                role: role,
+                status: 'active',
+                isFirstLogin: false
+              },
+              rememberUntil: rememberUntilDate.toISOString()
+            });
           }
         }
       
@@ -1428,7 +1429,8 @@ router.post('/mobile/admin/login',
       return res.status(200).json({
         message: 'Admin login requires OTP verification',
         requiresOTP: true,
-        userType: 'admin'
+        userType: 'admin',
+        email: email.toLowerCase()
       });
 
     } catch (err) {
@@ -1455,7 +1457,8 @@ router.post('/mobile/admin/verify-otp',
   ],
   validateInput,
   async (req, res) => {
-    const { email, otp } = req.body;
+    const { email, otp, rememberFor1Day } = req.body;
+    const remember24h = rememberFor1Day === true || rememberFor1Day === 'true';
     
     try {
       // Verify OTP
@@ -1474,11 +1477,13 @@ router.post('/mobile/admin/verify-otp',
         return res.status(400).json({ message: 'Admin not found' });
       }
 
-      // Update admin status and last login
+      const rememberUntil = remember24h ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+
       await Admin.findByIdAndUpdate(admin._id, { 
         status: 'active',
         lastLoginAt: new Date(),
-        firstLoginCompleted: true
+        firstLoginCompleted: true,
+        rememberUntil
       });
 
       const role = admin.role || 'staff';
@@ -1504,7 +1509,8 @@ router.post('/mobile/admin/verify-otp',
           role: role,
           status: 'active',
           isFirstLogin: true
-        }
+        },
+        rememberUntil: rememberUntil ? rememberUntil.toISOString() : null
       });
 
     } catch (err) {

@@ -6,6 +6,9 @@ import 'barista.dart';
 import 'constants/app_constants.dart';
 import 'utils/logger.dart';
 
+/// Same navy accent and primary CTA treatment as [LoginPage] (barista sign-in).
+const Color _nomuNavy = Color(0xFF212c59);
+
 class OTPVerificationPage extends StatefulWidget {
   final String email;
   final String name;
@@ -90,8 +93,13 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
       Logger.debug('OTP being verified: $otpText', 'OTP');
       Logger.debug('Email being verified: ${widget.email}', 'OTP');
       
-      final user = await ApiService.verifyMobileAdminOTP(widget.email, otpText);
-      
+      final verifyResult = await ApiService.verifyMobileAdminOTP(
+        widget.email,
+        otpText,
+        rememberFor1Day: _rememberMe,
+      );
+      final user = verifyResult?.user;
+
       Logger.debug('API response user object: $user', 'OTP');
       Logger.debug('User is null: ${user == null}', 'OTP');
       
@@ -113,20 +121,26 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
         await prefs.setString('user_email', user.email);
         await prefs.setString('user_name', user.name);
         await prefs.setString('user_id', user.id);
-        await prefs.setString('user_type', user.userType);
+        await prefs.setString(
+          'user_type',
+          user.userType.isNotEmpty ? user.userType : 'admin',
+        );
         await prefs.setBool('is_logged_in', true);
         
-        // Save remember me status and timestamp if checked
+        // Align with web admin: server stores Admin.rememberUntil; client mirrors for offline UX.
         try {
           if (_rememberMe) {
-            final rememberUntil = DateTime.now().add(const Duration(hours: 24));
+            final untilIso = verifyResult?.rememberUntilIso ??
+                DateTime.now()
+                    .add(const Duration(hours: 24))
+                    .toIso8601String();
             await prefs.setBool('remember_me', true);
-            await prefs.setString('remember_until', rememberUntil.toIso8601String());
-            Logger.debug('Remember me enabled until: ${rememberUntil.toIso8601String()}', 'OTP');
+            await prefs.setString('remember_until', untilIso);
+            Logger.debug('Remember account 24h enabled until: $untilIso', 'OTP');
           } else {
             await prefs.setBool('remember_me', false);
             await prefs.remove('remember_until');
-            Logger.debug('Remember me disabled', 'OTP');
+            Logger.debug('Remember account 24h disabled', 'OTP');
           }
         } catch (e) {
           Logger.exception('Error saving remember me data', e, 'OTP');
@@ -189,9 +203,10 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Verification code sent to your email'),
-              backgroundColor: Colors.green,
+            SnackBar(
+              content: const Text('Verification code sent to your email'),
+              backgroundColor: Colors.green.shade800,
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
@@ -220,10 +235,66 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
     }
   }
 
+  /// Matches [LoginPage._buildLoginButton]: `istetik` image fill, white label, pill shape.
+  Widget _buildVerifyButton() {
+    return Container(
+      height: 60,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        image: const DecorationImage(
+          image: AssetImage('assets/images/istetik.png'),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _verifyOTP,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          disabledBackgroundColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        ),
+        child: _isLoading
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Verifying...',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                AppConstants.verifyCodeButton.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FC),
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -233,7 +304,15 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: 16),
+              Center(
+                child: Image.asset(
+                  'assets/images/nomutrans.png',
+                  height: 40,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 32),
               
               // Header
               Column(
@@ -243,13 +322,13 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: _nomuNavy.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(40),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.email_outlined,
                       size: 40,
-                      color: Colors.blue.shade600,
+                      color: _nomuNavy,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -258,7 +337,9 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade800,
+                      color: Colors.grey.shade900,
+                      fontFamily: 'Montserrat',
+                      letterSpacing: -0.5,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -274,10 +355,10 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
                   const SizedBox(height: 4),
                   Text(
                     widget.email,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.blue.shade600,
+                      color: _nomuNavy,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -291,10 +372,11 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
                 controller: _otpController,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 8,
+                  color: Colors.grey.shade900,
                 ),
                 maxLength: AppConstants.qrCodeLength,
                 decoration: InputDecoration(
@@ -314,10 +396,10 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
+                    borderSide: const BorderSide(color: _nomuNavy, width: 2),
                   ),
                   filled: true,
-                  fillColor: Colors.grey.shade50,
+                  fillColor: Colors.white,
                 ),
                 onChanged: (value) {
                   if (value.length == AppConstants.qrCodeLength) {
@@ -328,28 +410,44 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
               
               const SizedBox(height: 20),
               
-              // Remember Me Checkbox
-              Row(
-                children: [
-                  Checkbox(
-                    value: _rememberMe,
-                    onChanged: (value) {
-                      setState(() {
-                        _rememberMe = value ?? false;
-                      });
-                    },
-                    activeColor: Colors.blue.shade600,
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Remember me for 24hrs',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
+              // Remember this account (24h) — matches web admin + server rememberUntil
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _rememberMe = !_rememberMe),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      onChanged: (value) {
+                        setState(() {
+                          _rememberMe = value ?? false;
+                        });
+                      },
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      checkColor: Colors.white,
+                      fillColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return _nomuNavy;
+                        }
+                        return null;
+                      }),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          AppConstants.rememberAccount24HoursLabel,
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.35,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               
               const SizedBox(height: 20),
@@ -375,35 +473,8 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
               
               const SizedBox(height: 20),
               
-              // Verify Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _verifyOTP,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade600,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(
-                        AppConstants.verifyCodeButton,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
+              // Verify Button (same visual as login CTA)
+              _buildVerifyButton(),
               
               const SizedBox(height: 20),
               
@@ -425,16 +496,19 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _nomuNavy,
+                            ),
                           )
                         : Text(
                             _resendCooldown > 0 
                                 ? 'Resend in ${_resendCooldown}s'
                                 : AppConstants.resendCodeButton,
                             style: TextStyle(
-                              color: _resendCooldown > 0 
+                              color: _resendCooldown > 0
                                   ? Colors.grey.shade400
-                                  : Colors.blue.shade600,
+                                  : _nomuNavy,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

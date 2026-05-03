@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'config.dart';
 import 'login.dart';
 import 'utils/logger.dart';
@@ -67,11 +66,8 @@ void main() async {
     await Config.forceResetToDefaults();
     Logger.debug('Force reset to default server configuration', 'MAIN');
     
-    // Also clear all SharedPreferences to remove any cached data
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    Logger.debug('Cleared all SharedPreferences cache', 'MAIN');
-    
+    // Do not clear all SharedPreferences here — it would wipe login / remember-until state on every launch.
+
     // Force set the correct server configuration
     await Config.forceSetCorrectServer();
     Logger.debug('Force set correct server configuration', 'MAIN');

@@ -200,6 +200,56 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+/** Barista / mobile admin OTP — aligned with web `emailService.js` and `mobile-barista-backend`. */
+const MOBILE_ADMIN_OTP_TTL_MS = 10 * 60 * 1000;
+const MOBILE_ADMIN_OTP_RESEND_COOLDOWN_MS = 25 * 1000;
+
+function buildNomuAdminLoginOtpEmailHtml(otpCode) {
+  const typeText = 'Admin Login Verification';
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nomu Cafe - ${typeText}</title>
+    </head>
+    <body style="margin:0; padding:20px; background-color:#f4f4f4;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; margin:0 auto;">
+            <tr><td style="background:#fff; padding:30px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.1); text-align:left;">
+                <div style="margin-bottom:24px; text-align:center;">
+                    <div style="font-size:28px; font-weight:bold; color:#232c53;">☕ Nomu Cafe</div>
+                    <h2 style="margin:10px 0 0 0; font-size:20px; font-weight:bold; color:#232c53;">${typeText}</h2>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">Hello,</p>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">You have requested ${typeText.toLowerCase()} for your Nomu Cafe admin account. Please use the following verification code:</p>
+                <div style="background-color:#232c53; color:white; font-size:32px; font-weight:bold; text-align:center; padding:20px; border-radius:8px; letter-spacing:5px; margin:20px 0; font-family:'Courier New',monospace;">${otpCode}</div>
+                <div style="background-color:#fff3cd; border:1px solid #ffeaa7; color:#856404; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold;">⚠️ Important:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">This code will expire in <strong>10 minutes</strong></li>
+                        <li style="margin-bottom:6px;">Do not share this code with anyone</li>
+                        <li style="margin-bottom:0;">If you didn't request this code, please ignore this email</li>
+                    </ul>
+                </div>
+                <div style="background-color:#f8f9fa; padding:15px; border-radius:5px; margin:20px 0;">
+                    <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#232c53;">🔒 Security Tips:</p>
+                    <ul style="margin:0; padding-left:20px;">
+                        <li style="margin-bottom:6px;">Always verify the sender's email address</li>
+                        <li style="margin-bottom:6px;">Never share your verification codes</li>
+                        <li style="margin-bottom:6px;">Use strong, unique passwords</li>
+                        <li style="margin-bottom:0;">Enable two-factor authentication when available</li>
+                    </ul>
+                </div>
+                <p style="font-size:14px; color:#333; margin:0 0 16px 0;">If you have any questions or concerns, please contact our support team.</p>
+                <div style="margin-top:28px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#666; text-align:center;">© 2024 Nomu Cafe. This is an automated message; please do not reply.</div>
+            </td></tr>
+        </table>
+    </body>
+    </html>
+    `;
+}
+
 // Send OTP email
 async function sendOTPEmail(email, otp) {
   
@@ -2669,19 +2719,19 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     const otpKey = mobileAdminOtpKey(admin.email);
     otpStore.set(otpKey, {
       otp,
-      expiresAt: now + 60 * 60 * 1000,
-      cooldownUntil: now + 60 * 1000,
+      expiresAt: now + MOBILE_ADMIN_OTP_TTL_MS,
+      cooldownUntil: now + MOBILE_ADMIN_OTP_RESEND_COOLDOWN_MS,
       purpose: 'mobile_admin_login',
       adminId: admin._id
     });
 
     try {
       await transporter.sendMail({
-        from: `"NOMU Mobile Admin Login" <${process.env.EMAIL_USER}>`,
+        from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
         to: admin.email,
-        subject: 'Your NOMU Mobile Admin OTP Code',
-        text: `Your OTP is: ${otp} (Valid for 60 minutes)`,
-        html: `<p>Your NOMU mobile admin verification code is:</p><h2 style="letter-spacing:8px">${otp}</h2><p>Valid for 60 minutes.</p>`
+        subject: 'Nomu Cafe - Admin Login Verification Code',
+        text: `Your Nomu Cafe admin login verification code is: ${otp}. It expires in 10 minutes.`,
+        html: buildNomuAdminLoginOtpEmailHtml(otp)
       });
     } catch (mailErr) {
       console.error('[MOBILE ADMIN] OTP email failed:', mailErr.message);
@@ -2690,7 +2740,7 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     res.json({
       message: 'OTP sent to registered email',
       email: admin.email,
-      expiresIn: '60 minutes'
+      expiresIn: '10 minutes'
     });
   } catch (err) {
     console.error('[MOBILE ADMIN] login error:', err);
@@ -2731,19 +2781,19 @@ app.post('/api/mobile/admin/resend-otp', async (req, res) => {
     const now = Date.now();
     otpStore.set(otpKey, {
       otp,
-      expiresAt: now + 60 * 60 * 1000,
-      cooldownUntil: now + 60 * 1000,
+      expiresAt: now + MOBILE_ADMIN_OTP_TTL_MS,
+      cooldownUntil: now + MOBILE_ADMIN_OTP_RESEND_COOLDOWN_MS,
       purpose: 'mobile_admin_login',
       adminId: admin._id
     });
 
     try {
       await transporter.sendMail({
-        from: `"NOMU Mobile Admin Login" <${process.env.EMAIL_USER}>`,
+        from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
         to: admin.email,
-        subject: 'Your NOMU Mobile Admin OTP Code (Resent)',
-        text: `Your OTP is: ${otp} (Valid for 60 minutes)`,
-        html: `<p>Your NOMU mobile admin verification code (resent) is:</p><h2 style="letter-spacing:8px">${otp}</h2>`
+        subject: 'Nomu Cafe - Admin Login Verification Code',
+        text: `Your Nomu Cafe admin login verification code is: ${otp}. It expires in 10 minutes.`,
+        html: buildNomuAdminLoginOtpEmailHtml(otp)
       });
     } catch (mailErr) {
       console.error('[MOBILE ADMIN] resend email failed:', mailErr.message);
@@ -2752,7 +2802,7 @@ app.post('/api/mobile/admin/resend-otp', async (req, res) => {
     res.json({
       message: 'OTP resent successfully to your email',
       email: admin.email,
-      expiresIn: '60 minutes'
+      expiresIn: '10 minutes'
     });
   } catch (err) {
     console.error('[MOBILE ADMIN] resend-otp error:', err);
@@ -2777,23 +2827,26 @@ app.post('/api/admin/send-login-otp', async (req, res) => {
     const otpKey = mobileAdminOtpKey(admin.email);
     otpStore.set(otpKey, {
       otp,
-      expiresAt: now + 60 * 60 * 1000,
-      cooldownUntil: now + 60 * 1000,
+      expiresAt: now + MOBILE_ADMIN_OTP_TTL_MS,
+      cooldownUntil: now + MOBILE_ADMIN_OTP_RESEND_COOLDOWN_MS,
       purpose: 'mobile_admin_login',
       adminId: admin._id
     });
     try {
       await transporter.sendMail({
-        from: `"NOMU Admin Login" <${process.env.EMAIL_USER}>`,
+        from: `"Nomu Cafe" <${process.env.EMAIL_USER}>`,
         to: admin.email,
-        subject: 'Your NOMU Admin OTP Code',
-        text: `Your OTP is: ${otp}`,
-        html: `<p>Your verification code:</p><h2 style="letter-spacing:8px">${otp}</h2>`
+        subject: 'Nomu Cafe - Admin Login Verification Code',
+        text: `Your Nomu Cafe admin login verification code is: ${otp}. It expires in 10 minutes.`,
+        html: buildNomuAdminLoginOtpEmailHtml(otp)
       });
     } catch (e) {
       console.error('[ADMIN send-login-otp] email:', e.message);
     }
-    res.status(200).json({ message: 'OTP sent to your email address', expiresAt: new Date(now + 60 * 60 * 1000).toISOString() });
+    res.status(200).json({
+      message: 'OTP sent to your email address',
+      expiresAt: new Date(now + MOBILE_ADMIN_OTP_TTL_MS).toISOString()
+    });
   } catch (err) {
     console.error('[ADMIN send-login-otp]', err);
     res.status(500).json({ message: 'Server error' });

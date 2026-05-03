@@ -15,7 +15,8 @@ class AppConstants {
   static const Duration animationDuration = Duration(milliseconds: 1000);
   static const Duration scanningAnimationDuration = Duration(milliseconds: 3000);
   static const Duration snackbarDuration = Duration(seconds: 3);
-  static const Duration resendCooldown = Duration(seconds: 10);
+  /// Barista verification screen: wait before requesting another code (matches backend cooldown).
+  static const Duration resendCooldown = Duration(seconds: 25);
   
   // QR Code Configuration
   static const int qrCodeLength = 6;
@@ -81,6 +82,9 @@ class AppConstants {
   static const String didntReceiveCodeMessage = "Didn't receive the code? ";
   static const String checkYourEmailTitle = 'Check Your Email';
   static const String verificationCodeMessage = 'We sent a 6-digit verification code to';
+  /// Same meaning as web admin "Remember this account for 24 hours" (server `rememberUntil`).
+  static const String rememberAccount24HoursLabel =
+      'Remember this account for 24 hours';
   
   // Transaction Messages
   static const String itemsLabel = 'Items';

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -13,6 +12,7 @@ import 'widgets/notification_banner.dart';
 import 'utils/qr_validation_utils.dart';
 import 'utils/logger.dart';
 import 'constants/app_constants.dart';
+import 'logout_confirmation_dialog.dart';
 
 /// Barista-chosen unit price for an inventory line (first vs second price tier).
 const String _kBaristaUnitPrice = '_baristaUnitPrice';
@@ -475,24 +475,9 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                   icon: const Icon(Icons.logout, color: Colors.white),
                   tooltip: 'Logout',
                   onPressed: () async {
-                    final shouldLogout = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text(AppConstants.confirmLogoutTitle),
-                        content: Text(AppConstants.confirmLogoutMessage),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: Text(AppConstants.cancelButton),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: Text(AppConstants.logoutButton),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (shouldLogout == true) {
+                    final shouldLogout =
+                        await showBaristaLogoutConfirmationDialog(context);
+                    if (shouldLogout == true && context.mounted) {
                       await _performLogout();
                     }
                   },
@@ -512,17 +497,14 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
                       controller: controller!,
                       onDetect: _onQRDetect,
                     ),
-                    // Blur background overlay
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.3),
+                    // Dim area outside scan frame only (no full-screen blur — that blurred the camera + UI).
+                    CustomPaint(
+                      painter: _ScannerOutsideDimPainter(
+                        holeSize: AppConstants.scanningBoxSize,
+                        borderRadius: 20,
+                        dimColor: Colors.black.withValues(alpha: 0.45),
                       ),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                        child: Container(
-                          color: Colors.transparent,
-                        ),
-                      ),
+                      child: const SizedBox.expand(),
                     ),
                     // Clean scanning frame overlay
                     Center(
@@ -2568,6 +2550,39 @@ class ScanningLinePainter extends CustomPainter {
 enum CornerType { topLeft, topRight, bottomLeft, bottomRight }
 
 // Custom painter for L-shaped corner brackets
+/// Darkens the scanner preview outside the scan box; center stays fully sharp.
+class _ScannerOutsideDimPainter extends CustomPainter {
+  _ScannerOutsideDimPainter({
+    required this.holeSize,
+    required this.borderRadius,
+    required this.dimColor,
+  });
+
+  final double holeSize;
+  final double borderRadius;
+  final Color dimColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final holeRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: holeSize,
+      height: holeSize,
+    );
+    final inner = Path()..addRRect(RRect.fromRectAndRadius(holeRect, Radius.circular(borderRadius)));
+    final outer = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final overlay = Path.combine(PathOperation.difference, outer, inner);
+    canvas.drawPath(overlay, Paint()..color = dimColor);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScannerOutsideDimPainter oldDelegate) {
+    return oldDelegate.holeSize != holeSize ||
+        oldDelegate.borderRadius != borderRadius ||
+        oldDelegate.dimColor != dimColor;
+  }
+}
+
 class CornerBracketPainter extends CustomPainter {
   final CornerType cornerType;
   final double bracketLength;
