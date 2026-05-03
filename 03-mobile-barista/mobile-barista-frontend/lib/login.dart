@@ -7,8 +7,8 @@ import 'constants/app_constants.dart';
 import 'utils/logger.dart';
 import 'services/socket_service.dart';
 
-/// Matches [02-mobile-client mobile-frontend login.dart] layout: hero image, logo, white card,
-/// labeled fields, remember-me only (no forgot password / sign up — admin app).
+/// Matches [02-mobile-client mobile-frontend login.dart] sign-in UI: hero image, logo, white card,
+/// section title, bold labels + spacing, outlined field icons, remember-me only (no forgot / sign up).
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -180,14 +180,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 40),
-          _buildLabel('Email Address'),
+          // Same rhythm as mobile client [LoginPage._buildForm]; admin-specific section title.
+          _buildLabel('Login Your Admin Account', mediaSize),
+          SizedBox(height: mediaSize.height * 0.03),
+          _buildLabel('Email Address', mediaSize),
+          const SizedBox(height: 8),
           _buildInputField(
             emailController,
             hintText: 'Enter your admin email',
           ),
-          const SizedBox(height: 20),
-          _buildLabel('Password'),
+          SizedBox(height: mediaSize.height * 0.02),
+          _buildLabel('Password', mediaSize),
+          const SizedBox(height: 8),
           _buildInputField(
             passwordController,
             hintText: 'Enter your password',
@@ -218,8 +222,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildLabel(String text) {
-    return Text(text, style: const TextStyle(color: Colors.black));
+  /// Same typography as mobile client [LoginPage._buildLabel] / customer [SignupPage._buildLabel].
+  Widget _buildLabel(String text, Size size) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: Colors.black,
+        fontSize: size.width < 400 ? 14 : 16,
+        fontWeight: FontWeight.w600,
+      ),
+    );
   }
 
   Widget _buildInputField(
@@ -234,7 +246,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       decoration: InputDecoration(
         hintText: hintText,
         prefixIcon: Icon(
-          isPassword ? Icons.lock : Icons.email,
+          isPassword ? Icons.lock_outline : Icons.email_outlined,
           color: Colors.grey[600],
         ),
         suffixIcon: isPassword
