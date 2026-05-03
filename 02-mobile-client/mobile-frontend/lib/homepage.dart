@@ -781,16 +781,17 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (didPop || !context.mounted) return;
-        final nav = Navigator.of(context);
-        if (nav.canPop()) {
-          nav.pop();
-          return;
-        }
-        if (_currentIndex != 0) {
-          setState(() => _currentIndex = 0);
-          return;
-        }
-        showLogoutConfirmationDialog(context);
+        // Use maybePop so overlays/dialogs and pushed routes close first; avoids
+        // system back / edge swipe dropping the main shell without confirmation.
+        Navigator.of(context).maybePop().then((popped) {
+          if (!context.mounted) return;
+          if (popped) return;
+          if (_currentIndex != 0) {
+            setState(() => _currentIndex = 0);
+            return;
+          }
+          showLogoutConfirmationDialog(context);
+        });
       },
       child: Scaffold(
         backgroundColor: _currentIndex == 0

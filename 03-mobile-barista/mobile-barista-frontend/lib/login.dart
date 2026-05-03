@@ -384,12 +384,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         user.userType.isNotEmpty ? user.userType : 'admin',
                       );
                       await prefs.setBool('is_logged_in', true);
-                      final untilIso = loginResult.rememberUntilIso ??
-                          DateTime.now()
-                              .add(const Duration(hours: 24))
-                              .toIso8601String();
-                      await prefs.setBool('remember_me', true);
-                      await prefs.setString('remember_until', untilIso);
+                      final untilIso = loginResult.rememberUntilIso;
+                      if (untilIso != null && untilIso.isNotEmpty) {
+                        await prefs.setBool('remember_me', true);
+                        await prefs.setString('remember_until', untilIso);
+                      }
                       await _persistRememberMeCredentials(prefs, email, password);
                       setState(() => _isLoading = false);
                       try {
@@ -410,43 +409,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                     }
 
                     Logger.success('Mobile admin login successful, OTP sent to: $email', 'LOGIN');
-
-                    final rememberMe = prefs.getBool('remember_me') ?? false;
-                    final rememberUntilStr = prefs.getString('remember_until');
-                    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
-
-                    if (rememberMe && rememberUntilStr != null && isLoggedIn) {
-                      try {
-                        final rememberUntil = DateTime.parse(rememberUntilStr);
-                        final now = DateTime.now();
-
-                        if (now.isBefore(rememberUntil)) {
-                          Logger.success('User is still within remember me period, skipping OTP', 'LOGIN');
-                          await _persistRememberMeCredentials(prefs, email, password);
-                          setState(() => _isLoading = false);
-
-                          if (mounted) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const BaristaScannerPage(),
-                              ),
-                            );
-                          }
-                          return;
-                        } else {
-                          Logger.debug('Remember me period expired, proceeding with OTP', 'LOGIN');
-                          await prefs.setBool('remember_me', false);
-                          await prefs.remove('remember_until');
-                          await prefs.setBool('is_logged_in', false);
-                        }
-                      } catch (e) {
-                        Logger.exception('Error parsing remember until date', e, 'LOGIN');
-                        await prefs.setBool('remember_me', false);
-                        await prefs.remove('remember_until');
-                        await prefs.setBool('is_logged_in', false);
-                      }
-                    }
 
                     final user = loginResult.user;
                     await _persistRememberMeCredentials(prefs, email, password);

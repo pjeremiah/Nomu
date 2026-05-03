@@ -126,7 +126,7 @@ class BaristaScannerPage extends StatefulWidget {
   State<BaristaScannerPage> createState() => _BaristaScannerPageState();
 }
 
-class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBindingObserver {
+class _BaristaScannerPageState extends State<BaristaScannerPage> {
   MobileScannerController? controller;
   String? qrResult;
   bool isCameraPaused = false;
@@ -151,7 +151,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     Logger.barista('BaristaScannerPage initialized - Barista user logged in successfully!');
     Logger.barista('Ready to scan QR codes and process orders');
     
@@ -433,7 +432,20 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        if (didPop || !context.mounted) return;
+        Navigator.of(context).maybePop().then((popped) async {
+          if (!context.mounted) return;
+          if (popped) return;
+          final shouldLogout = await showBaristaLogoutConfirmationDialog(context);
+          if (shouldLogout == true && context.mounted) {
+            await _performLogout();
+          }
+        });
+      },
+      child: Scaffold(
       body: Stack(
         children: [
           SizedBox.expand(
@@ -779,6 +791,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1868,9 +1881,14 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
             code == 'REWARD_PICKUP_EXPIRED' ||
             code == 'REWARD_NOT_CLAIMED') {
           final detail = result['message']?.toString();
+          final dLower = detail?.toLowerCase() ?? '';
           final title = code == 'REWARD_ALREADY_PICKED_UP'
               ? 'Already picked up'
-              : (code == 'REWARD_PICKUP_EXPIRED' ? 'Pickup window ended' : 'Claim in app first');
+              : (code == 'REWARD_PICKUP_EXPIRED'
+                  ? 'Pickup window ended'
+                  : (dLower.contains('need at least') || dLower.contains('stamp')
+                      ? 'Reward not available yet'
+                      : 'Claim in app first'));
           final msg = (detail != null && detail.isNotEmpty) ? detail : err;
           _showErrorDialog(title, msg);
         } else {
@@ -2443,25 +2461,12 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> with WidgetsBin
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _animationTimer?.cancel();
     _debounceTimer?.cancel();
     controller?.dispose();
     // Don't disconnect socket here as it might be used by other parts of the app
     // SocketService.disconnect();
     super.dispose();
-  }
-
-  // Handle app lifecycle changes
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      // App is going to background or being closed
-      Logger.info('App going to background/closed, performing logout', 'LIFECYCLE');
-      _performLogout();
-    }
   }
 }
 

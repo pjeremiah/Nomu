@@ -254,11 +254,13 @@ class ApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         Logger.success('Mobile admin login successful! Response data: $data', 'API');
 
-        // Server session still valid: token + user (no OTP) — same idea as web admin remember-for-24h
-        if (data['token'] != null &&
-            data['user'] != null &&
-            data['requiresOTP'] != true) {
-          final userMap = Map<String, dynamic>.from(data['user'] as Map);
+        final requiresOtp = data['requiresOTP'] == true;
+        final token = data['token'];
+        final userRaw = data['user'];
+
+        // Server remember-until window: no OTP email (authoritative; matches DB rememberUntil)
+        if (!requiresOtp && token != null && userRaw != null) {
+          final userMap = Map<String, dynamic>.from(userRaw as Map);
           final user = UserModel.fromJson(userMap);
           return MobileAdminLoginResult(
             user: user,
@@ -267,19 +269,10 @@ class ApiService {
           );
         }
 
-        // Web-style: OTP required (email included for mobile client)
-        if (data['requiresOTP'] == true) {
+        // OTP path: explicit flag or legacy body { email, expiresIn } without token
+        if (requiresOtp || (token == null && data['email'] != null)) {
           final otpEmail = (data['email'] ?? email).toString();
-          return MobileAdminLoginResult(
-            user: _tempOtpUser(otpEmail),
-            requiresOtp: true,
-          );
-        }
-
-        // Barista standalone backend: { message, email, expiresIn }
-        if (data['email'] != null) {
-          final otpEmail = data['email'].toString();
-          Logger.auth('Temporary user model created for OTP flow (email in body)');
+          Logger.auth('OTP required for mobile admin login: $otpEmail');
           return MobileAdminLoginResult(
             user: _tempOtpUser(otpEmail),
             requiresOtp: true,

@@ -512,6 +512,60 @@ function rewardTypeDisplayMeta(rewardType) {
   return { emoji: '🍩', name: 'Free Donut' };
 }
 
+const PH_TIMEZONE = 'Asia/Manila';
+
+/** Human-readable pickup time in Philippine Standard Time (UTC+8, no DST). */
+function formatPickupRecordedPhilippines(when) {
+  const d = when instanceof Date ? when : new Date(when);
+  return d.toLocaleString('en-PH', {
+    timeZone: PH_TIMEZONE,
+    dateStyle: 'short',
+    timeStyle: 'medium'
+  });
+}
+
+/**
+ * ISO-8601 timestamp in Philippines wall time with explicit +08:00 offset (not UTC "Z").
+ */
+function formatPhilippinesIso8601Offset(when) {
+  const d = when instanceof Date ? when : new Date(when);
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: PH_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      fractionalSecondDigits: 3
+    }).formatToParts(d);
+    const v = {};
+    for (const p of parts) {
+      if (p.type !== 'literal') v[p.type] = p.value;
+    }
+    const frac = v.fractionalSecond != null && v.fractionalSecond !== '' ? v.fractionalSecond : '000';
+    return `${v.year}-${v.month}-${v.day}T${v.hour}:${v.minute}:${v.second}.${frac}+08:00`;
+  } catch {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: PH_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(d);
+    const v = {};
+    for (const p of parts) {
+      if (p.type !== 'literal') v[p.type] = p.value;
+    }
+    return `${v.year}-${v.month}-${v.day}T${v.hour}:${v.minute}:${v.second}+08:00`;
+  }
+}
+
 // Customer picked up a claimed reward at the counter (barista scan).
 async function sendRewardFulfilledAtCounterEmail(email, name, lines, opts = {}) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -527,8 +581,8 @@ async function sendRewardFulfilledAtCounterEmail(email, name, lines, opts = {}) 
 
   const orderId = opts.orderId ? String(opts.orderId) : '';
   const when = opts.fulfilledAt instanceof Date ? opts.fulfilledAt : new Date();
-  const whenStr = when.toLocaleString();
-  const whenIso = when.toISOString();
+  const whenStr = formatPickupRecordedPhilippines(when);
+  const whenIso = formatPhilippinesIso8601Offset(when);
 
   const rows = lines
     .map(
@@ -549,8 +603,8 @@ async function sendRewardFulfilledAtCounterEmail(email, name, lines, opts = {}) 
           <h1 style="color: #2d3748; margin-top: 0;">Hello ${name}!</h1>
           <p style="color: #4a5568; line-height: 1.6;">This email is your <strong>confirmation of pickup</strong>: your claimed free reward was <strong>completed at the Nomu counter</strong> when your QR was scanned for this transaction. Keep this message if you ever need proof that the item was already received.</p>
           <div style="background:#edf2f7;border-radius:8px;padding:14px;margin:16px 0;font-size:14px;color:#2d3748;">
-            <p style="margin:0 0 8px 0;"><strong>Pickup recorded:</strong> ${whenStr}</p>
-            <p style="margin:0 0 8px 0;"><strong>Time (ISO):</strong> ${whenIso}</p>
+            <p style="margin:0 0 8px 0;"><strong>Pickup recorded:</strong> ${whenStr} (Philippine Time)</p>
+            <p style="margin:0 0 8px 0;"><strong>Time (ISO-8601, PHT):</strong> ${whenIso}</p>
             ${orderId ? `<p style="margin:0;"><strong>Order / transaction ref:</strong> ${orderId}</p>` : ''}
           </div>
           <table style="width:100%; border-collapse:collapse; margin: 16px 0; font-size: 14px;">
@@ -1223,6 +1277,42 @@ function rewardHistoryTypesForBucket(bucket) {
   return [];
 }
 
+/** Stamps required on the current card before the customer can claim this barista bucket (5- vs 10-tier). */
+function minStampsForRewardBucket(rewardBucket) {
+  const b = String(rewardBucket || '').toLowerCase();
+  if (b === 'drink' || b === 'pizza') return 10;
+  if (b === 'donut' || b === 'pastry') return 5;
+  return 5;
+}
+
+function buildRewardPickupNotClaimedMessage(user, rewardBucket) {
+  const pts = Math.max(0, Math.floor(Number(user.points) || 0));
+  const need = minStampsForRewardBucket(rewardBucket);
+  if (pts < need) {
+    return (
+      `This customer has ${pts} stamp${pts === 1 ? '' : 's'} on the current loyalty card. ` +
+      `They need at least ${need} stamps and must tap Claim in the Nomu app before you can scan this free item.`
+    );
+  }
+  return (
+    'The customer must tap Claim in the Nomu app first. After Claim, pickup at the barista is valid for 24 hours only.'
+  );
+}
+
+/**
+ * Fulfilled RewardClaim rows from an older loyalty cycle (or legacy rows without cycle once the
+ * card has advanced) must not produce "already picked up" on a fresh cycle.
+ */
+function shouldSkipFulfilledClaimForCycleDenial(claim, currentCycle) {
+  if (!claim.fulfilledAt) return false;
+  const raw = claim.cycle;
+  const n = Number(raw);
+  const hasStoredCycle = raw != null && raw !== '' && Number.isFinite(n) && n > 0;
+  if (hasStoredCycle && n < currentCycle) return true;
+  if (!hasStoredCycle && currentCycle > 1) return true;
+  return false;
+}
+
 /** Barista bucket can redeem an explicit claim type or a generic admin "bonus" claim. */
 function rewardClaimTypesForPickupBucket(bucket) {
   const specifics = rewardHistoryTypesForBucket(bucket);
@@ -1516,18 +1606,30 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
     };
   }
   const now = new Date();
-  const latest = await RewardClaim.findOne({
+  const currentCycle = user.currentCycle || 1;
+  /**
+   * Same cycle window as pickup matching (current + previous): a 10-tier claim row may still
+   * sit on [cycle N] after the user advances to N+1 until barista fulfills it.
+   * Do NOT use a *fulfilled* claim from an earlier cycle than [currentCycle] for messaging:
+   * otherwise a new cycle shows "Already picked up" from last cycle's pickup.
+   */
+  const claims = await RewardClaim.find({
     userId: user._id,
     ...rewardClaimCycleMatchForPickup(user),
     ...rewardClaimTypeMatchForBucket(rewardBucket)
   })
     .sort({ date: -1 })
     .lean();
+  let latest = null;
+  for (const cl of claims) {
+    if (shouldSkipFulfilledClaimForCycleDenial(cl, currentCycle)) continue;
+    latest = cl;
+    break;
+  }
   if (!latest) {
     return {
       code: 'REWARD_NOT_CLAIMED',
-      message:
-        'The customer must tap Claim in the Nomu app first. After Claim, pickup at the barista is valid for 24 hours only.'
+      message: buildRewardPickupNotClaimedMessage(user, rewardBucket)
     };
   }
   const bonusExhausted =
@@ -1560,8 +1662,7 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
   }
   return {
     code: 'REWARD_NOT_CLAIMED',
-    message:
-      'Reward cannot be picked up right now. Ask the customer to open the Nomu app and confirm their reward status.'
+    message: buildRewardPickupNotClaimedMessage(user, rewardBucket)
   };
 }
 

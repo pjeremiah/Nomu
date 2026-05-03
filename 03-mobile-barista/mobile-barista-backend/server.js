@@ -914,7 +914,9 @@ app.post('/api/mobile/admin/login', async (req, res) => {
       const rememberUntilDate = admin.rememberUntil instanceof Date
         ? admin.rememberUntil
         : new Date(admin.rememberUntil);
-      if (new Date() < rememberUntilDate) {
+      const stillValid =
+        !Number.isNaN(rememberUntilDate.getTime()) && new Date() < rememberUntilDate;
+      if (stillValid) {
         admin.status = 'active';
         admin.lastLoginAt = new Date();
         admin.updatedAt = new Date();
@@ -939,9 +941,11 @@ app.post('/api/mobile/admin/login', async (req, res) => {
           token,
           user: adminData,
           rememberUntil: rememberUntilDate.toISOString(),
-          platform: 'mobile'
+          platform: 'mobile',
+          requiresOTP: false
         });
       }
+      admin.rememberUntil = null;
     }
 
     // ✅ Update admin status to active and lastLoginAt
@@ -991,7 +995,8 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     res.json({
       message: 'OTP sent to registered email',
       email: admin.email,
-      expiresIn: '10 minutes'
+      expiresIn: '10 minutes',
+      requiresOTP: true
     });
   } catch (err) {
     console.error('❌ [MOBILE ADMIN] Login error:', err);
@@ -1004,7 +1009,11 @@ app.post('/api/mobile/admin/verify-otp', async (req, res) => {
   console.log('🔐 [MOBILE ADMIN OTP] OTP verification for:', req.body.email);
   try {
     const { email, otp, rememberFor1Day } = req.body;
-    const remember24h = rememberFor1Day === true || rememberFor1Day === 'true';
+    const remember24h =
+      rememberFor1Day === true ||
+      rememberFor1Day === 'true' ||
+      rememberFor1Day === 1 ||
+      rememberFor1Day === '1';
 
     if (!email || !otp) {
       return res.status(400).json({ message: 'Email and OTP are required' });
@@ -1229,8 +1238,9 @@ app.post('/api/admin/logout', async (req, res) => {
       return res.status(404).json({ error: 'Admin not found' });
     }
     
-    // Update admin status to inactive
+    // Update admin status to inactive; clear trust window so next login requires OTP again
     admin.status = 'inactive';
+    admin.rememberUntil = null;
     admin.updatedAt = new Date();
     await admin.save();
     
