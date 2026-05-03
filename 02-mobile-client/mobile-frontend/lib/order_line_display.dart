@@ -31,23 +31,27 @@ String orderLineDisplayName(String rawName, Map<String, dynamic> line) {
   return '$trimmed (Free)';
 }
 
-/// Recent Orders bullets / detail rows: `Americano (Drink)` or `Americano (Drink) (Free)`.
-String orderLineBulletLabel(
+/// First line for order bullets: name + `(Type)` + optional `(Free)` — no quantity.
+String orderLineBulletPrimaryLabel(
   String rawName,
   Map<String, dynamic> line,
-  String typeDisplayName, {
-  int quantity = 1,
-}) {
+  String typeDisplayName,
+) {
   final trimmed = rawName.trim();
   final base = trimmed.isEmpty ? 'Unknown Item' : trimmed;
-  final q = quantity > 1 ? ' × $quantity' : '';
   final t = typeDisplayName.trim();
   final typePart = t.isEmpty ? '' : ' ($t)';
   if (!isFreeRewardOrderLine(line)) {
-    return '$base$q$typePart';
+    return '$base$typePart';
   }
   if (trimmed.isEmpty) {
-    return '(Free)$q$typePart';
+    return '(Free)$typePart';
   }
-  return '$base$q$typePart (Free)';
+  return '$base$typePart (Free)';
+}
+
+/// Second line when quantity > 1, e.g. `2 pcs`.
+String? orderLineBulletQuantityLine(int quantity) {
+  if (quantity <= 1) return null;
+  return '$quantity pcs';
 }

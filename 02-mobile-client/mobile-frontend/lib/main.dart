@@ -109,6 +109,9 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.themeData,
       home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
+      routes: {
+        '/login': (context) => const LoginPage(),
+      },
     );
   }
 }

@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'order_line_display.dart';
+import 'order_type_icon.dart';
 
 /// Full-screen Past Orders page (replaces the modal).
 class PastOrdersPage extends StatelessWidget {
   final List<Map<String, dynamic>> pastOrders;
-  final String Function(String itemType, String category) getItemIcon;
   final String Function(String itemType) getItemTypeDisplayName;
   final void Function(BuildContext context, Map<String, dynamic> order) onOrderTap;
 
   const PastOrdersPage({
     Key? key,
     required this.pastOrders,
-    required this.getItemIcon,
     required this.getItemTypeDisplayName,
     required this.onOrderTap,
   }) : super(key: key);
@@ -71,8 +70,10 @@ class PastOrdersPage extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               itemCount: pastOrders.length,
               itemBuilder: (context, index) {
+                final narrow = MediaQuery.sizeOf(context).width < 380;
                 final order = pastOrders[pastOrders.length - 1 - index];
                 final date = DateTime.tryParse(order['date'].toString());
+                final isRecent = date != null && DateTime.now().difference(date.toLocal()).inHours < 24;
                 final items = order['items'] as List<dynamic>?;
                 final isMultipleItems = items != null && items.isNotEmpty;
                 final firstItem = isMultipleItems ? items.first : order;
@@ -94,35 +95,32 @@ class PastOrdersPage extends StatelessWidget {
                       onTap: () => onOrderTap(context, order),
                       borderRadius: BorderRadius.circular(14),
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(narrow ? 10 : 14),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF242C5B),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Image.asset(
-                                getItemIcon(itemType, category),
-                                width: 24,
-                                height: 24,
-                                color: Colors.white,
-                              ),
+                            buildOrderHistoryLeadingIcon(
+                              itemType: itemType,
+                              category: category,
+                              isRecent: isRecent,
+                              outerSize: narrow ? 42 : 48,
                             ),
-                            const SizedBox(width: 14),
+                            SizedBox(width: narrow ? 10 : 14),
                             Expanded(
                               child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     isMultipleItems
-                                        ? '$itemName +${items.length - 1} more'
+                                        ? (items.length > 1
+                                            ? '$itemName +${items.length - 1} more'
+                                            : itemName)
                                         : itemName,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                      color: Color(0xFF242C5B),
+                                      fontSize: narrow ? 14 : 16,
+                                      color: const Color(0xFF242C5B),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -136,7 +134,7 @@ class PastOrdersPage extends StatelessWidget {
                                     ),
                                     child: Text(
                                       isMultipleItems
-                                          ? '${items.length} items'
+                                          ? (items.length == 1 ? '1 Item' : '${items.length} items')
                                           : getItemTypeDisplayName(itemType),
                                       style: const TextStyle(
                                         fontSize: 11,
@@ -151,9 +149,13 @@ class PastOrdersPage extends StatelessWidget {
                                       children: [
                                         Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          DateFormat('MMM d, y').format(date.toLocal()),
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                        Expanded(
+                                          child: Text(
+                                            DateFormat('MMM d, y').format(date.toLocal()),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -161,10 +163,14 @@ class PastOrdersPage extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              size: 14,
-                              color: Colors.grey[500],
+                            SizedBox(width: narrow ? 10 : 14),
+                            Padding(
+                              padding: EdgeInsets.only(top: narrow ? 6 : 8),
+                              child: Icon(
+                                Icons.arrow_forward_ios,
+                                size: 14,
+                                color: Colors.grey[500],
+                              ),
                             ),
                           ],
                         ),

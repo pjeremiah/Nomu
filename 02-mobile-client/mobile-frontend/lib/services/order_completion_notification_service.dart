@@ -25,13 +25,10 @@ class OrderCompletionNotificationService {
   // Initialize the service
   Future<void> initialize() async {
     _socketService = SocketService.instance;
-    
-    if (_socketService.isConnected) {
-      _setupListener();
-      LoggingService.instance.info('Order completion notification service initialized');
-    } else {
-      LoggingService.instance.warning('Socket not connected, order completion notifications will not work until socket connects');
-    }
+    // Always attach to [orderCompletionStream] so events are received once the socket connects
+    // (previously we only subscribed when already connected, which dropped all notifications).
+    _setupListener();
+    LoggingService.instance.info('Order completion notification service initialized (listener ready)');
   }
   
   // Set up listener for order completion notifications

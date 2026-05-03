@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:flip_card/flip_card.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'api/api.dart';
@@ -38,6 +39,47 @@ DateTime? _parseLoyaltyDate(dynamic v) {
   if (v == null) return null;
   if (v is DateTime) return v;
   return DateTime.tryParse(v.toString());
+}
+
+/// Wall clock in Asia/Manila (PHT), independent of device timezone.
+tz.TZDateTime? _toPhilippinesTime(DateTime? d) {
+  if (d == null) return null;
+  final manila = tz.getLocation('Asia/Manila');
+  return tz.TZDateTime.from(d.toUtc(), manila);
+}
+
+/// `MM/DD/YYYY` in Philippine time.
+String _formatPhilippinesDateMmDdYyyy(DateTime? d) {
+  final t = _toPhilippinesTime(d);
+  if (t == null) return '—';
+  String p2(int n) => n.toString().padLeft(2, '0');
+  return '${p2(t.month)}/${p2(t.day)}/${t.year}';
+}
+
+/// 12-hour time with seconds, `hh:mm:ss AM/PM` in Philippine time (e.g. `07:45:53 PM`).
+String _formatPhilippinesTime12h(DateTime? d) {
+  final t = _toPhilippinesTime(d);
+  if (t == null) return '—';
+  var h12 = t.hour % 12;
+  if (h12 == 0) h12 = 12;
+  final ampm = t.hour < 12 ? 'AM' : 'PM';
+  String p2(int n) => n.toString().padLeft(2, '0');
+  return '${p2(h12)}:${p2(t.minute)}:${p2(t.second)} $ampm';
+}
+
+/// Relative time from device clock (e.g. `2h ago`) for pickup recency.
+String _formatRelativeAgo(DateTime past) {
+  final now = DateTime.now();
+  final difference = now.difference(past);
+  if (difference.inMinutes < 1) return 'Just now';
+  if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+  if (difference.inHours < 24) return '${difference.inHours}h ago';
+  if (difference.inDays == 1) return 'Yesterday';
+  if (difference.inDays < 7) return '${difference.inDays}d ago';
+  if (difference.inDays < 30) return '${difference.inDays}d ago';
+  final months = (difference.inDays / 30).floor();
+  if (months < 12) return '${months}mo ago';
+  return '${(difference.inDays / 365).floor()}y ago';
 }
 
 bool _parseBoolSafe(dynamic v, [bool fallback = false]) {
@@ -105,6 +147,8 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   // Socket service for real-time updates
   late SocketService _socketService;
   StreamSubscription<Map<String, dynamic>>? _loyaltyPointSubscription;
+  StreamSubscription<Map<String, dynamic>>? _orderCompletionSubscription;
+  StreamSubscription<Map<String, dynamic>>? _scanLimitSubscription;
   
   // Auto-refresh timer for cycle completion
   Timer? _autoRefreshTimer;
@@ -312,6 +356,10 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       // Cancel subscriptions first
       _loyaltyPointSubscription?.cancel();
       _loyaltyPointSubscription = null;
+      _orderCompletionSubscription?.cancel();
+      _orderCompletionSubscription = null;
+      _scanLimitSubscription?.cancel();
+      _scanLimitSubscription = null;
       
       // Cancel all timers
       _autoRefreshTimer?.cancel();
@@ -488,51 +536,54 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   // Set up scan limit notification listener
   void _setupScanLimitNotificationListener() {
     try {
-      // Listen for scan limit notifications
-      ScanLimitNotificationService.instance.notificationStream.listen((data) {
+      _scanLimitSubscription?.cancel();
+      _scanLimitSubscription = ScanLimitNotificationService.instance.notificationStream.listen((data) {
         if (!mounted) return;
-        
+
         final customerId = data['customerId'] as String?;
         final notificationType = data['type'] as String?;
-        
-        // Check if this notification is for the current user
-        // For now, we'll show all notifications, but you can add user filtering here
+
         if (customerId != null && notificationType != null) {
           LoggingService.instance.loyalty('Received scan limit notification', data);
-          
-          // Show the notification in the UI
           ScanLimitNotificationService.instance.showScanLimitNotification(context, data);
         }
       });
-      
+
       LoggingService.instance.loyalty('Scan limit notification listener set up successfully');
     } catch (e) {
       LoggingService.instance.error('Error setting up scan limit notification listener', e);
     }
   }
 
+  bool _socketPayloadMatchesCurrentUser(Map<String, dynamic> data) {
+    final receivedQr = data['qrToken'] as String?;
+    final receivedUserId = data['userId']?.toString();
+    final qrMatch = receivedQr != null && receivedQr == widget.qrToken;
+    final idMatch =
+        receivedUserId != null && _loyaltyUserId != null && receivedUserId == _loyaltyUserId;
+    return qrMatch || idMatch;
+  }
+
   // Set up order completion notification listener
   void _setupOrderCompletionNotificationListener() {
     try {
-      // Listen for order completion notifications
-      OrderCompletionNotificationService.instance.notificationStream.listen((data) {
+      _orderCompletionSubscription?.cancel();
+      _orderCompletionSubscription =
+          OrderCompletionNotificationService.instance.notificationStream.listen((data) {
         if (!mounted) return;
-        
-        final qrToken = data['qrToken'] as String?;
+
         final notificationType = data['type'] as String?;
-        
-        // Check if this notification is for the current user
-        if (qrToken == widget.qrToken && notificationType == 'order_completion') {
-          LoggingService.instance.loyalty('Received order completion notification', data);
-          final rawPa = data['pointsAdded'];
-          final ptsAdded =
-              rawPa is num ? rawPa.toInt() : int.tryParse(rawPa?.toString() ?? '') ?? 0;
-          if (ptsAdded > 0) {
-            OrderCompletionNotificationService.showOrderCompletionDialog(context, data);
-          }
+        if (notificationType != 'order_completion') return;
+        if (!_socketPayloadMatchesCurrentUser(data)) {
+          LoggingService.instance.loyalty('Order completion event for another user, ignoring');
+          return;
         }
+
+        LoggingService.instance.loyalty('Received order completion notification', data);
+        // Show receipt-style dialog for every completion (stamp or below-minimum message in dialog body).
+        OrderCompletionNotificationService.showOrderCompletionDialog(context, data);
       });
-      
+
       LoggingService.instance.loyalty('Order completion notification listener set up successfully');
     } catch (e) {
       LoggingService.instance.error('Error setting up order completion notification listener', e);
@@ -562,11 +613,9 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       final isEligibleForPoints =
           _parseBoolSafe(data['isEligibleForPoints'], pointsAdded > 0);
       final drink = data['itemName'] as String?;
-      final qrToken = data['qrToken'] as String?;
-      
-      // Validate that this update is for the current user
-      if (qrToken != null && qrToken != widget.qrToken) {
-        LoggingService.instance.loyalty('Socket update not for current user, ignoring');
+
+      if (!_socketPayloadMatchesCurrentUser(data)) {
+        LoggingService.instance.loyalty('Socket loyalty update not for current user, ignoring');
         return;
       }
       
@@ -602,7 +651,8 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       final pickupFulfilled = data['rewardPickupsFulfilled'];
       final bool hadRewardPickup =
           pickupFulfilled is List && pickupFulfilled.isNotEmpty;
-      final bool showStampSnack = pointsAdded > 0;
+      final bool showStampSnack =
+          pointsAdded > 0 || (hadRewardPickup && (customerMessage?.isNotEmpty ?? false));
 
       if (hadRewardPickup && mounted) {
         try {
@@ -1462,12 +1512,16 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                         errorBuilder: (_, __, ___) => const Icon(Icons.card_membership, size: 32, color: Colors.white),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        'My Loyalty Card',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                      Expanded(
+                        child: Text(
+                          'My Loyalty Card',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: MediaQuery.sizeOf(context).width < 360 ? 17 : 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -1503,7 +1557,8 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                           ),
                         // Bounded height so layout completes (avoids render box with no size)
                         SizedBox(
-                          height: (MediaQuery.sizeOf(context).height * 0.36).clamp(280.0, 320.0),
+                          height: (MediaQuery.sizeOf(context).height * 0.36)
+                              .clamp(220.0, 320.0),
                           child: isLoading
                               ? const SkeletonLoyaltyCard()
                               : ScaleTransition(
@@ -2457,27 +2512,67 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
 
   Widget _buildRewardHistoryItem(Map<String, dynamic> r) {
     try {
-      final d = DateTime.tryParse(r['date'].toString());
-      final now = DateTime.now();
-      String dateStr = 'Unknown date';
-      DateTime? localDate;
-      if (d != null) {
-        try {
-          localDate = d.toLocal();
-          final difference = now.difference(localDate);
-          if (difference.inMinutes < 1) dateStr = 'Just now';
-          else if (difference.inMinutes < 60) dateStr = '${difference.inMinutes}m ago';
-          else if (difference.inHours < 24) dateStr = '${difference.inHours}h ago';
-          else if (difference.inDays == 1) dateStr = 'Yesterday';
-          else if (difference.inDays < 7) dateStr = '${difference.inDays}d ago';
-          else dateStr = '${_monthName(localDate.month)} ${localDate.day}, ${localDate.year}';
-        } catch (_) {
-          dateStr = 'Unknown date';
-        }
-      }
+      final claimDate = _parseLoyaltyDate(r['date']);
+      final fulfilledAt = _parseLoyaltyDate(r['fulfilledAt']);
       final type = (r['type'] as String? ?? '').toLowerCase();
       final isDonut = type == 'donut';
       final isBonus = type == 'bonus';
+
+      final greenStyle = TextStyle(
+        color: Colors.green.shade800,
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+        height: 1.35,
+      );
+
+      final agoReference = fulfilledAt ?? claimDate;
+      final agoLineStyle = TextStyle(
+        color: Colors.grey[600],
+        fontSize: 12,
+        height: 1.3,
+        fontWeight: FontWeight.w500,
+      );
+
+      Widget statusBlock() {
+        if (fulfilledAt != null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Picked up at cafe.', style: greenStyle),
+              Text(_formatPhilippinesDateMmDdYyyy(fulfilledAt), style: greenStyle),
+              Text(_formatPhilippinesTime12h(fulfilledAt), style: greenStyle),
+            ],
+          );
+        }
+        final deadline = _parseLoyaltyDate(r['pickupDeadline']);
+        final now = DateTime.now();
+        if (deadline != null && deadline.isAfter(now)) {
+          final left = _formatRemainingClock(deadline);
+          return Text(
+            left != null ? 'Awaiting pickup at cafe · $left left' : 'Awaiting pickup at cafe.',
+            style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.w600, fontSize: 12, height: 1.35),
+          );
+        }
+        if (deadline != null && !deadline.isAfter(now)) {
+          return Text(
+            'Pickup window ended (not recorded at counter)',
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 12, height: 1.35),
+          );
+        }
+        if (claimDate != null) {
+          final grey = TextStyle(color: Colors.grey[700]!, fontSize: 13, height: 1.35);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Claimed at cafe.', style: grey),
+              Text(_formatPhilippinesDateMmDdYyyy(claimDate), style: grey),
+              Text(_formatPhilippinesTime12h(claimDate), style: grey),
+            ],
+          );
+        }
+        return const SizedBox.shrink();
+      }
+
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
@@ -2485,98 +2580,62 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey[200]!),
         ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isBonus
-                  ? Colors.purple[50]
-                  : (isDonut ? Colors.orange[100] : Colors.brown[100]),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: isBonus
-                  ? Icon(Icons.card_giftcard, size: 24, color: Colors.purple[700])
-                  : Image.asset(
-                      isDonut ? 'assets/images/donut.png' : 'assets/images/coffee.png',
-                      width: 24,
-                      height: 24,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Icon(
-                        isDonut ? Icons.cake : Icons.local_cafe,
-                        size: 24,
-                        color: isDonut ? Colors.orange[700] : Colors.brown[700],
-                      ),
-                    ),
-            ),
-          ),
-          title: Text(
-            r['description']?.toString() ?? 'Unknown Reward',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Column(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(dateStr, style: TextStyle(color: Colors.grey[600])),
-              if (r['cycle'] != null)
-                Text('Cycle ${r['cycle']}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-              Builder(
-                builder: (context) {
-                  final fulfilledAt = _parseLoyaltyDate(r['fulfilledAt']);
-                  if (fulfilledAt != null) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Picked up at café · ${fulfilledAt.toLocal().toString().split('.').first}',
-                        style: TextStyle(
-                          color: Colors.green.shade800,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isBonus
+                      ? Colors.purple[50]
+                      : (isDonut ? Colors.orange[100] : Colors.brown[100]),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: isBonus
+                      ? Icon(Icons.card_giftcard, size: 24, color: Colors.purple[700])
+                      : Image.asset(
+                          isDonut ? 'assets/images/donut.png' : 'assets/images/coffee.png',
+                          width: 24,
+                          height: 24,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Icon(
+                            isDonut ? Icons.cake : Icons.local_cafe,
+                            size: 24,
+                            color: isDonut ? Colors.orange[700] : Colors.brown[700],
+                          ),
                         ),
-                      ),
-                    );
-                  }
-                  final deadline = _parseLoyaltyDate(r['pickupDeadline']);
-                  final now = DateTime.now();
-                  if (deadline != null && deadline.isAfter(now)) {
-                    final left = _formatRemainingClock(deadline);
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        left != null ? 'Awaiting pickup at café · $left left' : 'Awaiting pickup at café',
-                        style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.w600, fontSize: 12),
-                      ),
-                    );
-                  }
-                  if (deadline != null && !deadline.isAfter(now)) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Pickup window ended (not recorded at counter)',
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r['description']?.toString() ?? 'Unknown Reward',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    if (agoReference != null) ...[
+                      const SizedBox(height: 4),
+                      Text(_formatRelativeAgo(agoReference), style: agoLineStyle),
+                    ],
+                    if (r['cycle'] != null) ...[
+                      const SizedBox(height: 4),
+                      Text('Cycle ${r['cycle']}', style: agoLineStyle),
+                    ],
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: statusBlock(),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          trailing: localDate != null
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${localDate.hour.toString().padLeft(2, '0')}:${localDate.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500),
-                  ),
-                )
-              : null,
         ),
       );
     } catch (e) {
@@ -2644,16 +2703,6 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         ),
       );
     }
-  }
-
-  String _monthName(int month) {
-    const months = [
-      '',
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    if (month < 1 || month > 12) return 'Unknown';
-    return months[month];
   }
 
   Widget _buildStatsSection(int points) {
@@ -2888,13 +2937,20 @@ class LoyaltyCardFront extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'LOYALTY CARD',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.primary,
-                  letterSpacing: 1.2,
+              SizedBox(
+                width: double.infinity,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: Text(
+                    'LOYALTY CARD',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primary,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -2917,12 +2973,17 @@ class LoyaltyCardFront extends StatelessWidget {
                       height: 36,
                       errorBuilder: (_, __, ___) => Icon(Icons.breakfast_dining, size: 36, color: AppTheme.accent),
                     ),
-                    Text(
-                      'Tap card to flip',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.neutral500,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        'Tap card to flip',
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.neutral500,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],

@@ -17,7 +17,9 @@ import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'past_orders_page.dart';
 import 'order_line_display.dart';
+import 'order_type_icon.dart';
 import 'theme/app_theme.dart';
+import 'logout_confirmation_dialog.dart';
 
 /// Formats an order date as "Xm ago", "Xh ago", "Xd ago", or "MMM d, y".
 String formatOrderDate(DateTime date) {
@@ -34,32 +36,56 @@ String formatOrderDate(DateTime date) {
   }
 }
 
-// Helper function to get appropriate icon for different item types
-String _getItemIcon(String itemType, String category) {
-  switch (itemType.toLowerCase()) {
-    case 'drink':
-      if (category.toLowerCase().contains('coffee') || category.toLowerCase().contains('latte')) {
-        return 'assets/images/coffee.png';
-      } else if (category.toLowerCase().contains('milk') || category.toLowerCase().contains('tea')) {
-        return 'assets/images/coffee.png'; // Using coffee icon for milk teas
-      } else {
-        return 'assets/images/coffee.png';
-      }
-    case 'pizza':
-      return 'assets/images/pastry.png'; // Using pastry icon for pizza
-    case 'pasta':
-      return 'assets/images/pastry.png'; // Using pastry icon for pasta
-    case 'calzone':
-      return 'assets/images/pastry.png'; // Using pastry icon for calzone
-    case 'pastry':
-      return 'assets/images/pastry.png';
-    case 'donut':
-      return 'assets/images/donut.png';
-    case 'food':
-      return 'assets/images/pastry.png'; // Generic food icon
-    default:
-      return 'assets/images/coffee.png'; // Default to coffee icon
-  }
+/// Bulleted order line: dot aligned with first text line; quantity as `N pcs` below when > 1.
+Widget _orderLineBulletRow({
+  required String rawName,
+  required Map<String, dynamic> line,
+  required String typeDisplayName,
+  required int quantity,
+  double dotSize = 6,
+  double dotTopPadding = 5,
+  double gapAfterDot = 10,
+  required TextStyle primaryStyle,
+  TextStyle? quantityStyle,
+}) {
+  final primary = orderLineBulletPrimaryLabel(rawName, line, typeDisplayName);
+  final qtyLine = orderLineBulletQuantityLine(quantity);
+  final baseSize = primaryStyle.fontSize ?? 14;
+  final qStyle = quantityStyle ??
+      primaryStyle.copyWith(
+        fontSize: baseSize - 1,
+        color: Colors.grey[600],
+        fontWeight: FontWeight.w500,
+      );
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: EdgeInsets.only(top: dotTopPadding),
+        child: Container(
+          width: dotSize,
+          height: dotSize,
+          decoration: const BoxDecoration(
+            color: Color(0xFF242C5B),
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+      SizedBox(width: gapAfterDot),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(primary, style: primaryStyle),
+            if (qtyLine != null) ...[
+              const SizedBox(height: 2),
+              Text(qtyLine, style: qStyle),
+            ],
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 // Helper function to get item type display name
@@ -680,7 +706,8 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                 padding: EdgeInsets.symmetric(horizontal: contentPadding),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - padding.top - padding.bottom - 80,
+                    minHeight: (constraints.maxHeight - padding.top - padding.bottom - 80)
+                        .clamp(0.0, double.infinity),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,24 +777,40 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
     final screen = MediaQuery.of(context).size;
     final padding = MediaQuery.of(context).padding;
 
-    return Scaffold(
-      backgroundColor: _currentIndex == 0
-          ? null
-          : Theme.of(context).scaffoldBackgroundColor,
-      body: AnimatedSwitcher(
-        duration: _kTabTransitionDurationIn,
-        reverseDuration: _kTabTransitionDurationOut,
-        switchInCurve: _kTabTransitionCurve,
-        switchOutCurve: _kTabTransitionCurve,
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
-        child: _getCurrentScreen(screen, padding),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        if (didPop || !context.mounted) return;
+        final nav = Navigator.of(context);
+        if (nav.canPop()) {
+          nav.pop();
+          return;
+        }
+        if (_currentIndex != 0) {
+          setState(() => _currentIndex = 0);
+          return;
+        }
+        showLogoutConfirmationDialog(context);
+      },
+      child: Scaffold(
+        backgroundColor: _currentIndex == 0
+            ? null
+            : Theme.of(context).scaffoldBackgroundColor,
+        body: AnimatedSwitcher(
+          duration: _kTabTransitionDurationIn,
+          reverseDuration: _kTabTransitionDurationOut,
+          switchInCurve: _kTabTransitionCurve,
+          switchOutCurve: _kTabTransitionCurve,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: _getCurrentScreen(screen, padding),
+        ),
+        bottomNavigationBar: _buildEnhancedBottomNavBar(screen),
       ),
-      bottomNavigationBar: _buildEnhancedBottomNavBar(screen),
     );
   }
 
@@ -801,8 +844,8 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: screen.width < 360 ? 44 : 48,
+                height: screen.width < 360 ? 44 : 48,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.all(Radius.circular(_kGreetingIconRadius)),
@@ -815,10 +858,10 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                           ? Icons.brightness_6_rounded
                           : Icons.nightlight_round,
                   color: Colors.white,
-                  size: 26,
+                  size: screen.width < 360 ? 22 : 26,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: screen.width < 360 ? 10 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -828,19 +871,21 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                     Text(
                       _getGreeting(),
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: screen.width < 360 ? 12 : 13,
                         color: Colors.white.withValues(alpha: 0.9),
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.2,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
                     Text(
                       _user.username.isNotEmpty
                           ? _user.username
                           : (_user.fullName.isNotEmpty ? _user.fullName : 'Guest'),
-                      style: const TextStyle(
-                        fontSize: 22,
+                      style: TextStyle(
+                        fontSize: screen.width < 360 ? 18 : 22,
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
@@ -855,9 +900,11 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
               AnimatedBuilder(
                 animation: _coffeeIconRotationController,
                 builder: (context, child) {
+                  final sz = screen.width < 360 ? 44.0 : 48.0;
+                  final ic = screen.width < 360 ? 22.0 : 26.0;
                   return Container(
-                    width: 48,
-                    height: 48,
+                    width: sz,
+                    height: sz,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.all(Radius.circular(_kGreetingIconRadius)),
@@ -866,10 +913,10 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                     child: Center(
                       child: Transform.rotate(
                         angle: _coffeeIconRotationController.value * 2 * 3.14159,
-                        child: const Icon(
+                        child: Icon(
                           Icons.coffee_rounded,
                           color: Colors.white,
-                          size: 26,
+                          size: ic,
                         ),
                       ),
                     ),
@@ -998,35 +1045,46 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
             ],
           ),
           const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(10, (index) {
-              final filled = index < earned;
-              return Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: filled ? _kGoldAccent : Colors.grey[300],
-                  border: Border.all(
-                    color: filled ? _kGoldAccent : Colors.grey[400]!,
-                    width: filled ? 0 : 1.5,
-                  ),
-                  boxShadow: filled
-                      ? [
-                          BoxShadow(
-                            color: _kGoldAccent.withValues(alpha: 0.35),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
+          LayoutBuilder(
+            builder: (context, c) {
+              return FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: c.maxWidth.isFinite ? c.maxWidth : 300,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(10, (index) {
+                      final filled = index < earned;
+                      return Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: filled ? _kGoldAccent : Colors.grey[300],
+                          border: Border.all(
+                            color: filled ? _kGoldAccent : Colors.grey[400]!,
+                            width: filled ? 0 : 1.5,
                           ),
-                        ]
-                      : null,
+                          boxShadow: filled
+                              ? [
+                                  BoxShadow(
+                                    color: _kGoldAccent.withValues(alpha: 0.35),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: filled
+                            ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                            : null,
+                      );
+                    }),
+                  ),
                 ),
-                child: filled
-                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
-                    : null,
               );
-            }),
+            },
           ),
           const SizedBox(height: 12),
           ClipRRect(
@@ -1262,40 +1320,47 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                   ),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                            ),
+                            child: const Icon(
+                              Icons.receipt_long,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.receipt_long,
-                            color: Colors.white,
-                            size: 20,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Recent Orders',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Recent Orders',
-                          style: TextStyle(
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    // View All – right-aligned; show when user has any past orders
-                    if (pastOrders.isNotEmpty)
+                    if (pastOrders.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      // No Flexible here — Flexible would take flex space and pull the chip toward the title.
                       GestureDetector(
                         onTap: () => _showPastOrdersPopup(context, pastOrders),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
@@ -1322,6 +1387,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -1395,6 +1461,8 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
   }
 
   Widget _buildEnhancedOrderListTile(Map<String, dynamic> order, {VoidCallback? onTap}) {
+    final mq = MediaQuery.of(context);
+    final narrow = mq.size.width < 380;
     final date = DateTime.tryParse(order['date'].toString());
     final isRecent = date != null && DateTime.now().difference(date).inHours < 24;
     
@@ -1415,7 +1483,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: EdgeInsets.symmetric(horizontal: narrow ? 10 : 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -1437,64 +1505,32 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Order Icon with Status
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isRecent 
-                    ? [const Color(0xFF242C5B), const Color(0xFF3A4A8C)]
-                    : [Colors.grey[400]!, Colors.grey[500]!],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Stack(
-              children: [
-                Center(
-                  child: Image.asset(
-                    _getItemIcon(itemType, category),
-                    width: 24,
-                    height: 24,
-                    fit: BoxFit.contain,
-                    color: Colors.white,
-                  ),
-                ),
-                if (isRecent)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          // Order icon (gold border; drink / donut / pastry asset or pizza Material icon)
+          buildOrderHistoryLeadingIcon(
+            itemType: itemType,
+            category: category,
+            isRecent: isRecent,
+            outerSize: narrow ? 42 : 48,
           ),
-          const SizedBox(width: 16),
-          // Order Details
+          SizedBox(width: narrow ? 10 : 16),
+          // Order Details — stacked top-to-bottom; time always after title, badge, and optional list
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        isMultipleItems
+                        isMultipleItems && items.length > 1
                             ? '$itemName +${items.length - 1} more'
                             : itemName,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                          fontSize: narrow ? 14 : 16,
                           color: isRecent ? const Color(0xFF242C5B) : Colors.grey[700],
                         ),
                         maxLines: 1,
@@ -1503,7 +1539,7 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                     ),
                     if (isRecent)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: EdgeInsets.symmetric(horizontal: narrow ? 6 : 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -1534,8 +1570,8 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                         ),
                       ),
                       child: Text(
-                        isMultipleItems 
-                            ? '${items.length} items'
+                        isMultipleItems
+                            ? (items.length == 1 ? '1 Item' : '${items.length} items')
                             : _getItemTypeDisplayName(itemType),
                         style: const TextStyle(
                           fontSize: 11,
@@ -1546,6 +1582,28 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                     ),
                   ],
                 ),
+                // Relative time under the badge (same stack as single-item cards), above the line-item box
+                if (date != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.grey[500],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        formatOrderDate(date),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 // Show item breakdown for multiple items
                 if (isMultipleItems && items.length > 1) ...[
                   const SizedBox(height: 4),
@@ -1569,33 +1627,26 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                         ),
                         const SizedBox(height: 4),
                         ...items.take(3).map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 4,
-                                height: 4,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF242C5B),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  orderLineBulletLabel(
-                                    (item['itemName'] ?? '').toString(),
-                                    orderLineAsMap(item),
-                                    _getItemTypeDisplayName(item['itemType'] ?? 'item'),
-                                    quantity: (item['quantity'] as num?)?.toInt() ?? 1,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ),
-                            ],
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: _orderLineBulletRow(
+                            rawName: (item['itemName'] ?? '').toString(),
+                            line: orderLineAsMap(item),
+                            typeDisplayName: _getItemTypeDisplayName(item['itemType'] ?? 'item'),
+                            quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+                            dotSize: 4,
+                            dotTopPadding: 3,
+                            gapAfterDot: 6,
+                            primaryStyle: TextStyle(
+                              fontSize: 10,
+                              height: 1.25,
+                              color: Colors.grey[800],
+                            ),
+                            quantityStyle: TextStyle(
+                              fontSize: 9,
+                              height: 1.2,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         )),
                         if (items.length > 3)
@@ -1611,44 +1662,28 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                     ),
                   ),
                 ],
-                const SizedBox(height: 4),
-                if (date != null) ...[
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: Colors.grey[500],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        formatOrderDate(date),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
-          // Arrow
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF242C5B).withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: const Color(0xFF242C5B).withValues(alpha: 0.1),
-                width: 1,
+          SizedBox(width: narrow ? 10 : 14),
+          // Arrow — top-aligned with title; avoids vertical centering that misreads vs. timestamp
+          Padding(
+            padding: EdgeInsets.only(top: narrow ? 6 : 8),
+            child: Container(
+              padding: EdgeInsets.all(narrow ? 8 : 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF242C5B).withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFF242C5B).withValues(alpha: 0.1),
+                  width: 1,
+                ),
               ),
-            ),
-            child: Icon(
-              Icons.arrow_forward_ios,
-              size: 12,
-              color: const Color(0xFF242C5B).withValues(alpha: 0.7),
+              child: Icon(
+                Icons.arrow_forward_ios,
+                size: narrow ? 11 : 12,
+                color: const Color(0xFF242C5B).withValues(alpha: 0.7),
+              ),
             ),
           ),
         ],
@@ -1694,7 +1729,9 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isMultipleItems ? '$itemName +${items.length - 1} more' : itemName,
+                isMultipleItems && items.length > 1
+                    ? '$itemName +${items.length - 1} more'
+                    : itemName,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -1732,65 +1769,44 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
                       final line = orderLineAsMap(item);
                       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
                       final type = _getItemTypeDisplayName(item['itemType'] ?? 'item');
-                      final bullet = orderLineBulletLabel(
-                        (item['itemName'] ?? item['name'] ?? 'Item').toString(),
-                        line,
-                        type,
-                        quantity: qty,
-                      );
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              margin: const EdgeInsets.only(top: 6),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF242C5B),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                bullet,
-                                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-                              ),
-                            ),
-                          ],
+                        child: _orderLineBulletRow(
+                          rawName: (item['itemName'] ?? item['name'] ?? 'Item').toString(),
+                          line: line,
+                          typeDisplayName: type,
+                          quantity: qty,
+                          dotSize: 6,
+                          dotTopPadding: 5,
+                          gapAfterDot: 10,
+                          primaryStyle: TextStyle(fontSize: 14, height: 1.3, color: Colors.grey[800]),
+                          quantityStyle: TextStyle(
+                            fontSize: 12,
+                            height: 1.25,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       );
                     }).toList()
                   : [
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              margin: const EdgeInsets.only(top: 6),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF242C5B),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                orderLineBulletLabel(
-                                  itemNameRaw.toString(),
-                                  orderLineAsMap(order),
-                                  _getItemTypeDisplayName(itemType),
-                                  quantity: (order['quantity'] as num?)?.toInt() ?? 1,
-                                ),
-                                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-                              ),
-                            ),
-                          ],
+                        child: _orderLineBulletRow(
+                          rawName: itemNameRaw.toString(),
+                          line: orderLineAsMap(order),
+                          typeDisplayName: _getItemTypeDisplayName(itemType),
+                          quantity: (order['quantity'] as num?)?.toInt() ?? 1,
+                          dotSize: 6,
+                          dotTopPadding: 5,
+                          gapAfterDot: 10,
+                          primaryStyle: TextStyle(fontSize: 14, height: 1.3, color: Colors.grey[800]),
+                          quantityStyle: TextStyle(
+                            fontSize: 12,
+                            height: 1.25,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ]),
@@ -1824,7 +1840,6 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
       MaterialPageRoute(
         builder: (context) => PastOrdersPage(
           pastOrders: pastOrders,
-          getItemIcon: _getItemIcon,
           getItemTypeDisplayName: _getItemTypeDisplayName,
           onOrderTap: _showOrderDetails,
         ),
@@ -1868,62 +1883,64 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
           ),
           padding: EdgeInsets.symmetric(vertical: verticalPadding),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(_labels.length, (index) {
               final isSelected = _currentIndex == index;
               final iconPath = _getCustomIconPath(index);
               final size = isSelected ? selectedIconSize : iconSize;
               final highlightSize = size + (2 * iconHighlightPadding);
-              return GestureDetector(
-                onTap: () {
-                  LoggingService.instance.homepage('Switching to tab $index: ${_labels[index]}', {
-                    'profilePictureLength': _user.profilePicture.length,
-                  });
-                  setState(() => _currentIndex = index);
-                },
-                child: SizedBox(
-                  height: navHeight - (2 * verticalPadding),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Same circular icon + highlight for Home, Maps, Loyalty, Profile
-                      SizedBox(
-                        width: highlightSize,
-                        height: highlightSize,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.white.withValues(alpha: 0.25)
-                                : Colors.transparent,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: ClipOval(
-                            child: SizedBox(
-                              width: size,
-                              height: size,
-                              child: Image.asset(
-                                iconPath,
-                                fit: BoxFit.cover,
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    LoggingService.instance.homepage('Switching to tab $index: ${_labels[index]}', {
+                      'profilePictureLength': _user.profilePicture.length,
+                    });
+                    setState(() => _currentIndex = index);
+                  },
+                  child: SizedBox(
+                    height: navHeight - (2 * verticalPadding),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: highlightSize,
+                          height: highlightSize,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white.withValues(alpha: 0.25)
+                                  : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: ClipOval(
+                              child: SizedBox(
+                                width: size,
+                                height: size,
+                                child: Image.asset(
+                                  iconPath,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: screen.height < 600 ? 2 : 3),
-                      Text(
-                        _labels[index],
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          fontSize: fontSize,
+                        SizedBox(height: screen.height < 600 ? 2 : 3),
+                        Text(
+                          _labels[index],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white70,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            fontSize: fontSize,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );

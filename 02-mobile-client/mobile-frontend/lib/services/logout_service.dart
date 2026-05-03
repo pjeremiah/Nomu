@@ -14,13 +14,13 @@ class LogoutService {
 
   LogoutService._internal();
 
-  /// Performs a complete logout by clearing all user data and resetting app state
-  static Future<void> performLogout(BuildContext context, Widget loginPage) async {
+  /// Clears session and opens [LoginPage] via named route `/login` (see [MaterialApp.routes] in main.dart).
+  static Future<void> performLogout(BuildContext context) async {
     try {
       LoggingService.instance.logout('Starting logout process...');
       
       // 1. Navigate to login page immediately for better UX
-      _navigateToLoginImmediately(context, loginPage);
+      _navigateToLoginImmediately(context);
       
       // 2. Clear all SharedPreferences data in background
       _clearUserData();
@@ -32,7 +32,7 @@ class LogoutService {
     } catch (e) {
       LoggingService.instance.error('Error during logout', e);
       // Even if there's an error, try to navigate to login
-      _navigateToLoginImmediately(context, loginPage);
+      _navigateToLoginImmediately(context);
     }
   }
 
@@ -101,15 +101,15 @@ class LogoutService {
   }
 
   /// Navigate to login page immediately (for fast logout)
-  static void _navigateToLoginImmediately(BuildContext context, Widget loginPage) {
+  static void _navigateToLoginImmediately(BuildContext context) {
     try {
       LoggingService.instance.logout('Navigating to login page immediately...');
       
       // Clear the entire navigation stack and go to login immediately
       if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => loginPage),
-          (Route<dynamic> route) => false, // Remove all previous routes
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+          (Route<dynamic> route) => false,
         );
       }
       
