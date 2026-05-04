@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show max, min;
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flip_card/flip_card.dart';
@@ -33,6 +34,29 @@ int _parseIntSafe(dynamic v, [int fallback = 0]) {
   if (v is double) return v.toInt();
   if (v is String) return int.tryParse(v) ?? fallback;
   return fallback;
+}
+
+/// Flip card height: on wide screens, grow height so stamp diameter is not stuck at the [short] row-height limit
+/// (which left tiny circles and empty space). Minimum height is derived from “if stamps fill the row width.”
+double _loyaltyFlipCardHeight(BuildContext context) {
+  final sz = MediaQuery.sizeOf(context);
+  final shortest = min(sz.width, sz.height);
+  final longest = max(sz.width, sz.height);
+  const gap = 5.0; // keep in sync with [_buildStampGrid]
+  // Approx width available for the 5-stamp row (list padding + card insets; see [_buildStampGrid]).
+  const horizontalReserve = 72.0;
+  final contentW = (sz.width - horizontalReserve).clamp(200.0, 1600.0);
+  // Match displayed stamp scale (~0.90) so card height fits the grid without excess.
+  const stampVisualScale = 0.90;
+  final dIfFillingWidth = (contentW - 4 * gap) / 5 * stampVisualScale;
+  // Accent bar, title block, spacing, footer strip — keep in sync with [LoyaltyCardFront] Column.
+  const verticalChromeAboveGrid = 52.0;
+  const verticalChromeBelowGrid = 52.0;
+  final heightForWideStamps =
+      verticalChromeAboveGrid + verticalChromeBelowGrid + 2 * dIfFillingWidth + gap;
+  final fromShort = shortest * 0.42;
+  final fromWide = longest * 0.38;
+  return max(max(fromShort, fromWide), heightForWideStamps).clamp(280.0, 580.0);
 }
 
 DateTime? _parseLoyaltyDate(dynamic v) {
@@ -1555,10 +1579,9 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _buildProgressToNextReward(points!),
                           ),
-                        // Bounded height so layout completes (avoids render box with no size)
+                        // Flip card area: scale by shortest side so tablets don't get huge stamp circles.
                         SizedBox(
-                          height: (MediaQuery.sizeOf(context).height * 0.36)
-                              .clamp(220.0, 320.0),
+                          height: _loyaltyFlipCardHeight(context),
                           child: isLoading
                               ? const SkeletonLoyaltyCard()
                               : ScaleTransition(
@@ -2394,19 +2417,59 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
             // Show success dialog
             if (mounted) {
               AppHaptics.success();
+              final theme = AppTheme.primary;
               await showDialog(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Reward claimed!'),
-                  content: Text(
-                    'You\'re in! You claimed: $title. Visit any Nomu Café within 24 hours (same day) and show your QR so a barista can complete your pickup.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
+                builder: (ctx) => Dialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 320),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Reward claimed!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: theme,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SingleChildScrollView(
+                          child: Text(
+                            'You\'re in! You claimed: $title. Visit any Nomu Café within 24 hours (same day) and show your QR so a barista can complete your pickup.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.4,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: theme,
+                              side: BorderSide(color: theme, width: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text('Close'),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               );
             }
@@ -2900,98 +2963,101 @@ class LoyaltyCardFront extends StatelessWidget {
   Widget build(BuildContext context) {
     try {
       final safePoints = points.clamp(0, 10);
-      final size = MediaQuery.sizeOf(context);
-      // Match other sections: ListView has left/right 4, so use full content width
-      final cardWidth = size.width - 8;
-      final cardHeight = (size.height * 0.32).clamp(220.0, 280.0);
-      return Container(
-        margin: EdgeInsets.zero,
-        width: cardWidth,
-        height: cardHeight,
-        decoration: BoxDecoration(
-          color: AppTheme.neutral0,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.neutral200),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Column(
-            children: [
-              // Same accent bar as back of card
-              Container(
-                height: 4,
-                width: double.infinity,
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final h = constraints.maxHeight.isFinite ? constraints.maxHeight : 280.0;
+          final cardW = constraints.maxWidth.isFinite ? constraints.maxWidth : 360.0;
+          return SizedBox(
+            width: cardW,
+            height: h,
+            child: Container(
+                margin: EdgeInsets.zero,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.primaryLight],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.center,
-                  child: Text(
-                    'LOYALTY CARD',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: _buildStampGrid(safePoints),
-              ),
-              // Footer strip – same style as back of card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.neutral50.withValues(alpha: 0.6),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/croissant.png',
-                      height: 36,
-                      errorBuilder: (_, __, ___) => Icon(Icons.breakfast_dining, size: 36, color: AppTheme.accent),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Tap card to flip',
-                        textAlign: TextAlign.end,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.neutral500,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                  color: AppTheme.neutral0,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.neutral200),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 4,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [AppTheme.primary, AppTheme.primaryLight],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'LOYALTY CARD',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primary,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (ctx, inner) {
+                            return _buildStampGrid(safePoints, inner.maxWidth, inner.maxHeight);
+                          },
+                        ),
+                      ),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.neutral50.withValues(alpha: 0.6),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              'assets/images/croissant.png',
+                              height: 28,
+                              errorBuilder: (_, __, ___) =>
+                                  Icon(Icons.breakfast_dining, size: 28, color: AppTheme.accent),
+                            ),
+                            Expanded(
+                              child: Text(
+                                'Tap card to flip',
+                                textAlign: TextAlign.end,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.neutral500,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
-        ),
+          );
+        },
       );
     } catch (e, st) {
       LoggingService.instance.error('LoyaltyCardFront build error', e, st);
@@ -3016,44 +3082,74 @@ class LoyaltyCardFront extends StatelessWidget {
     }
   }
 
-  Widget _buildStampGrid(int displayPoints) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 1,
+  /// Two rows × five stamps; diameter is the smaller of width-based and height-based cell so both rows stay visible.
+  Widget _buildStampGrid(int displayPoints, double maxWidth, double maxHeight) {
+    const cols = 5;
+    const rows = 2;
+    const gap = 5.0;
+    const stampVisualScale = 0.90;
+    final hp = 16.0 * 2;
+    final innerW = (maxWidth - hp).clamp(60.0, maxWidth);
+    final innerH = maxHeight.clamp(40.0, maxHeight);
+    final cellFromW = (innerW - (cols - 1) * gap) / cols;
+    final cellFromH = (innerH - (rows - 1) * gap) / rows;
+    final dRaw = cellFromW < cellFromH ? cellFromW : cellFromH;
+    final d = (dRaw * stampVisualScale).clamp(22.0, 100.0);
+    final checkSize = (d * 0.46).clamp(13.0, 40.0);
+
+    Widget stamp(int index) {
+      final isFilled = index < displayPoints;
+      return Container(
+        width: d,
+        height: d,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isFilled ? AppTheme.primary : AppTheme.neutral50,
+          border: Border.all(
+            color: isFilled ? AppTheme.primary : AppTheme.neutral300,
+            width: 2,
+          ),
+          boxShadow: isFilled
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.25),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-        itemCount: 10,
-        itemBuilder: (context, index) {
-          final isFilled = index < displayPoints;
-          return Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isFilled ? AppTheme.primary : AppTheme.neutral50,
-              border: Border.all(
-                color: isFilled ? AppTheme.primary : AppTheme.neutral300,
-                width: 2,
-              ),
-              boxShadow: isFilled
-                  ? [
-                      BoxShadow(
-                        color: AppTheme.primary.withValues(alpha: 0.25),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: isFilled
-                ? const Icon(Icons.check_rounded, color: Colors.white, size: 22)
-                : null,
-          );
-        },
+        child: isFilled
+            ? Icon(Icons.check_rounded, color: Colors.white, size: checkSize)
+            : null,
+      );
+    }
+
+    Widget stampRow(int start) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (int c = 0; c < 5; c++) ...[
+            if (c > 0) SizedBox(width: gap),
+            stamp(start + c),
+          ],
+        ],
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            stampRow(0),
+            SizedBox(height: gap),
+            stampRow(5),
+          ],
+        ),
       ),
     );
   }
@@ -3190,119 +3286,123 @@ class LoyaltyCardBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final cardWidth = size.width - 8;
-    final cardHeight = (size.height * 0.30).clamp(200.0, 260.0);
-    return Container(
-      margin: EdgeInsets.zero,
-      width: cardWidth,
-      height: cardHeight,
-      decoration: BoxDecoration(
-        color: AppTheme.neutral0,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.neutral200),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          children: [
-            // Subtle accent bar at top
-            Container(
-              height: 4,
-              width: double.infinity,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight.isFinite ? constraints.maxHeight : 280.0;
+        final cardW = constraints.maxWidth.isFinite ? constraints.maxWidth : 360.0;
+        final mq = MediaQuery.sizeOf(context);
+        final shortSide = mq.width < mq.height ? mq.width : mq.height;
+        // Readable QR on all sizes: scales with screen and card width (not capped too small on tablets).
+        final qrBox = max(max(shortSide * 0.19, cardW * 0.22), 76.0).clamp(76.0, 104.0);
+        final qrInner = (qrBox - 10).clamp(58.0, 94.0);
+        return SizedBox(
+          width: cardW,
+          height: h,
+          child: Container(
+              margin: EdgeInsets.zero,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.primary, AppTheme.primaryLight],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+                color: AppTheme.neutral0,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.neutral200),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildInfoSection('VISIT US:', '1200 Lacson St. corner\nDapitan St., Sampaloc, Manila'),
-                        const SizedBox(height: 14),
-                        _buildInfoSection('WEBSITE:', 'Nomu.cafe'),
-                        const SizedBox(height: 14),
-                        Row(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 4,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppTheme.primary, AppTheme.primaryLight],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: _buildInfoSection('CONTACT US:', '+63 954-368-0542'),
-                            ),
-                            const SizedBox(width: 10),
-                            GestureDetector(
-                              onTap: () => _showQrDialog(context),
-                              child: Container(
-                                width: 72,
-                                height: 72,
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.neutral50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35), width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.primary.withValues(alpha: 0.08),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                            _buildInfoSection('VISIT US:', '1200 Lacson St. corner\nDapitan St., Sampaloc, Manila'),
+                            const SizedBox(height: 14),
+                            _buildInfoSection('WEBSITE:', 'Nomu.cafe'),
+                            const SizedBox(height: 14),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _buildInfoSection('CONTACT US:', '+63 954-368-0542'),
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: QrImageView(
-                                    data: qrToken,
-                                    version: QrVersions.auto,
-                                    size: 62.0,
-                                    backgroundColor: AppTheme.neutral50,
+                                const SizedBox(width: 10),
+                                GestureDetector(
+                                  onTap: () => _showQrDialog(context),
+                                  child: Container(
+                                    width: qrBox,
+                                    height: qrBox,
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.neutral50,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35), width: 2),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.primary.withValues(alpha: 0.08),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: QrImageView(
+                                        data: qrToken,
+                                        version: QrVersions.auto,
+                                        size: qrInner,
+                                        backgroundColor: AppTheme.neutral50,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  );
-                },
-              ),
-            ),
-            // Footer: middle-bottom hint (compact to avoid overflow)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppTheme.neutral50.withValues(alpha: 0.6),
-              ),
-              child: Center(
-                child: Text(
-                  'Tap QR to show at checkout',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppTheme.neutral500,
-                    fontWeight: FontWeight.w600,
-                  ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.neutral50.withValues(alpha: 0.6),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Tap QR to show at checkout',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.neutral500,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
-      ),
+          );
+      },
     );
   }
 

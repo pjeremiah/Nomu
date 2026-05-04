@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// One screen: How points work, Minimum spend, How to redeem, Expiry (if any).
+/// One screen: how stamps are earned (matches mobile-backend scan rules), tiers, pickup, cycles.
 class LoyaltyRulesScreen extends StatelessWidget {
   const LoyaltyRulesScreen({super.key});
 
-  static const double minimumSpending = 100;
+  /// Paid-merchandise minimum to earn 1 stamp per visit (`MINIMUM_SPENDING` on server).
+  static const double minimumPaidMerchandise = 100;
 
   @override
   Widget build(BuildContext context) {
+    final minStr = minimumPaidMerchandise.toStringAsFixed(0);
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 70,
@@ -31,10 +33,10 @@ class LoyaltyRulesScreen extends StatelessWidget {
           _Section(
             icon: Icons.star_rounded,
             iconColor: AppTheme.accent,
-            title: 'How points work',
+            title: 'How stamps work',
             children: [
-              'You earn 1 point for every ₱${minimumSpending.toStringAsFixed(0)} you spend at Nomu Cafe.',
-              'Points are added when your order is completed and your QR code is scanned at checkout.',
+              'You earn 1 stamp per qualifying visit when your paid order totals at least ₱$minStr (before free reward items).',
+              'Stamps are added when the barista completes your order and scans your QR at checkout.',
             ],
           ),
           const SizedBox(height: 24),
@@ -43,8 +45,8 @@ class LoyaltyRulesScreen extends StatelessWidget {
             iconColor: AppTheme.primary,
             title: 'Minimum spend',
             children: [
-              'Minimum spend to earn points: ₱${minimumSpending.toStringAsFixed(0)} per order.',
-              'Orders below this amount will not earn points, but still count toward your visit.',
+              'Only paid merchandise counts toward the ₱$minStr minimum. Free reward pickups (₱0) do not earn a stamp.',
+              'If paid items are below ₱$minStr for that visit, you will not earn a stamp for that transaction.',
             ],
           ),
           const SizedBox(height: 24),
@@ -53,19 +55,20 @@ class LoyaltyRulesScreen extends StatelessWidget {
             iconColor: AppTheme.success,
             title: 'How to redeem',
             children: [
-              '5 points = 1 free drink (any branch).',
-              '10 points = 1 premium treat (any branch).',
-              'Tell the barista you\'re claiming a reward and show this app when you order.',
+              '5 stamps: claim a free pastry or donut (first tier; any branch).',
+              '10 stamps: claim a free drink or pizza (second tier; any branch).',
+              'Tap Claim in the app, then tell the barista you\'re picking up a reward and show this app when you order.',
             ],
           ),
           const SizedBox(height: 24),
           _Section(
             icon: Icons.schedule_outlined,
             iconColor: AppTheme.neutral500,
-            title: 'Rewards',
+            title: 'Pickup & loyalty cycles',
             children: [
-              'Points and rewards do not expire.',
-              'You can only claim each reward tier once per cycle. New cycles may be announced in-app.',
+              'After you claim a reward in the app, visit a Nomu Café within 24 hours and show your QR so a barista can complete pickup.',
+              'You can claim the 5-stamp tier and the 10-stamp tier once each per loyalty cycle. Claiming the 10-stamp reward starts a new cycle on your card.',
+              'Stamps you have already earned do not expire; the 24-hour window applies to pickup after you claim, not to your stamp balance.',
             ],
           ),
         ],

@@ -320,40 +320,24 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
               
               _showSuccessDialog();
             } else {
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Registration Successful'),
-                  content: const Text('Account created! Please log in manually.'),
-                  actions: [
-                    TextButton(
-                      child: const Text('OK'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
+              _showQrStyleDialog(
+                title: 'Registration Successful',
+                message: 'Account created! Please log in manually.',
+                actionLabel: 'OK',
+                onAction: () {
+                  Navigator.of(context).pop();
+                },
               );
             }
           } catch (loginError) {
             // If auto-login fails, show success message and ask to login manually
-            showDialog(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: const Text('Registration Successful'),
-                content: const Text('Account created! Please log in manually.'),
-                actions: [
-                  TextButton(
-                    child: const Text('OK'),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ],
-              ),
+            _showQrStyleDialog(
+              title: 'Registration Successful',
+              message: 'Account created! Please log in manually.',
+              actionLabel: 'OK',
+              onAction: () {
+                Navigator.of(context).pop();
+              },
             );
           }
         } else {
@@ -457,26 +441,84 @@ class _SignupPageState extends State<SignupPage> with TickerProviderStateMixin {
 
 
 
-  void _showSuccessDialog() {
+  /// Same layout as loyalty QR modal: rounded card, navy title, grey body, full-width outlined CTA.
+  void _showQrStyleDialog({
+    required String title,
+    required String message,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    final theme = AppTheme.primary;
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Registration Successful'),
-        content: const Text('Your account has been created and you are now logged in!'),
-        actions: [
-          TextButton(
-            child: const Text('Continue'),
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => WidgetBot(user: _loggedInUser!),
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 320),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: theme,
                 ),
-              );
-            },
+              ),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    onAction();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: theme,
+                    side: BorderSide(color: theme, width: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(actionLabel),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  void _showSuccessDialog() {
+    _showQrStyleDialog(
+      title: 'Registration Successful',
+      message: 'Your account has been created and you are now logged in!',
+      actionLabel: 'Continue',
+      onAction: () {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => WidgetBot(user: _loggedInUser!),
+          ),
+        );
+      },
     );
   }
 
