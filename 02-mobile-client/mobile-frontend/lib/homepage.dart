@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'usermodel.dart';
 import 'map_page.dart';
@@ -772,6 +773,18 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
   static const _kTabTransitionDurationOut = Duration(milliseconds: 220);
   static const _kTabTransitionCurve = Curves.easeOutCubic;
 
+  Future<void> _handleShellBackOrPop() async {
+    if (!mounted) return;
+    final popped = await Navigator.of(context).maybePop();
+    if (!mounted) return;
+    if (popped) return;
+    if (_currentIndex != 0) {
+      setState(() => _currentIndex = 0);
+      return;
+    }
+    showLogoutConfirmationDialog(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
@@ -780,17 +793,10 @@ class _WidgetBotState extends State<WidgetBot> with TickerProviderStateMixin, Wi
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
-        if (didPop || !context.mounted) return;
-        // Use maybePop so overlays/dialogs and pushed routes close first; avoids
-        // system back / edge swipe dropping the main shell without confirmation.
-        Navigator.of(context).maybePop().then((popped) {
-          if (!context.mounted) return;
-          if (popped) return;
-          if (_currentIndex != 0) {
-            setState(() => _currentIndex = 0);
-            return;
-          }
-          showLogoutConfirmationDialog(context);
+        if (didPop || !mounted) return;
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          unawaited(_handleShellBackOrPop());
         });
       },
       child: Scaffold(

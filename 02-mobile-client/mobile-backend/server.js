@@ -337,6 +337,28 @@ async function sendOTPEmail(email, otp) {
   }
 }
 
+/** HTML line for “stamps until next tier” in loyalty point emails (5-tier then 10-tier on the same card). */
+function loyaltyEmailProgressLineHtml(points) {
+  const p = Math.max(0, Math.floor(Number(points) || 0));
+  if (p < 5) {
+    const n = 5 - p;
+    const unit = n === 1 ? 'point' : 'points';
+    return `<p style="color: #c53030; margin: 0; font-size: 14px;">
+              <strong>${n} more ${unit}</strong> until your <strong>5-point</strong> reward (free pastry or donut). Open the Nomu app to claim when you reach 5 stamps!
+            </p>`;
+  }
+  if (p < 10) {
+    const n = 10 - p;
+    const unit = n === 1 ? 'point' : 'points';
+    return `<p style="color: #c53030; margin: 0; font-size: 14px;">
+              <strong>${n} more ${unit}</strong> until your <strong>10-point</strong> reward (free drink or pizza). Open the Nomu app to claim when you reach 10 stamps!
+            </p>`;
+  }
+  return `<p style="color: #2c7a7b; margin: 0; font-size: 14px;">
+              You have <strong>${p} stamps</strong> on this card. Open the Nomu app to claim any unlocked rewards.
+            </p>`;
+}
+
 // Send loyalty points notification email
 async function sendLoyaltyPointsEmail(email, name, points, drink, isRewardEligible = false) {
   
@@ -356,7 +378,13 @@ async function sendLoyaltyPointsEmail(email, name, points, drink, isRewardEligib
   let subject, htmlContent;
   
   if (isRewardEligible) {
-    // Special email for when user reaches 5 or 10 points (reward eligible)
+    // Special email when user hits 5 or 10 stamps (claim windows open in app)
+    const p = Math.floor(Number(points) || 0);
+    const isTen = p >= 10;
+    const rewardLabel = isTen ? '10-stamp' : '5-stamp';
+    const rewardBlurb = isTen
+      ? 'You can claim your <strong>10-stamp</strong> reward (e.g. free drink or pizza) in the Nomu app, then pick it up at the café within 24 hours.'
+      : 'You can claim your <strong>5-stamp</strong> reward (e.g. free pastry or donut) in the Nomu app, then pick it up at the café within 24 hours.';
     subject = '🎉 Congratulations! You\'ve earned a reward at Nomu Cafe!';
     htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px;">
@@ -367,8 +395,8 @@ async function sendLoyaltyPointsEmail(email, name, points, drink, isRewardEligib
             <p style="color: #718096; margin: 10px 0 0 0;">Your order: <strong>${drink}</strong></p>
           </div>
           <div style="background: #e6fffa; border: 2px solid #38b2ac; padding: 20px; border-radius: 10px; margin: 20px 0;">
-            <h3 style="color: #2c7a7b; margin: 0 0 10px 0;">🎁 You're eligible for a reward!</h3>
-            <p style="color: #2c7a7b; margin: 0;">Visit any Nomu Cafe location to claim your free drink!</p>
+            <h3 style="color: #2c7a7b; margin: 0 0 10px 0;">🎁 You unlocked your ${rewardLabel} reward!</h3>
+            <p style="color: #2c7a7b; margin: 0;">${rewardBlurb}</p>
           </div>
           <p style="color: #4a5568; margin: 20px 0;">Thank you for being a loyal customer. We can't wait to serve you again!</p>
           <hr style="margin: 20px 0;">
@@ -377,8 +405,9 @@ async function sendLoyaltyPointsEmail(email, name, points, drink, isRewardEligib
       </div>
     `;
   } else {
-    // Regular email for points earned
+    // Regular email for points earned (progress toward 5 first, then 10)
     subject = '☕ Loyalty Points Earned at Nomu Cafe!';
+    const progressLine = loyaltyEmailProgressLineHtml(points);
     htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px;">
         <div style="background: white; padding: 30px; border-radius: 10px; text-align: center;">
@@ -389,9 +418,7 @@ async function sendLoyaltyPointsEmail(email, name, points, drink, isRewardEligib
             <p style="color: #4a5568; margin: 10px 0 0 0;">Total points: <strong>${points}</strong></p>
           </div>
           <div style="background: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="color: #c53030; margin: 0; font-size: 14px;">
-              <strong>${10 - points} more points</strong> until your next reward!
-            </p>
+            ${progressLine}
           </div>
           <p style="color: #4a5568; margin: 20px 0;">Keep visiting us to earn more points and unlock amazing rewards!</p>
           <hr style="margin: 20px 0;">

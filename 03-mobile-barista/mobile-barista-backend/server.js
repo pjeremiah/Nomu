@@ -1238,9 +1238,9 @@ app.post('/api/admin/logout', async (req, res) => {
       return res.status(404).json({ error: 'Admin not found' });
     }
     
-    // Update admin status to inactive; clear trust window so next login requires OTP again
+    // Inactive for web/session semantics only — keep [rememberUntil] so barista "remember 24h"
+    // still skips OTP until expiry (matches user expectation after app logout).
     admin.status = 'inactive';
-    admin.rememberUntil = null;
     admin.updatedAt = new Date();
     await admin.save();
     

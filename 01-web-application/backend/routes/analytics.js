@@ -217,6 +217,78 @@ function pastOrderLineItemStages(dateFilterOnPastOrders) {
   return stages;
 }
 
+/**
+ * Barista / mobile-backend records completed visits on `User.pastOrders` only (not the `orders` collection).
+ * Global totals for dashboard: one count per pastOrders entry with positive computed amount (same logic as employment pastOrders).
+ */
+async function aggregatePastOrdersGlobalTotals() {
+  const rows = await User.aggregate([
+    { $match: { role: 'Customer' } },
+    { $unwind: { path: '$pastOrders', preserveNullAndEmptyArrays: false } },
+    {
+      $addFields: {
+        orderAmount: {
+          $let: {
+            vars: {
+              lineSum: {
+                $sum: {
+                  $map: {
+                    input: { $ifNull: ['$pastOrders.items', []] },
+                    as: 'it',
+                    in: {
+                      $multiply: [
+                        {
+                          $convert: {
+                            input: { $ifNull: ['$$it.price', 0] },
+                            to: 'double',
+                            onError: 0,
+                            onNull: 0
+                          }
+                        },
+                        {
+                          $convert: {
+                            input: { $ifNull: ['$$it.quantity', 1] },
+                            to: 'double',
+                            onError: 1,
+                            onNull: 1
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            in: {
+              $cond: [
+                { $gt: [{ $ifNull: ['$pastOrders.totalPrice', 0] }, 0] },
+                {
+                  $convert: {
+                    input: '$pastOrders.totalPrice',
+                    to: 'double',
+                    onError: 0,
+                    onNull: 0
+                  }
+                },
+                '$$lineSum'
+              ]
+            }
+          }
+        }
+      }
+    },
+    { $match: { orderAmount: { $gt: 0 } } },
+    {
+      $group: {
+        _id: null,
+        totalOrders: { $sum: 1 },
+        totalAmount: { $sum: '$orderAmount' }
+      }
+    }
+  ]);
+  return rows[0] || { totalOrders: 0, totalAmount: 0 };
+}
+
 /** Spending totals from barista-style pastOrders for Employed / Student only. */
 async function aggregateSpendingFromUserPastOrdersByEmployment() {
   return User.aggregate([
@@ -723,34 +795,49 @@ router.get('/dashboard-stats', authMiddleware, async (req, res) => {
       createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
     });
 
-    // Compute averageSpent based on real orders collection
+    // Orders collection (legacy / web) + User.pastOrders (barista scan-multiple); mobile-backend does not insert `Order` docs.
     let averageSpent = 0;
     let totalOrders = 0;
     try {
-      // Get statistics from actual orders collection
       const orderStats = await Order.aggregate([
-        { $match: { status: 'completed' } },
+        {
+          $addFields: {
+            amount: { $ifNull: ['$totalAmount', '$transactionTotal'] },
+            userRef: { $ifNull: ['$userId', '$customerId'] }
+          }
+        },
+        {
+          $match: {
+            userRef: { $exists: true, $ne: null },
+            amount: { $exists: true, $gt: 0 },
+            $or: [
+              { status: 'completed' },
+              { status: { $exists: false } },
+              { status: null }
+            ]
+          }
+        },
         {
           $group: {
             _id: null,
             totalOrders: { $sum: 1 },
-            totalAmount: { $sum: '$totalAmount' }
+            totalAmount: { $sum: '$amount' }
           }
         }
       ]);
 
-      if (orderStats.length > 0) {
-        totalOrders = orderStats[0].totalOrders;
-        const totalAmount = orderStats[0].totalAmount;
-        
-        // Calculate average spent per order
-        if (totalOrders > 0) {
-          averageSpent = totalAmount / totalOrders;
-        }
+      const fromOrders = orderStats[0] || { totalOrders: 0, totalAmount: 0 };
+      const fromPast = await aggregatePastOrdersGlobalTotals();
+
+      totalOrders = (fromOrders.totalOrders || 0) + (fromPast.totalOrders || 0);
+      const totalAmount =
+        (Number(fromOrders.totalAmount) || 0) + (Number(fromPast.totalAmount) || 0);
+
+      if (totalOrders > 0) {
+        averageSpent = totalAmount / totalOrders;
       }
     } catch (calcErr) {
       console.error('Error calculating average spent:', calcErr);
-      // Fail silently for averageSpent so dashboard still loads
       averageSpent = 0;
     }
 

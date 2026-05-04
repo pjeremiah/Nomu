@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -430,19 +431,42 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     }
   }
 
+  /// Clears barista session only — keeps login "Remember me" and 24h mirror prefs.
+  Future<void> _clearBaristaSessionPrefsOnly(SharedPreferences prefs) async {
+    const keys = [
+      'user_email',
+      'user_name',
+      'user_id',
+      'user_type',
+      'is_logged_in',
+    ];
+    for (final k in keys) {
+      await prefs.remove(k);
+    }
+  }
+
+  Future<void> _handleSystemBackOrPop() async {
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    final popped = await nav.maybePop();
+    if (!mounted) return;
+    if (popped) return;
+    final shouldLogout = await showBaristaLogoutConfirmationDialog(context);
+    if (shouldLogout == true && mounted) {
+      await _performLogout();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
-        if (didPop || !context.mounted) return;
-        Navigator.of(context).maybePop().then((popped) async {
-          if (!context.mounted) return;
-          if (popped) return;
-          final shouldLogout = await showBaristaLogoutConfirmationDialog(context);
-          if (shouldLogout == true && context.mounted) {
-            await _performLogout();
-          }
+        if (didPop || !mounted) return;
+        // Defer off the pop callback to avoid races with predictive back / camera (pause/crash).
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          unawaited(_handleSystemBackOrPop());
         });
       },
       child: Scaffold(
@@ -2432,9 +2456,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
         }
       }
       
-      // Clear local storage
-      await prefs.clear();
-      Logger.debug('Cleared local storage', 'LOGOUT');
+      await _clearBaristaSessionPrefsOnly(prefs);
+      Logger.debug('Cleared barista session prefs (remember-me / 24h prefs kept)', 'LOGOUT');
       
       // Disconnect socket
       SocketService.disconnect();
