@@ -2757,7 +2757,13 @@ app.post('/api/auth/login', loginHandler);
 
 async function handleMobileAdminVerifyOtp(req, res) {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, rememberFor1Day } = req.body;
+    const remember24h =
+      rememberFor1Day === true ||
+      rememberFor1Day === 'true' ||
+      rememberFor1Day === 1 ||
+      rememberFor1Day === '1';
+
     if (!email || !otp) {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
@@ -2783,9 +2789,12 @@ async function handleMobileAdminVerifyOtp(req, res) {
       return res.status(403).json({ message: 'Access denied. Valid admin account required.' });
     }
 
+    const rememberUntil = remember24h ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+
     admin.status = 'active';
     admin.lastLoginAt = new Date();
     admin.updatedAt = new Date();
+    admin.rememberUntil = rememberUntil;
     await admin.save();
 
     const token = jwt.sign(
@@ -2807,6 +2816,7 @@ async function handleMobileAdminVerifyOtp(req, res) {
       message: 'Mobile admin login successful',
       token,
       user: adminData,
+      rememberUntil: rememberUntil ? rememberUntil.toISOString() : null,
       platform: 'mobile'
     });
   } catch (err) {
@@ -2835,6 +2845,42 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
       return res.status(400).json({ message: 'Invalid password' });
+    }
+
+    if (admin.rememberUntil) {
+      const rememberUntilDate =
+        admin.rememberUntil instanceof Date
+          ? admin.rememberUntil
+          : new Date(admin.rememberUntil);
+      const stillValid =
+        !Number.isNaN(rememberUntilDate.getTime()) && new Date() < rememberUntilDate;
+      if (stillValid) {
+        admin.status = 'active';
+        admin.lastLoginAt = new Date();
+        admin.updatedAt = new Date();
+        await admin.save();
+        const token = jwt.sign(
+          {
+            adminId: admin._id,
+            email: admin.email,
+            role: admin.role,
+            fullName: admin.fullName,
+            platform: 'mobile'
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        const { password: __, ...adminData } = admin.toObject();
+        return res.json({
+          message: 'Admin login successful',
+          token,
+          user: adminData,
+          rememberUntil: rememberUntilDate.toISOString(),
+          platform: 'mobile',
+          requiresOTP: false
+        });
+      }
+      admin.rememberUntil = null;
     }
 
     admin.status = 'active';
@@ -2868,11 +2914,35 @@ app.post('/api/mobile/admin/login', async (req, res) => {
     res.json({
       message: 'OTP sent to registered email',
       email: admin.email,
-      expiresIn: '10 minutes'
+      expiresIn: '10 minutes',
+      requiresOTP: true
     });
   } catch (err) {
     console.error('[MOBILE ADMIN] login error:', err);
     res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+// Barista app: session end — inactive status only; keep rememberUntil for 24h OTP skip (matches web semantics).
+app.post('/api/admin/logout', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const admin = await Admin.findOne({
+      email: { $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+    admin.status = 'inactive';
+    admin.updatedAt = new Date();
+    await admin.save();
+    res.json({ message: 'Logout successful', status: 'inactive' });
+  } catch (err) {
+    console.error('[ADMIN LOGOUT] error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
