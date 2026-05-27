@@ -111,13 +111,13 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
   const employmentBlocks = [
     {
       key: 'Student',
-      title: 'Students',
+      title: 'Best Seller for Students',
       barColor: STUDENT_BAR_COLOR,
       icon: <FaGraduationCap style={{ color: '#003466' }} aria-hidden />
     },
     {
       key: 'Employed',
-      title: 'Employees',
+      title: 'Best Seller for Employee',
       barColor: EMPLOYED_BAR_COLOR,
       icon: <FaBriefcase style={{ color: '#003466' }} aria-hidden />
     }
@@ -158,11 +158,7 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
   }
 
   return (
-    <div className="best-seller-employment-section" style={{ marginTop: 16 }}>
-      <h5 style={{ margin: '0 0 16px 0', color: '#003466', fontSize: '1rem', fontWeight: 600 }}>
-        Best Seller by Employment (Student vs Employee)
-      </h5>
-
+    <div className="best-seller-employment-section" style={{ marginTop: 8 }}>
       <div className="eb-detail-grid">
         {employmentBlocks.map((block) => {
           const categories = data?.employment?.[block.key] || {};
@@ -234,7 +230,10 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
                             </ResponsiveContainer>
                           </div>
                         ) : (
-                          <div className="eb-empty-category">No sales in this category for {block.title.toLowerCase()}.</div>
+                          <div className="eb-empty-category">
+                            No sales in this category for{' '}
+                            {block.key === 'Student' ? 'students' : 'employees'}.
+                          </div>
                         )}
                       </div>
                     );
