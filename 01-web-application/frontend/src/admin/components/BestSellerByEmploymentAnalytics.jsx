@@ -204,20 +204,13 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
                       key: `${item.itemName || 'item'}-${i}`,
                       itemName: item.itemName || 'Unknown'
                     }));
-                    const catQty = chartRows.reduce((s, item) => s + Number(item.totalQuantity || 0), 0);
-                    const catOrders = chartRows.reduce((s, item) => s + Number(item.totalOrders || 0), 0);
 
                     return (
                       <div key={`${block.key}-${category}`} className="eb-category-block eb-category-block--chart">
                         <div className="eb-category-chart-header">
-                          <h5 style={{ color: '#003466', margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 600 }}>
+                          <h5 style={{ color: '#003466', margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 600 }}>
                             {category}
                           </h5>
-                          {chartRows.length > 0 ? (
-                            <div className="admin-analytics-muted" style={{ fontSize: 13, margin: 0 }}>
-                              Top {chartRows.length} · {formatQty(catQty)} qty · {formatQty(catOrders)} orders
-                            </div>
-                          ) : null}
                         </div>
                         {chartRows.length > 0 ? (
                           <div className="eb-chart-wrap">
