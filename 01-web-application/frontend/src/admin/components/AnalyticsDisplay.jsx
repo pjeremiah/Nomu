@@ -111,7 +111,7 @@ const AnalyticsDisplay = forwardRef((props, ref) => {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
+      <div className="analytics-display admin-analytics-loading" style={{ textAlign: 'center', padding: '40px' }}>
         <div>Loading average spent analytics...</div>
       </div>
     );
@@ -119,9 +119,11 @@ const AnalyticsDisplay = forwardRef((props, ref) => {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px', color: 'red' }}>
+      <div className="analytics-display admin-analytics-error-msg" style={{ textAlign: 'center', padding: '40px', color: '#c62828' }}>
         <div>{error}</div>
         <button 
+          type="button"
+          className="admin-analytics-btn"
           onClick={fetchAnalyticsData}
           style={{ 
             marginTop: '10px', 
@@ -129,7 +131,7 @@ const AnalyticsDisplay = forwardRef((props, ref) => {
             background: '#003466', 
             color: 'white', 
             border: 'none', 
-            borderRadius: '4px',
+            borderRadius: '6px',
             cursor: 'pointer'
           }}
         >
@@ -167,7 +169,7 @@ const AnalyticsDisplay = forwardRef((props, ref) => {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <h5 style={{ margin: 0, color: '#003466' }}>Total Spending Comparison</h5>
-                <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+                <div className="admin-analytics-muted" style={{ fontWeight: 500 }}>
                   {(() => {
                     const a = displayData[0];
                     const b = displayData[1];
@@ -203,10 +205,10 @@ const AnalyticsDisplay = forwardRef((props, ref) => {
                       )}
                       <span style={{ fontWeight: '600', color: '#003466' }}>{category.employmentStatus}</span>
                     </div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2e7d32' }}>
+                    <div className="admin-analytics-kpi-sm">
                       ₱{category.totalSpent.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+                    <div className="admin-analytics-muted" style={{ marginTop: '4px' }}>
                       {category.userCount} users • {category.totalOrders} orders • Avg: ₱{Number(category.averageSpent || 0).toFixed(0)}
                     </div>
                   </div>
@@ -227,14 +229,14 @@ const AnalyticsDisplay = forwardRef((props, ref) => {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                   {category.employmentStatus === 'Employed' ? (
-                    <FaBriefcase style={{ color: '#1976d2', fontSize: '1.5rem' }} />
+                    <FaBriefcase style={{ color: '#1976d2', fontSize: '1.25rem' }} />
                   ) : (
-                    <FaGraduationCap style={{ color: '#7b1fa2', fontSize: '1.5rem' }} />
+                    <FaGraduationCap style={{ color: '#7b1fa2', fontSize: '1.25rem' }} />
                   )}
-                  <h5 style={{ margin: 0, color: '#003466', fontSize: '1.1rem' }}>{category.employmentStatus}</h5>
+                  <h5 style={{ margin: 0, color: '#003466' }}>{category.employmentStatus}</h5>
                 </div>
                 
-                <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#2e7d32' }}>
+                <div className="admin-analytics-kpi">
                   ₱{category.totalSpent.toLocaleString()}
                 </div>
               </div>

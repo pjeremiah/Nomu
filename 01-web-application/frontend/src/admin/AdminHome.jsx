@@ -9,6 +9,7 @@ import BestSellerByEmploymentAnalytics from './components/BestSellerByEmployment
 import AnalyticsDisplay from './components/AnalyticsDisplay';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
+import './styles/adminAnalyticsTypography.css';
 
 const StatCard = ({ title, value, icon: Icon, color, subtitle, loading = false, showDropdown = false, dropdownValue = 'monthly', onDropdownChange = null }) => (
   <div className="stat-card" style={{
@@ -88,8 +89,10 @@ const StatCard = ({ title, value, icon: Icon, color, subtitle, loading = false, 
   </div>
 );
 
-const InfoCard = ({ title, children, icon: Icon, color = '#003466', extraContent = null, style = {} }) => (
-  <div style={{
+const InfoCard = ({ title, children, icon: Icon, color = '#003466', extraContent = null, style = {}, className = '' }) => (
+  <div
+    className={className}
+    style={{
     background: '#fff',
     borderRadius: '12px',
     padding: '1rem',
@@ -122,9 +125,10 @@ const InfoCard = ({ title, children, icon: Icon, color = '#003466', extraContent
         <Icon />
       </div>
       <h3 style={{
+        fontFamily: "'Montserrat', sans-serif",
         fontWeight: '700',
         color: '#212c59',
-        fontSize: '1.1rem',
+        fontSize: '1.125rem',
         margin: '0'
       }}>
         {title}
@@ -512,41 +516,9 @@ const AdminHome = () => {
 
 
       
-      {/* Analytics Display Section */}
-      <InfoCard 
-        title="Business Analytics" 
-        icon={FaChartBar}
-        style={{ marginBottom: '1rem' }}
-        extraContent={
-          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-            <button
-              type="button"
-              onClick={() => businessAnalyticsRef.current?.exportPDF()}
-              title="Export Business Analytics report as PDF"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                background: '#003466',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-            >
-              <FaFileDownload /> Export PDF
-            </button>
-          </div>
-        }
-      >
-        <AnalyticsDisplay ref={businessAnalyticsRef} />
-      </InfoCard>
-
       {/* Customer Analytics Section */}
       <InfoCard 
+        className="admin-analytics-info-card"
         title="Customer Analytics" 
         icon={FaChartBar}
         style={{ marginBottom: '1rem' }}
@@ -554,6 +526,7 @@ const AdminHome = () => {
           <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
             <button
               type="button"
+              className="admin-analytics-btn"
               onClick={() => customerAnalyticsRef.current?.exportPDF()}
               title="Export Customer Analytics report as PDF"
               style={{
@@ -565,7 +538,7 @@ const AdminHome = () => {
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 500,
                 cursor: 'pointer'
               }}
@@ -578,14 +551,50 @@ const AdminHome = () => {
         <CustomerAnalytics ref={customerAnalyticsRef} />
       </InfoCard>
 
+      {/* Business Analytics Section */}
+      <InfoCard 
+        className="admin-analytics-info-card"
+        title="Business Analytics" 
+        icon={FaChartBar}
+        style={{ marginBottom: '1rem' }}
+        extraContent={
+          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+            <button
+              type="button"
+              className="admin-analytics-btn"
+              onClick={() => businessAnalyticsRef.current?.exportPDF()}
+              title="Export Business Analytics report as PDF"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: '#003466',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              <FaFileDownload /> Export PDF
+            </button>
+          </div>
+        }
+      >
+        <AnalyticsDisplay ref={businessAnalyticsRef} />
+      </InfoCard>
+
       {/* Best Seller Analytics Section */}
       <InfoCard 
+        className="admin-analytics-info-card"
         title="Best Seller Analytics" 
         icon={FaChartLine}
         extraContent={
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
             <span style={{
-              fontSize: '0.85rem',
+              fontSize: '14px',
               color: '#6c757d',
               fontWeight: '500'
             }}>

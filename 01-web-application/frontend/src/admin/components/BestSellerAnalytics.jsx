@@ -320,7 +320,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
+      <div className="bestseller-analytics-container admin-analytics-loading" style={{ textAlign: 'center', padding: '40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
           <div className="spinner" style={{ 
             width: '20px', 
@@ -338,9 +338,11 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px', color: '#d32f2f' }}>
-        <div style={{ marginBottom: '15px', fontSize: '16px' }}>{error}</div>
+      <div className="bestseller-analytics-container admin-analytics-error-msg" style={{ textAlign: 'center', padding: '40px', color: '#d32f2f' }}>
+        <div style={{ marginBottom: '15px', fontSize: '14px' }}>{error}</div>
         <button 
+          type="button"
+          className="admin-analytics-btn"
           onClick={fetchAnalyticsData}
           style={{ 
             padding: '10px 20px', 
@@ -378,10 +380,10 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           marginBottom: '2rem',
           color: '#e65100'
         }}>
-          <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+          <div style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
             📊 No Data Available
           </div>
-          <div style={{ fontSize: '0.9rem' }}>
+          <div style={{ fontSize: '14px' }}>
             {analyticsData.noDataMessage}
           </div>
         </div>
@@ -389,10 +391,11 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
 
       {/* Period date range + Export PDF (same row, right-aligned) */}
       {periodLabel && (
-        <div className="period-date-range" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', fontSize: '0.9rem', color: '#6c757d' }}>
+        <div className="period-date-range admin-analytics-muted" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <span>Reporting period: <strong>{periodLabel}</strong></span>
           <button
             type="button"
+            className="admin-analytics-btn"
             onClick={handleExportPDF}
             title="Export report as PDF (Top Selling Items, By Category, Detailed Performance)"
             style={{
@@ -404,7 +407,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
               color: 'white',
               border: 'none',
               borderRadius: '8px',
-              fontSize: '13px',
+              fontSize: '14px',
               fontWeight: 500,
               cursor: 'pointer'
             }}
@@ -472,9 +475,9 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
                   angle={-45}
                   textAnchor="end"
                   height={120}
-                  fontSize={11}
+                  tick={{ fontSize: 12 }}
                 />
-                <YAxis />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
                   formatter={(value, name) => [
                     formatNumber(value), 
@@ -486,40 +489,6 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
                 <Bar dataKey="totalQuantity" fill="#1976d2" name="Quantity" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        )}
-
-
-        {/* Best Sellers by Category */}
-        {Object.keys(analyticsData.bestSellersByCategory.categories).length > 0 && (
-          <div className="chart-card">
-            <div className="chart-header">
-              <h4>By Category</h4>
-            </div>
-            <div className="category-charts">
-              {Object.entries(analyticsData.bestSellersByCategory.categories).map(([category, items]) => (
-                <div key={category} className="category-section">
-                  <h5 style={{ color: '#003466', marginBottom: '10px' }}>{category}</h5>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={items} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="itemName" 
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        fontSize={10}
-                      />
-                      <YAxis />
-                      <Tooltip 
-                        formatter={(value) => [formatNumber(value), 'Quantity']}
-                      />
-                      <Bar dataKey="totalQuantity" fill="#8884d8" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -556,6 +525,44 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Best Sellers by Category */}
+        {Object.keys(analyticsData.bestSellersByCategory.categories).length > 0 && (
+          <div className="chart-card full-width">
+            <div className="chart-header">
+              <h4>By Category</h4>
+            </div>
+            <div className="category-grid">
+              {['Donuts', 'Pizzas', 'Drinks', 'Pastries']
+                .filter((category) => analyticsData.bestSellersByCategory.categories?.[category])
+                .map((category) => {
+                  const items = analyticsData.bestSellersByCategory.categories?.[category] || [];
+                  return (
+                    <div key={category} className="category-section">
+                      <h5 style={{ color: '#003466', marginBottom: '10px' }}>{category}</h5>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={items} margin={{ top: 10, right: 10, left: 10, bottom: 70 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            dataKey="itemName" 
+                            angle={-35}
+                            textAnchor="end"
+                            height={80}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip 
+                            formatter={(value) => [formatNumber(value), 'Quantity']}
+                          />
+                          <Bar dataKey="totalQuantity" fill="#8884d8" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -598,7 +605,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
         }
         
         .summary-value {
-          font-size: 24px;
+          font-size: 1.5rem;
           font-weight: 700;
           color: #003466;
           line-height: 1;
@@ -624,7 +631,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           font-weight: 600;
           color: #1565c0;
           margin-bottom: 10px;
-          font-size: 15px;
+          font-size: 14px;
         }
         
         .insights-list {
@@ -661,7 +668,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           color: white;
           border: none;
           border-radius: 8px;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 500;
           cursor: pointer;
           transition: background 0.2s ease;
@@ -706,6 +713,10 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           display: flex;
           flex-direction: column;
         }
+
+        .chart-card.full-width {
+          grid-column: 1 / -1;
+        }
         
         .chart-header {
           margin-bottom: 20px;
@@ -715,7 +726,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
         .chart-header h4 {
           margin: 0 0 5px 0;
           color: #003466;
-          font-size: 18px;
+          font-size: 1.125rem;
           font-weight: 600;
         }
         
@@ -724,10 +735,10 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           font-size: 14px;
         }
         
-        .category-charts {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
+        .category-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 18px;
         }
         
         .category-section h5 {
@@ -807,7 +818,8 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
         }
         
         .number-cell, .percentage-cell {
-          font-family: 'Courier New', monospace;
+          font-family: inherit;
+          font-variant-numeric: tabular-nums;
         }
         
         .percentage-cell {
@@ -826,6 +838,14 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           .charts-grid {
             grid-template-columns: 1fr;
             gap: 20px;
+          }
+
+          .chart-card.full-width {
+            grid-column: auto;
+          }
+
+          .category-grid {
+            grid-template-columns: 1fr;
           }
         }
         

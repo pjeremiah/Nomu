@@ -1,0 +1,108 @@
+/**
+ * Shared typography for admin dashboard analytics (Customer, Business, Best Seller).
+ * Parent: .admin-analytics-info-card on InfoCard wrappers in AdminHome.
+ */
+
+.admin-analytics-info-card {
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #37474f;
+  -webkit-font-smoothing: antialiased;
+}
+
+.admin-analytics-info-card h4 {
+  font-family: inherit;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #003466;
+}
+
+.admin-analytics-info-card h5 {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #003466;
+}
+
+.admin-analytics-info-card .admin-analytics-muted {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.admin-analytics-info-card .admin-analytics-kpi {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #2e7d32;
+}
+
+.admin-analytics-info-card .admin-analytics-kpi-sm {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #2e7d32;
+}
+
+.admin-analytics-info-card .admin-analytics-btn,
+.admin-analytics-info-card button.admin-analytics-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.admin-analytics-info-card .admin-analytics-loading,
+.admin-analytics-info-card .admin-analytics-error-msg {
+  font-size: 14px;
+}
+
+/* Best Seller (styled-jsx class names are global in this project) */
+.admin-analytics-info-card .bestseller-analytics-container .chart-header h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .summary-label {
+  font-size: 14px;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .insights-card-header {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .insights-list {
+  font-size: 14px;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .export-csv-btn {
+  font-size: 14px;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .performance-table table {
+  font-size: 14px;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .category-section h5 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-analytics-info-card .bestseller-analytics-container .number-cell,
+.admin-analytics-info-card .bestseller-analytics-container .percentage-cell {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Customer analytics chart titles */
+.admin-analytics-info-card .analytics-container .chart-card h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}

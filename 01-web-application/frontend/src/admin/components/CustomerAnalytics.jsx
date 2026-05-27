@@ -215,7 +215,7 @@ const CustomerAnalytics = forwardRef((props, ref) => {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
+      <div className="analytics-container admin-analytics-loading" style={{ textAlign: 'center', padding: '40px' }}>
         <div>Loading analytics...</div>
       </div>
     );
@@ -223,9 +223,11 @@ const CustomerAnalytics = forwardRef((props, ref) => {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px', color: 'red' }}>
+      <div className="analytics-container admin-analytics-error-msg" style={{ textAlign: 'center', padding: '40px', color: '#c62828' }}>
         <div>{error}</div>
         <button 
+          type="button"
+          className="admin-analytics-btn"
           onClick={fetchAnalyticsData}
           style={{ 
             marginTop: '10px', 
@@ -233,7 +235,7 @@ const CustomerAnalytics = forwardRef((props, ref) => {
             background: '#003466', 
             color: 'white', 
             border: 'none', 
-            borderRadius: '4px',
+            borderRadius: '6px',
             cursor: 'pointer'
           }}
         >
@@ -296,8 +298,9 @@ const CustomerAnalytics = forwardRef((props, ref) => {
                  angle={-45}
                  textAnchor="end"
                  height={50}
+                 tick={{ fontSize: 12 }}
                />
-               <YAxis />
+               <YAxis tick={{ fontSize: 12 }} />
                <Tooltip />
                <Bar dataKey="count" fill="#8884d8">
                  {employmentData.map((entry, index) => (
@@ -328,8 +331,9 @@ const CustomerAnalytics = forwardRef((props, ref) => {
                  angle={-45}
                  textAnchor="end"
                  height={50}
+                 tick={{ fontSize: 12 }}
                />
-               <YAxis />
+               <YAxis tick={{ fontSize: 12 }} />
                <Tooltip />
                <Bar dataKey="count" fill="#00C49F">
                  {ageData.map((entry, index) => (
@@ -405,7 +409,8 @@ const CustomerAnalytics = forwardRef((props, ref) => {
           margin: 0 0 15px 0;
           color: #003466;
           text-align: center;
-          font-size: 16px;
+          font-size: 1.125rem;
+          font-weight: 600;
         }
         
         .chart-header {
