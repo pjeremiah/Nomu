@@ -6,6 +6,26 @@ const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
 const formatEmploymentChartNumber = (num) => new Intl.NumberFormat('en-US').format(num);
 
+function aggregateEmploymentColumn(catMap) {
+  let totalQty = 0;
+  let totalOrders = 0;
+  CATEGORIES.forEach((c) => {
+    const items = Array.isArray(catMap?.[c]) ? catMap[c] : [];
+    items.forEach((item) => {
+      totalQty += Number(item.totalQuantity || 0);
+      totalOrders += Number(item.totalOrders || 0);
+    });
+  });
+  return { totalQty, totalOrders };
+}
+
+function rankBadgeClass(index) {
+  if (index === 0) return 'eb-rank eb-rank--1';
+  if (index === 1) return 'eb-rank eb-rank--2';
+  if (index === 2) return 'eb-rank eb-rank--3';
+  return 'eb-rank eb-rank--n';
+}
+
 const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
   const [data, setData] = useState({
     employment: {
@@ -134,6 +154,9 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
       <h5 style={{ margin: '0 0 12px 0', color: '#003466', fontSize: '1rem', fontWeight: 600 }}>
         Best Seller by Employment (Student vs Employee)
       </h5>
+      <p className="admin-analytics-muted" style={{ margin: '0 0 16px 0', maxWidth: '720px' }}>
+        Top items per category for each group. Bars below compare items <strong>within the same category</strong> (longer = more quantity sold for that group).
+      </p>
 
       <div
         style={{
@@ -193,63 +216,90 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: 12
-        }}
-      >
+      <div className="eb-detail-grid">
         {employmentBlocks.map((block) => {
           const categories = data?.employment?.[block.key] || {};
+          const { totalQty, totalOrders } = aggregateEmploymentColumn(categories);
+          const accent = block.key === 'Student' ? '#7b1fa2' : '#1976d2';
+          const colClass =
+            block.key === 'Student' ? 'eb-detail-column eb-detail-column--student' : 'eb-detail-column eb-detail-column--employed';
+
           return (
-            <div
-              key={block.key}
-              style={{
-                border: '1px solid #e9ecef',
-                borderRadius: 10,
-                background: '#fff',
-                padding: 12
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div key={block.key} className={colClass}>
+              <div className="eb-detail-column-head">
                 {block.icon}
-                <strong style={{ color: '#212c59' }}>{block.title}</strong>
+                <strong>{block.title}</strong>
               </div>
-              <div style={{ display: 'grid', gap: 8 }}>
-                {CATEGORIES.map((category) => {
-                  const topItems = Array.isArray(categories[category]) ? categories[category] : [];
-                  return (
-                    <div
-                      key={`${block.key}-${category}`}
-                      style={{
-                        border: '1px solid #f0f0f0',
-                        borderRadius: 8,
-                        padding: '8px 10px',
-                        background: '#fafbff'
-                      }}
-                    >
-                      <div className="admin-analytics-muted">{category}</div>
-                      {topItems.length > 0 ? (
-                        <div style={{ marginTop: 4, display: 'grid', gap: 4 }}>
-                          {topItems.map((item, idx) => (
-                            <div key={`${block.key}-${category}-${item.itemName}-${idx}`} style={{ fontSize: '14px' }}>
-                              <div style={{ fontWeight: 600, color: '#1b2a59' }}>
-                                {idx + 1}. {item.itemName}
-                              </div>
-                              <div style={{ color: '#495057' }}>
-                                Qty: {Number(item.totalQuantity || 0).toLocaleString()} | Orders: {Number(item.totalOrders || 0).toLocaleString()}
-                              </div>
-                            </div>
-                          ))}
+
+              {totalQty === 0 ? (
+                <div className="eb-column-empty">
+                  {block.key === 'Student'
+                    ? 'No student purchases in this period for these categories.'
+                    : 'No employee purchases in this period for these categories.'}
+                </div>
+              ) : (
+                <>
+                  <div className="eb-summary-strip">
+                    <span className="eb-summary-pill">
+                      Total qty: <strong>{formatEmploymentChartNumber(totalQty)}</strong>
+                    </span>
+                    <span className="eb-summary-pill">
+                      Orders: <strong>{formatEmploymentChartNumber(totalOrders)}</strong>
+                    </span>
+                  </div>
+                  {CATEGORIES.map((category) => {
+                    const topItems = Array.isArray(categories[category]) ? categories[category] : [];
+                    const catQty = topItems.reduce((s, item) => s + Number(item.totalQuantity || 0), 0);
+                    const catOrders = topItems.reduce((s, item) => s + Number(item.totalOrders || 0), 0);
+                    const maxItemQty = Math.max(...topItems.map((i) => Number(i.totalQuantity || 0)), 1);
+
+                    return (
+                      <div key={`${block.key}-${category}`} className="eb-category-block">
+                        <div className="eb-category-label">
+                          <span className="eb-category-title">{category}</span>
+                          {topItems.length > 0 ? (
+                            <span className="eb-category-meta">
+                              {topItems.length} item{topItems.length !== 1 ? 's' : ''} · {formatEmploymentChartNumber(catQty)} qty ·{' '}
+                              {formatEmploymentChartNumber(catOrders)} orders
+                            </span>
+                          ) : null}
                         </div>
-                      ) : (
-                        <div className="admin-analytics-muted" style={{ marginTop: 2 }}>No data</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                        {topItems.length > 0 ? (
+                          topItems.map((item, idx) => {
+                            const qty = Number(item.totalQuantity || 0);
+                            const ord = Number(item.totalOrders || 0);
+                            const pct = maxItemQty > 0 ? Math.round((qty / maxItemQty) * 100) : 0;
+                            return (
+                              <div key={`${block.key}-${category}-${item.itemName}-${idx}`} className="eb-item-row">
+                                <div className={rankBadgeClass(idx)}>{idx + 1}</div>
+                                <div>
+                                  <div className="eb-item-name">{item.itemName}</div>
+                                  <div className="eb-item-stats">
+                                    <span>
+                                      Qty: <strong>{formatEmploymentChartNumber(qty)}</strong>
+                                    </span>
+                                    <span>
+                                      Orders: <strong>{formatEmploymentChartNumber(ord)}</strong>
+                                    </span>
+                                  </div>
+                                  <div className="eb-qty-bar-track" aria-hidden>
+                                    <div
+                                      className="eb-qty-bar-fill"
+                                      style={{ width: `${pct}%`, background: accent }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="eb-empty-category">No sales in this category for {block.title.toLowerCase()}.</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           );
         })}

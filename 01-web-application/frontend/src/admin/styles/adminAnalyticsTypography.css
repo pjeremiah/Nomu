@@ -106,3 +106,187 @@
   font-size: 1.125rem;
   font-weight: 600;
 }
+
+/* Best seller by employment — detail columns */
+.admin-analytics-info-card .eb-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.admin-analytics-info-card .eb-detail-column {
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.admin-analytics-info-card .eb-detail-column--student {
+  border-top: 4px solid #7b1fa2;
+}
+
+.admin-analytics-info-card .eb-detail-column--employed {
+  border-top: 4px solid #1976d2;
+}
+
+.admin-analytics-info-card .eb-detail-column-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #fafbff 0%, #fff 100%);
+  border-bottom: 1px solid #eef1f6;
+}
+
+.admin-analytics-info-card .eb-detail-column-head strong {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #212c59;
+}
+
+.admin-analytics-info-card .eb-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f8f9fc;
+  border-bottom: 1px solid #eef1f6;
+}
+
+.admin-analytics-info-card .eb-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid #e3e8ef;
+  color: #37474f;
+}
+
+.admin-analytics-info-card .eb-category-block {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.admin-analytics-info-card .eb-category-block:last-child {
+  border-bottom: none;
+}
+
+.admin-analytics-info-card .eb-category-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.admin-analytics-info-card .eb-category-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+
+.admin-analytics-info-card .eb-category-meta {
+  font-size: 12px;
+  color: #78909c;
+  font-weight: 500;
+}
+
+.admin-analytics-info-card .eb-item-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 0;
+  border-top: 1px solid #f5f6fa;
+}
+
+.admin-analytics-info-card .eb-item-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.admin-analytics-info-card .eb-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.admin-analytics-info-card .eb-rank--1 {
+  background: #c9a227;
+}
+
+.admin-analytics-info-card .eb-rank--2 {
+  background: #90a4ae;
+}
+
+.admin-analytics-info-card .eb-rank--3 {
+  background: #a1887f;
+}
+
+.admin-analytics-info-card .eb-rank--n {
+  background: #78909c;
+}
+
+.admin-analytics-info-card .eb-item-name {
+  font-weight: 600;
+  color: #1b2a59;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.admin-analytics-info-card .eb-item-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #546e7a;
+}
+
+.admin-analytics-info-card .eb-item-stats span strong {
+  color: #37474f;
+  font-weight: 600;
+}
+
+.admin-analytics-info-card .eb-qty-bar-track {
+  height: 6px;
+  border-radius: 4px;
+  background: #eceff4;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.admin-analytics-info-card .eb-qty-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.25s ease;
+}
+
+.admin-analytics-info-card .eb-empty-category {
+  font-size: 13px;
+  color: #9aa0a6;
+  font-style: italic;
+  padding: 4px 0 0;
+}
+
+.admin-analytics-info-card .eb-column-empty {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #78909c;
+  line-height: 1.5;
+}
