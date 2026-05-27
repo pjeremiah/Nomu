@@ -170,13 +170,10 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
               <Tooltip
                 formatter={(value, name) => [
                   formatEmploymentChartNumber(value),
-                  name === 'Student' ? 'Students' : 'Employees'
+                  name === 'Students' || name === 'Student' ? 'Students' : 'Employees'
                 ]}
               />
-              <Legend
-                wrapperStyle={{ paddingTop: 12 }}
-                formatter={(value) => (value === 'Student' ? 'Students' : 'Employees')}
-              />
+              <Legend wrapperStyle={{ paddingTop: 12 }} />
               <Bar
                 dataKey="Student"
                 name="Students"
