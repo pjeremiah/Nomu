@@ -118,16 +118,13 @@
   border-radius: 12px;
   border: 1px solid #e9ecef;
   background: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
-.admin-analytics-info-card .eb-detail-column--student {
-  border-top: 4px solid #0d9488;
-}
-
-.admin-analytics-info-card .eb-detail-column--employed {
-  border-top: 4px solid #c2410c;
+/* Neutral frame only (no teal/orange accent strip on employment cards) */
+.admin-analytics-info-card .best-seller-employment-section .eb-detail-column {
+  border: 1px solid #e9ecef;
 }
 
 .admin-analytics-info-card .eb-detail-column-head {
@@ -135,7 +132,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  background: linear-gradient(180deg, #fafbff 0%, #fff 100%);
+  background: #fff;
   border-bottom: 1px solid #eef1f6;
 }
 
@@ -143,28 +140,6 @@
   font-size: 1rem;
   font-weight: 700;
   color: #212c59;
-}
-
-.admin-analytics-info-card .eb-summary-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 12px 16px;
-  background: #f8f9fc;
-  border-bottom: 1px solid #eef1f6;
-}
-
-.admin-analytics-info-card .eb-summary-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  background: #fff;
-  border: 1px solid #e3e8ef;
-  color: #37474f;
 }
 
 .admin-analytics-info-card .eb-category-block {

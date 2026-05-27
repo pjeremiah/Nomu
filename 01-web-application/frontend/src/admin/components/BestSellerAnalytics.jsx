@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRe
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { FaChartBar, FaCoffee, FaTrophy, FaFileDownload } from 'react-icons/fa';
+import { FaChartBar, FaCoffee, FaTrophy, FaFileDownload, FaGraduationCap, FaBriefcase } from 'react-icons/fa';
 import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 applyPlugin(jsPDF);
@@ -18,10 +18,33 @@ function quantityAxisFromMax(maxQty, step = 3) {
   return { domain: [0, yMax], ticks };
 }
 
+const EMPLOYMENT_CATEGORY_KEYS = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
+
+/** Sum quantity and orders for Student or Employed across shelf categories (same shape as employment analytics API). */
+function aggregateEmploymentSide(employment, key) {
+  const catMap = employment?.[key] || {};
+  let totalQty = 0;
+  let totalOrders = 0;
+  EMPLOYMENT_CATEGORY_KEYS.forEach((c) => {
+    const items = Array.isArray(catMap[c]) ? catMap[c] : [];
+    items.forEach((item) => {
+      totalQty += Number(item.totalQuantity || 0);
+      totalOrders += Number(item.totalOrders || 0);
+    });
+  });
+  return { totalQty, totalOrders };
+}
+
 const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
   const [analyticsData, setAnalyticsData] = useState({
     bestSellers: [],
     bestSellersByCategory: { categories: {}, categoryTotals: {} }
+  });
+  const [employmentSummary, setEmploymentSummary] = useState({
+    studentQty: 0,
+    studentOrders: 0,
+    employeeQty: 0,
+    employeeOrders: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -91,7 +114,17 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     doc.setFontSize(10);
     doc.text(`Top Items: ${rows.length}`, 14, y);
     doc.text(`Total Quantity: ${formatNumber(totalQty)}`, 14, y + 6);
-    y += 16;
+    doc.text(
+      `Total Quantity for Students: ${formatNumber(employmentSummary.studentQty)} — Orders: ${formatNumber(employmentSummary.studentOrders)}`,
+      14,
+      y + 12
+    );
+    doc.text(
+      `Total Quantity for Employees: ${formatNumber(employmentSummary.employeeQty)} — Orders: ${formatNumber(employmentSummary.employeeOrders)}`,
+      14,
+      y + 18
+    );
+    y += 28;
 
     if (bestSellerName || top3Share != null) {
       doc.setFont(undefined, 'bold');
@@ -290,7 +323,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     doc.text('Nomu Cafe – Best Seller Analytics', 14, doc.internal.pageSize.getHeight() - 10);
 
     doc.save(`best-sellers-${period}-${new Date().toISOString().slice(0, 10)}.pdf`);
-  }, [analyticsData, period]);
+  }, [analyticsData, period, employmentSummary]);
 
   useImperativeHandle(ref, () => ({ exportPDF: handleExportPDF }), [handleExportPDF]);
 
@@ -344,12 +377,15 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
       
       const backendPeriod = periodMapping[period] || 'month';
       
-      // Fetch all analytics data in parallel
-      const [bestSellersRes, categoryRes] = await Promise.all([
+      // Fetch all analytics data in parallel (employment used for summary cards + PDF elsewhere)
+      const [bestSellersRes, categoryRes, employmentRes] = await Promise.all([
         fetch(`${API_BASE}/api/analytics/best-sellers?period=${backendPeriod}&limit=10`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
         fetch(`${API_BASE}/api/analytics/best-sellers-by-category?period=${backendPeriod}&limit=10`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE}/api/analytics/best-sellers-by-employment-category?period=${backendPeriod}&limit=10`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -366,10 +402,25 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
         throw new Error(`Category API failed: ${categoryRes.status} - ${errorText}`);
       }
 
-      const [bestSellersData, categoryData] = await Promise.all([
+      const [bestSellersData, categoryData, employmentPayload] = await Promise.all([
         bestSellersRes.json(),
-        categoryRes.json()
+        categoryRes.json(),
+        employmentRes.ok ? employmentRes.json() : Promise.resolve(null)
       ]);
+
+      if (!employmentRes.ok) {
+        console.warn(`Employment summary API unavailable: ${employmentRes.status}`);
+      }
+
+      const emp = employmentPayload?.employment;
+      const stu = aggregateEmploymentSide(emp, 'Student');
+      const empAgg = aggregateEmploymentSide(emp, 'Employed');
+      setEmploymentSummary({
+        studentQty: stu.totalQty,
+        studentOrders: stu.totalOrders,
+        employeeQty: empAgg.totalQty,
+        employeeOrders: empAgg.totalOrders
+      });
 
       // Check if we have data for the selected period
       const hasData = bestSellersData.bestSellers && bestSellersData.bestSellers.length > 0;
@@ -398,7 +449,13 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
       }
     } catch (err) {
       console.error('Error fetching best seller analytics:', err);
-      
+      setEmploymentSummary({
+        studentQty: 0,
+        studentOrders: 0,
+        employeeQty: 0,
+        employeeOrders: 0
+      });
+
       if (err.message.includes('Failed to fetch')) {
         setError('Network error: Unable to connect to the server');
       } else if (err.message.includes('401') || err.message.includes('403')) {
@@ -561,6 +618,26 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             <div className="summary-content">
               <div className="summary-value">{formatNumber(analyticsData.bestSellers.reduce((sum, item) => sum + item.totalQuantity, 0))}</div>
               <div className="summary-label">Total Quantity</div>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <FaGraduationCap style={{ color: '#0d9488' }} />
+            </div>
+            <div className="summary-content">
+              <div className="summary-value">{formatNumber(employmentSummary.studentQty)}</div>
+              <div className="summary-label">Total Quantity for Students</div>
+              <div className="summary-orders">Orders: {formatNumber(employmentSummary.studentOrders)}</div>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <FaBriefcase style={{ color: '#c2410c' }} />
+            </div>
+            <div className="summary-content">
+              <div className="summary-value">{formatNumber(employmentSummary.employeeQty)}</div>
+              <div className="summary-label">Total Quantity for Employees</div>
+              <div className="summary-orders">Orders: {formatNumber(employmentSummary.employeeOrders)}</div>
             </div>
           </div>
         </div>
@@ -750,6 +827,13 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           font-size: 14px;
           color: #6c757d;
           margin-top: 4px;
+        }
+
+        .summary-orders {
+          font-size: 13px;
+          color: #546e7a;
+          margin-top: 6px;
+          font-weight: 500;
         }
         
         .insights-card {

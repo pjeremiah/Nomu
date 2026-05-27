@@ -31,15 +31,13 @@ function quantityAxisFromMax(maxQty, step = 3) {
 
 function aggregateEmploymentColumn(catMap) {
   let totalQty = 0;
-  let totalOrders = 0;
   CATEGORIES.forEach((c) => {
     const items = Array.isArray(catMap?.[c]) ? catMap[c] : [];
     items.forEach((item) => {
       totalQty += Number(item.totalQuantity || 0);
-      totalOrders += Number(item.totalOrders || 0);
     });
   });
-  return { totalQty, totalOrders };
+  return totalQty;
 }
 
 function maxQuantityInColumn(catMap) {
@@ -115,13 +113,13 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
       key: 'Student',
       title: 'Students',
       barColor: STUDENT_BAR_COLOR,
-      icon: <FaGraduationCap style={{ color: STUDENT_BAR_COLOR }} />
+      icon: <FaGraduationCap style={{ color: '#003466' }} aria-hidden />
     },
     {
       key: 'Employed',
       title: 'Employees',
       barColor: EMPLOYED_BAR_COLOR,
-      icon: <FaBriefcase style={{ color: EMPLOYED_BAR_COLOR }} />
+      icon: <FaBriefcase style={{ color: '#003466' }} aria-hidden />
     }
   ];
 
@@ -168,14 +166,12 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
       <div className="eb-detail-grid">
         {employmentBlocks.map((block) => {
           const categories = data?.employment?.[block.key] || {};
-          const { totalQty, totalOrders } = aggregateEmploymentColumn(categories);
+          const totalQty = aggregateEmploymentColumn(categories);
           const columnQtyMax = maxQuantityInColumn(categories);
           const yAxis = quantityAxisFromMax(columnQtyMax, 3);
-          const colClass =
-            block.key === 'Student' ? 'eb-detail-column eb-detail-column--student' : 'eb-detail-column eb-detail-column--employed';
 
           return (
-            <div key={block.key} className={colClass}>
+            <div key={block.key} className="eb-detail-column">
               <div className="eb-detail-column-head">
                 {block.icon}
                 <strong>{block.title}</strong>
@@ -189,14 +185,6 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
                 </div>
               ) : (
                 <>
-                  <div className="eb-summary-strip">
-                    <span className="eb-summary-pill">
-                      Total qty: <strong>{formatQty(totalQty)}</strong>
-                    </span>
-                    <span className="eb-summary-pill">
-                      Orders: <strong>{formatQty(totalOrders)}</strong>
-                    </span>
-                  </div>
                   {CATEGORIES.map((category) => {
                     const raw = Array.isArray(categories[category]) ? categories[category] : [];
                     const chartRows = raw.map((item, i) => ({
