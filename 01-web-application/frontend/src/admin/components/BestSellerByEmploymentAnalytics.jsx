@@ -12,7 +12,22 @@ import { FaBriefcase, FaGraduationCap } from 'react-icons/fa';
 
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
+/** Distinct from main Best Seller blue (#1976d2) and category purple (#8884d8). */
+const STUDENT_BAR_COLOR = '#0d9488';
+const EMPLOYED_BAR_COLOR = '#c2410c';
+
 const formatQty = (num) => new Intl.NumberFormat('en-US').format(num);
+
+/** Same rule as BestSellerAnalytics: Y ticks 0, 3, 6, … */
+function quantityAxisFromMax(maxQty, step = 3) {
+  const max = Math.max(0, Number(maxQty) || 0);
+  const yMax = Math.max(step, Math.ceil(max / step) * step);
+  const ticks = [];
+  for (let v = 0; v <= yMax; v += step) {
+    ticks.push(v);
+  }
+  return { domain: [0, yMax], ticks };
+}
 
 function aggregateEmploymentColumn(catMap) {
   let totalQty = 0;
@@ -25,6 +40,17 @@ function aggregateEmploymentColumn(catMap) {
     });
   });
   return { totalQty, totalOrders };
+}
+
+function maxQuantityInColumn(catMap) {
+  let m = 0;
+  CATEGORIES.forEach((c) => {
+    const items = Array.isArray(catMap?.[c]) ? catMap[c] : [];
+    items.forEach((item) => {
+      m = Math.max(m, Number(item.totalQuantity) || 0);
+    });
+  });
+  return m;
 }
 
 const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
@@ -88,12 +114,14 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
     {
       key: 'Student',
       title: 'Students',
-      icon: <FaGraduationCap style={{ color: '#7b1fa2' }} />
+      barColor: STUDENT_BAR_COLOR,
+      icon: <FaGraduationCap style={{ color: STUDENT_BAR_COLOR }} />
     },
     {
       key: 'Employed',
       title: 'Employees',
-      icon: <FaBriefcase style={{ color: '#1976d2' }} />
+      barColor: EMPLOYED_BAR_COLOR,
+      icon: <FaBriefcase style={{ color: EMPLOYED_BAR_COLOR }} />
     }
   ];
 
@@ -133,19 +161,16 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
 
   return (
     <div className="best-seller-employment-section" style={{ marginTop: 16 }}>
-      <h5 style={{ margin: '0 0 8px 0', color: '#003466', fontSize: '1rem', fontWeight: 600 }}>
+      <h5 style={{ margin: '0 0 16px 0', color: '#003466', fontSize: '1rem', fontWeight: 600 }}>
         Best Seller by Employment (Student vs Employee)
       </h5>
-      <p className="admin-analytics-muted" style={{ margin: '0 0 16px 0', maxWidth: '720px' }}>
-        Top <strong>10</strong> items per category by quantity sold — separate charts for <strong>Students</strong> and{' '}
-        <strong>Employees</strong>.
-      </p>
 
       <div className="eb-detail-grid">
         {employmentBlocks.map((block) => {
           const categories = data?.employment?.[block.key] || {};
           const { totalQty, totalOrders } = aggregateEmploymentColumn(categories);
-          const accent = block.key === 'Student' ? '#7b1fa2' : '#1976d2';
+          const columnQtyMax = maxQuantityInColumn(categories);
+          const yAxis = quantityAxisFromMax(columnQtyMax, 3);
           const colClass =
             block.key === 'Student' ? 'eb-detail-column eb-detail-column--student' : 'eb-detail-column eb-detail-column--employed';
 
@@ -184,33 +209,37 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
 
                     return (
                       <div key={`${block.key}-${category}`} className="eb-category-block eb-category-block--chart">
-                        <div className="eb-category-label">
-                          <span className="eb-category-title">{category}</span>
+                        <div className="eb-category-chart-header">
+                          <h5 style={{ color: '#003466', margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 600 }}>
+                            {category}
+                          </h5>
                           {chartRows.length > 0 ? (
-                            <span className="eb-category-meta">
+                            <div className="admin-analytics-muted" style={{ fontSize: 13, margin: 0 }}>
                               Top {chartRows.length} · {formatQty(catQty)} qty · {formatQty(catOrders)} orders
-                            </span>
+                            </div>
                           ) : null}
                         </div>
                         {chartRows.length > 0 ? (
                           <div className="eb-chart-wrap">
-                            <ResponsiveContainer width="100%" height={280}>
+                            <ResponsiveContainer width="100%" height={300}>
                               <BarChart
                                 data={chartRows}
-                                margin={{ top: 8, right: 12, left: 4, bottom: chartRows.length > 4 ? 88 : 56 }}
+                                margin={{ top: 10, right: 10, left: 10, bottom: 120 }}
                               >
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis
                                   dataKey="itemName"
-                                  angle={-32}
+                                  angle={-45}
                                   textAnchor="end"
-                                  interval={0}
-                                  height={chartRows.length > 4 ? 82 : 52}
-                                  tick={{ fontSize: 10 }}
-                                  tickLine={false}
-                                  axisLine={{ stroke: '#dee2e6' }}
+                                  height={120}
+                                  tick={{ fontSize: 12 }}
                                 />
-                                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={36} />
+                                <YAxis
+                                  tick={{ fontSize: 12 }}
+                                  domain={yAxis.domain}
+                                  ticks={yAxis.ticks}
+                                  allowDecimals={false}
+                                />
                                 <Tooltip
                                   formatter={(value, name) => {
                                     if (name === 'totalQuantity') return [formatQty(value), 'Quantity'];
@@ -219,13 +248,7 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
                                   }}
                                   labelFormatter={(label) => `Item: ${label}`}
                                 />
-                                <Bar
-                                  dataKey="totalQuantity"
-                                  name="Quantity"
-                                  fill={accent}
-                                  radius={[4, 4, 0, 0]}
-                                  maxBarSize={48}
-                                />
+                                <Bar dataKey="totalQuantity" name="Quantity" fill={block.barColor} />
                               </BarChart>
                             </ResponsiveContainer>
                           </div>

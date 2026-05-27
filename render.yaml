@@ -65,7 +65,7 @@ services:
         value: https://nomu-backend.onrender.com
       - key: GENERATE_SOURCEMAP
         value: "false"
-    autoDeploy: false
+    autoDeploy: true
     routes:
       - type: rewrite
         source: /*

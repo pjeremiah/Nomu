@@ -123,11 +123,11 @@
 }
 
 .admin-analytics-info-card .eb-detail-column--student {
-  border-top: 4px solid #7b1fa2;
+  border-top: 4px solid #0d9488;
 }
 
 .admin-analytics-info-card .eb-detail-column--employed {
-  border-top: 4px solid #1976d2;
+  border-top: 4px solid #c2410c;
 }
 
 .admin-analytics-info-card .eb-detail-column-head {
@@ -178,8 +178,13 @@
 
 .admin-analytics-info-card .eb-category-block--chart .eb-chart-wrap {
   width: 100%;
-  min-height: 280px;
+  min-height: 300px;
   margin-top: 4px;
+}
+
+.admin-analytics-info-card .eb-category-chart-header {
+  text-align: center;
+  margin-bottom: 12px;
 }
 
 .admin-analytics-info-card .eb-category-label {

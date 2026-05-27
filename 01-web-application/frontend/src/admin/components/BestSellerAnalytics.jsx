@@ -50,7 +50,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     return startDate.getTime() === endDate.getTime() ? fmt(startDate) : `${fmt(startDate)} – ${fmt(endDate)}`;
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = useCallback(async () => {
     const rows = analyticsData.bestSellers || [];
     const totalQty = rows.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
     const top3Share = rows.length >= 3
@@ -58,6 +58,14 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
       : null;
     const bestSellerName = rows.length > 0 ? rows[0].itemName : null;
     const periodLabel = getPeriodDateRange(period) || period;
+
+    const periodMapping = {
+      daily: 'today',
+      weekly: 'week',
+      monthly: 'month',
+      yearly: 'year'
+    };
+    const backendPeriod = periodMapping[period] || 'month';
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
@@ -126,39 +134,13 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     y = doc.lastAutoTable.finalY + 14;
     addNewPageIfNeeded(60);
 
-    const categories = analyticsData.bestSellersByCategory?.categories || {};
-    if (Object.keys(categories).length > 0) {
-      doc.setFont(undefined, 'bold');
-      doc.text('2. By Category', 14, y);
-      y += 6;
-      Object.entries(categories).forEach(([category, items]) => {
-        addNewPageIfNeeded(40);
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(category, 14, y);
-        y += 6;
-        doc.autoTable({
-          startY: y,
-          head: [['Item Name', 'Quantity']],
-          body: (items || []).map((item) => [
-            String(item.itemName || ''),
-            String(formatNumber(item.totalQuantity || 0))
-          ]),
-          theme: 'grid',
-          headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
-          bodyStyles: { fontSize: 9 },
-          margin: { left: 14 }
-        });
-        y = doc.lastAutoTable.finalY + 10;
-      });
-      y += 4;
-      addNewPageIfNeeded(50);
-    }
-
+    addNewPageIfNeeded(55);
     doc.setFont(undefined, 'bold');
     doc.setFontSize(12);
-    doc.text('3. Detailed Performance', 14, y);
+    doc.text('2. Detailed Performance', 14, y);
     y += 6;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
 
     doc.autoTable({
       startY: y,
@@ -182,8 +164,123 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
       },
       margin: { left: 14 }
     });
+    y = doc.lastAutoTable.finalY + 14;
+    addNewPageIfNeeded(50);
 
-    y = doc.lastAutoTable.finalY + 12;
+    const categories = analyticsData.bestSellersByCategory?.categories || {};
+    const categoryPdfOrder = ['Donuts', 'Pizzas', 'Drinks', 'Pastries'];
+    if (categoryPdfOrder.some((c) => Array.isArray(categories[c]) && categories[c].length > 0)) {
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(12);
+      doc.text('3. By Category', 14, y);
+      y += 6;
+      categoryPdfOrder.forEach((category) => {
+        const items = categories[category];
+        if (!Array.isArray(items) || items.length === 0) return;
+        addNewPageIfNeeded(40);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(category, 14, y);
+        y += 6;
+        doc.autoTable({
+          startY: y,
+          head: [['Item Name', 'Quantity']],
+          body: items.map((item) => [
+            String(item.itemName || ''),
+            String(formatNumber(item.totalQuantity || 0))
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+          bodyStyles: { fontSize: 9 },
+          margin: { left: 14 }
+        });
+        y = doc.lastAutoTable.finalY + 10;
+      });
+      y += 4;
+      addNewPageIfNeeded(50);
+    }
+
+    let employmentPayload = null;
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      try {
+        const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const empRes = await fetch(
+          `${API_BASE}/api/analytics/best-sellers-by-employment-category?period=${backendPeriod}&limit=10`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (empRes.ok) {
+          employmentPayload = await empRes.json();
+        }
+      } catch (e) {
+        console.warn('Best seller employment fetch for PDF failed:', e);
+      }
+    }
+
+    const employmentCategoryOrder = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
+    const employmentGroups = [
+      ['Student', 'Students'],
+      ['Employed', 'Employees']
+    ];
+
+    addNewPageIfNeeded(48);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    doc.text('4. Best sellers by employment (Student vs Employee)', 14, y);
+    y += 7;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    doc.text('Top 10 per shelf category; quantities from past orders by customer employment.', 14, y);
+    y += 8;
+
+    if (!employmentPayload?.employment) {
+      doc.setFontSize(10);
+      doc.text('This section could not be loaded (sign in again or retry export).', 14, y);
+      y += 10;
+    } else {
+      const { employment } = employmentPayload;
+      employmentGroups.forEach(([empKey, empLabel]) => {
+        const catMap = employment[empKey] || {};
+        employmentCategoryOrder.forEach((cat) => {
+          const items = Array.isArray(catMap[cat]) ? catMap[cat] : [];
+          addNewPageIfNeeded(36);
+          doc.setFont(undefined, 'bold');
+          doc.setFontSize(10);
+          doc.text(`${empLabel} — ${cat}`, 14, y);
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.setFontSize(9);
+          if (items.length === 0) {
+            doc.text('No data.', 14, y);
+            y += 8;
+            return;
+          }
+          doc.autoTable({
+            startY: y,
+            head: [['Rank', 'Item Name', 'Quantity', 'Orders']],
+            body: items.map((item, idx) => [
+              String(idx + 1),
+              String(item.itemName || ''),
+              String(formatNumber(item.totalQuantity || 0)),
+              String(formatNumber(item.totalOrders || 0))
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: [0, 52, 102], fontSize: 9 },
+            bodyStyles: { fontSize: 9 },
+            columnStyles: {
+              0: { cellWidth: 16 },
+              1: { cellWidth: 'auto' },
+              2: { cellWidth: 26 },
+              3: { cellWidth: 26 }
+            },
+            margin: { left: 14 }
+          });
+          y = doc.lastAutoTable.finalY + 8;
+        });
+      });
+    }
+
+    y += 10;
     if (y > 270) {
       doc.addPage();
       y = 18;
@@ -193,7 +290,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     doc.text('Nomu Cafe – Best Seller Analytics', 14, doc.internal.pageSize.getHeight() - 10);
 
     doc.save(`best-sellers-${period}-${new Date().toISOString().slice(0, 10)}.pdf`);
-  };
+  }, [analyticsData, period]);
 
   useImperativeHandle(ref, () => ({ exportPDF: handleExportPDF }), [handleExportPDF]);
 
@@ -425,7 +522,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             type="button"
             className="admin-analytics-btn"
             onClick={handleExportPDF}
-            title="Export report as PDF (Top Selling Items, By Category, Detailed Performance)"
+            title="Export report as PDF (Top Selling Items, Detailed Performance, By Category, Student vs Employee)"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
