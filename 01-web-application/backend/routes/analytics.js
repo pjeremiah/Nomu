@@ -1153,6 +1153,121 @@ router.get('/best-sellers-by-category', authMiddleware, async (req, res) => {
   }
 });
 
+// Get best seller items by employment status and category (Student vs Employed)
+router.get('/best-sellers-by-employment-category', authMiddleware, async (req, res) => {
+  try {
+    if (!['superadmin', 'manager', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { period = 'all', limit = 1 } = req.query;
+    const perCategoryLimit = Math.max(1, parseInt(limit, 10) || 1);
+
+    let dateFilter = {};
+    if (period !== 'all') {
+      const range = getDateRangeForPeriod(period);
+      if (range) {
+        dateFilter = { 'pastOrders.date': { $gte: range.startDate, $lte: range.endDate } };
+      }
+    }
+
+    const nameToShelfCategory = await buildNameToShelfCategoryMap();
+    const validCategories = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
+    const validEmployment = ['Student', 'Employed'];
+
+    const rows = await User.aggregate([
+      ...pastOrderLineItemStages(dateFilter),
+      { $match: { employmentStatus: { $in: validEmployment } } },
+      {
+        $group: {
+          _id: {
+            employmentStatus: '$employmentStatus',
+            itemName: '$_lineEntries.name'
+          },
+          totalOrders: { $sum: 1 },
+          totalQuantity: {
+            $sum: {
+              $convert: {
+                input: '$_lineEntries.qty',
+                to: 'double',
+                onError: 1,
+                onNull: 1
+              }
+            }
+          },
+          uniqueCustomers: { $addToSet: '$_id' }
+        }
+      },
+      {
+        $project: {
+          employmentStatus: '$_id.employmentStatus',
+          itemName: '$_id.itemName',
+          totalOrders: 1,
+          totalQuantity: 1,
+          uniqueCustomers: { $size: '$uniqueCustomers' },
+          _id: 0
+        }
+      }
+    ]);
+
+    const byEmployment = {
+      Student: { Donuts: [], Drinks: [], Pastries: [], Pizzas: [] },
+      Employed: { Donuts: [], Drinks: [], Pastries: [], Pizzas: [] }
+    };
+
+    rows.forEach((item) => {
+      const employmentStatus = item.employmentStatus;
+      if (!validEmployment.includes(employmentStatus)) return;
+
+      const rawName = item.itemName != null ? String(item.itemName).trim() : '';
+      if (!rawName) return;
+      const keyLower = rawName.toLowerCase();
+
+      let category = nameToShelfCategory[rawName] || nameToShelfCategory[keyLower];
+      category = normalizeAnalyticsShelfCategory(category);
+      if (!category || !validCategories.includes(category)) return;
+
+      byEmployment[employmentStatus][category].push(item);
+    });
+
+    validEmployment.forEach((employmentStatus) => {
+      validCategories.forEach((category) => {
+        byEmployment[employmentStatus][category] = byEmployment[employmentStatus][category]
+          .sort((a, b) => b.totalQuantity - a.totalQuantity)
+          .slice(0, perCategoryLimit);
+      });
+    });
+
+    const totals = {};
+    validEmployment.forEach((employmentStatus) => {
+      const categoryTotals = {};
+      validCategories.forEach((category) => {
+        const items = byEmployment[employmentStatus][category];
+        categoryTotals[category] = {
+          totalItems: items.length,
+          totalQuantity: items.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0),
+          topItem: items[0]?.itemName || null
+        };
+      });
+      totals[employmentStatus] = categoryTotals;
+    });
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.json({
+      employment: byEmployment,
+      totals,
+      summary: {
+        period,
+        limitPerCategory: perCategoryLimit,
+        generatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('❌ [ANALYTICS] Best Sellers by Employment + Category API Error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Get sales trends over time
 router.get('/sales-trends', authMiddleware, async (req, res) => {
   try {

@@ -5,6 +5,7 @@ import { MdTrendingUp } from 'react-icons/md';
 import Pagination from 'react-bootstrap/Pagination';
 import CustomerAnalytics from './components/CustomerAnalytics';
 import BestSellerAnalytics from './components/BestSellerAnalytics';
+import BestSellerByEmploymentAnalytics from './components/BestSellerByEmploymentAnalytics';
 import AnalyticsDisplay from './components/AnalyticsDisplay';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
@@ -606,6 +607,7 @@ const AdminHome = () => {
         }
       >
         <BestSellerAnalytics period={bestSellersPeriod} />
+        <BestSellerByEmploymentAnalytics period={bestSellersPeriod} />
       </InfoCard>
 
       
