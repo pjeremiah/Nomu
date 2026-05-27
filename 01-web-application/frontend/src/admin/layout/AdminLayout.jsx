@@ -389,7 +389,7 @@ const AdminLayout = ({ children }) => {
     fetchUserInfo();
   }, [navigate]);
 
-  // Heartbeat to keep admin status active
+  // Web session heartbeat (does not affect barista app active/inactive on Manage Admins)
   useEffect(() => {
     if (!currentUser) return;
 

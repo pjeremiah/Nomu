@@ -20,19 +20,17 @@ function quantityAxisFromMax(maxQty, step = 3) {
 
 const EMPLOYMENT_CATEGORY_KEYS = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
-/** Sum quantity and orders for Student or Employed across shelf categories (same shape as employment analytics API). */
+/** Sum quantity for Student or Employed across shelf categories (same shape as employment analytics API). */
 function aggregateEmploymentSide(employment, key) {
   const catMap = employment?.[key] || {};
   let totalQty = 0;
-  let totalOrders = 0;
   EMPLOYMENT_CATEGORY_KEYS.forEach((c) => {
     const items = Array.isArray(catMap[c]) ? catMap[c] : [];
     items.forEach((item) => {
       totalQty += Number(item.totalQuantity || 0);
-      totalOrders += Number(item.totalOrders || 0);
     });
   });
-  return { totalQty, totalOrders };
+  return totalQty;
 }
 
 const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
@@ -42,9 +40,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
   });
   const [employmentSummary, setEmploymentSummary] = useState({
     studentQty: 0,
-    studentOrders: 0,
-    employeeQty: 0,
-    employeeOrders: 0
+    employeeQty: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -115,16 +111,16 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     doc.text(`Top Items: ${rows.length}`, 14, y);
     doc.text(`Total Quantity: ${formatNumber(totalQty)}`, 14, y + 6);
     doc.text(
-      `Total Quantity for Students: ${formatNumber(employmentSummary.studentQty)} — Orders: ${formatNumber(employmentSummary.studentOrders)}`,
+      `Best Seller for Students (qty): ${formatNumber(employmentSummary.studentQty)}`,
       14,
       y + 12
     );
     doc.text(
-      `Total Quantity for Employees: ${formatNumber(employmentSummary.employeeQty)} — Orders: ${formatNumber(employmentSummary.employeeOrders)}`,
+      `Best Seller for Employee (qty): ${formatNumber(employmentSummary.employeeQty)}`,
       14,
       y + 18
     );
-    y += 28;
+    y += 26;
 
     if (bestSellerName || top3Share != null) {
       doc.setFont(undefined, 'bold');
@@ -252,14 +248,14 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
 
     const employmentCategoryOrder = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
     const employmentGroups = [
-      ['Student', 'Students'],
-      ['Employed', 'Employees']
+      ['Student', 'Best Seller for Students'],
+      ['Employed', 'Best Seller for Employee']
     ];
 
     addNewPageIfNeeded(48);
     doc.setFont(undefined, 'bold');
     doc.setFontSize(12);
-    doc.text('4. Best sellers by employment (Student vs Employee)', 14, y);
+    doc.text('4. Best Seller for Students and Employee (by category)', 14, y);
     y += 7;
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
@@ -413,13 +409,9 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
       }
 
       const emp = employmentPayload?.employment;
-      const stu = aggregateEmploymentSide(emp, 'Student');
-      const empAgg = aggregateEmploymentSide(emp, 'Employed');
       setEmploymentSummary({
-        studentQty: stu.totalQty,
-        studentOrders: stu.totalOrders,
-        employeeQty: empAgg.totalQty,
-        employeeOrders: empAgg.totalOrders
+        studentQty: aggregateEmploymentSide(emp, 'Student'),
+        employeeQty: aggregateEmploymentSide(emp, 'Employed')
       });
 
       // Check if we have data for the selected period
@@ -451,9 +443,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
       console.error('Error fetching best seller analytics:', err);
       setEmploymentSummary({
         studentQty: 0,
-        studentOrders: 0,
-        employeeQty: 0,
-        employeeOrders: 0
+        employeeQty: 0
       });
 
       if (err.message.includes('Failed to fetch')) {
@@ -579,7 +569,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             type="button"
             className="admin-analytics-btn"
             onClick={handleExportPDF}
-            title="Export report as PDF (Top Selling Items, Detailed Performance, By Category, Student vs Employee)"
+            title="Export report as PDF (Top Selling Items, Detailed Performance, By Category, Best Seller for Students/Employee)"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -626,8 +616,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             </div>
             <div className="summary-content">
               <div className="summary-value">{formatNumber(employmentSummary.studentQty)}</div>
-              <div className="summary-label">Total Quantity for Students</div>
-              <div className="summary-orders">Orders: {formatNumber(employmentSummary.studentOrders)}</div>
+              <div className="summary-label">Best Seller for Students</div>
             </div>
           </div>
           <div className="summary-card">
@@ -636,8 +625,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             </div>
             <div className="summary-content">
               <div className="summary-value">{formatNumber(employmentSummary.employeeQty)}</div>
-              <div className="summary-label">Total Quantity for Employees</div>
-              <div className="summary-orders">Orders: {formatNumber(employmentSummary.employeeOrders)}</div>
+              <div className="summary-label">Best Seller for Employee</div>
             </div>
           </div>
         </div>
@@ -827,13 +815,6 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
           font-size: 14px;
           color: #6c757d;
           margin-top: 4px;
-        }
-
-        .summary-orders {
-          font-size: 13px;
-          color: #546e7a;
-          margin-top: 6px;
-          font-weight: 500;
         }
         
         .insights-card {

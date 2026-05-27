@@ -452,6 +452,22 @@ class ApiService {
     return null;
   }
 
+  /// Keep barista session marked active on the server while the app is in use.
+  static Future<void> baristaSessionHeartbeat(String email) async {
+    try {
+      final apiBaseUrl = await Config.apiBaseUrl;
+      await http
+          .post(
+            Uri.parse('$apiBaseUrl/admin/barista-heartbeat'),
+            headers: _headers,
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (e) {
+      Logger.warning('Barista session heartbeat failed: $e', 'API');
+    }
+  }
+
   // Admin logout
   static Future<bool> logout(String email) async {
     try {

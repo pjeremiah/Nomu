@@ -218,47 +218,9 @@ const ManageAdmins = () => {
       } catch (err) {
         console.error('Error checking admin status:', err);
       }
-    }, 5000); // Check every 5 seconds for more responsive status updates
+    }, 3000); // Poll for barista app login/logout status changes
 
     return () => clearInterval(statusCheckInterval);
-  }, [currentUser, API_URL]);
-
-  // Update current user status to active when component mounts
-  useEffect(() => {
-    if (currentUser && currentUser.id) {
-      // Update the current user's status in the admins list to active
-      setAdmins(prevAdmins => 
-        prevAdmins.map(admin => 
-          admin._id === currentUser.id 
-            ? { ...admin, status: 'active' }
-            : admin
-        )
-      );
-    }
-  }, [currentUser]);
-
-  // Handle page unload - set admin status to inactive when leaving
-  useEffect(() => {
-    const handleBeforeUnload = async () => {
-      if (currentUser && currentUser.id) {
-        try {
-          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          if (token) {
-            // Use sendBeacon for reliable delivery even if page is closing
-            const data = JSON.stringify({});
-            navigator.sendBeacon(`${API_URL}/api/auth/logout`, data);
-          }
-        } catch (err) {
-          console.error('Error setting status to inactive:', err);
-        }
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
   }, [currentUser, API_URL]);
 
   // Handle add admin

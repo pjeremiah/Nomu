@@ -134,6 +134,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
   bool isProcessing = false;
   Timer? _animationTimer;
   Timer? _debounceTimer;
+  Timer? _baristaSessionTimer;
   String? _lastScannedCode;
   DateTime? _lastScanTime;
   static const Duration _scanCooldown = AppConstants.scanCooldown;
@@ -184,6 +185,23 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     // Set up periodic cleanup of processed codes
     Timer.periodic(AppConstants.processedCodesCleanupInterval, (timer) {
       _cleanupProcessedCodes();
+    });
+
+    _startBaristaSessionHeartbeat();
+  }
+
+  Future<void> _startBaristaSessionHeartbeat() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('user_email');
+    if (email == null || email.isEmpty) return;
+
+    await ApiService.baristaSessionHeartbeat(email);
+    _baristaSessionTimer?.cancel();
+    _baristaSessionTimer = Timer.periodic(const Duration(seconds: 25), (_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final currentEmail = prefs.getString('user_email');
+      if (currentEmail == null || currentEmail.isEmpty) return;
+      await ApiService.baristaSessionHeartbeat(currentEmail);
     });
   }
 
@@ -2484,6 +2502,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
 
   @override
   void dispose() {
+    _baristaSessionTimer?.cancel();
     _animationTimer?.cancel();
     _debounceTimer?.cancel();
     controller?.dispose();

@@ -23,6 +23,24 @@ const otpService = require('../services/otpService');
 require('dotenv').config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
+/** Barista app session: Manage Admins "Active" reflects mobile app login, not web dashboard. */
+async function setAdminBaristaSessionActive(adminId) {
+  return Admin.findByIdAndUpdate(adminId, {
+    status: 'active',
+    lastLoginAt: new Date()
+  });
+}
+
+async function setAdminBaristaSessionInactiveByEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return null;
+  return Admin.findOneAndUpdate(
+    { email: normalized },
+    { status: 'inactive', updatedAt: new Date() },
+    { new: true }
+  );
+}
+
 // Email validation function - only allow @gmail.com
 const isValidEmail = (email) => email.toLowerCase().endsWith('@gmail.com');
 
@@ -610,14 +628,11 @@ router.post('/admin/verify-login-otp',
         return res.status(400).json({ message: 'Admin not found' });
       }
 
-      // Update admin status and last login
-      await Admin.findByIdAndUpdate(admin._id, { 
-        status: 'active',
-        lastLoginAt: new Date(),
-        firstLoginCompleted: true
-      });
+      await setAdminBaristaSessionActive(admin._id);
+      await Admin.findByIdAndUpdate(admin._id, { firstLoginCompleted: true });
 
       const role = admin.role || 'staff';
+      const refreshed = await Admin.findById(admin._id).select('status');
       
       // Clear failed attempts on successful login
       req.shouldClearFailedAttempts = true;
@@ -638,7 +653,7 @@ router.post('/admin/verify-login-otp',
           email: admin.email,
           fullName: admin.fullName,
           role: role,
-          status: 'active',
+          status: refreshed?.status || 'active',
           isFirstLogin: true
         }
       });
@@ -695,15 +710,15 @@ router.post('/admin/verify-otp',
       // Calculate rememberUntil date if rememberFor1Day is true (24 hours)
       const rememberUntil = rememberFor1Day ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
       
-      // Update admin status, last login, and mark first login as completed
-      await Admin.findByIdAndUpdate(admin._id, { 
-        status: 'active',
+      // Web admin panel login — do not mark barista session active (barista app manages status)
+      await Admin.findByIdAndUpdate(admin._id, {
         lastLoginAt: new Date(),
         firstLoginCompleted: true,
         rememberUntil: rememberUntil
       });
 
       const role = admin.role || 'staff';
+      const refreshed = await Admin.findById(admin._id).select('status');
       
       // Clear failed attempts on successful login
       req.shouldClearFailedAttempts = true;
@@ -726,7 +741,7 @@ router.post('/admin/verify-otp',
           email: admin.email,
           fullName: admin.fullName,
           role: role,
-          status: 'active',
+          status: refreshed?.status || 'inactive',
           isFirstLogin: isFirstLogin
         }
       });
@@ -780,11 +795,8 @@ router.post('/login',
           // Convert to Date object if it's stored as a string (Mongoose should handle this, but ensure compatibility)
           const rememberUntilDate = admin.rememberUntil instanceof Date ? admin.rememberUntil : new Date(admin.rememberUntil);
           if (new Date() < rememberUntilDate) {
-            // Update last login time and set status to active
-            await Admin.findByIdAndUpdate(admin._id, { 
-              lastLoginAt: new Date(),
-              status: 'active'
-            });
+            await Admin.findByIdAndUpdate(admin._id, { lastLoginAt: new Date() });
+            const refreshed = await Admin.findById(admin._id).select('status');
             
             // Clear failed attempts on successful login
             req.shouldClearFailedAttempts = true;
@@ -806,7 +818,7 @@ router.post('/login',
                 email: admin.email,
                 fullName: admin.fullName,
                 role: role,
-                status: 'active',
+                status: refreshed?.status || 'inactive',
                 isFirstLogin: false
               }
             });
@@ -1206,11 +1218,8 @@ router.post('/signin',
           // Convert to Date object if it's stored as a string (Mongoose should handle this, but ensure compatibility)
           const rememberUntilDate = admin.rememberUntil instanceof Date ? admin.rememberUntil : new Date(admin.rememberUntil);
           if (new Date() < rememberUntilDate) {
-            // Update last login time and set status to active
-            await Admin.findByIdAndUpdate(admin._id, { 
-              lastLoginAt: new Date(),
-              status: 'active'
-            });
+            await Admin.findByIdAndUpdate(admin._id, { lastLoginAt: new Date() });
+            const refreshed = await Admin.findById(admin._id).select('status');
             
             // Clear failed attempts on successful login
             req.shouldClearFailedAttempts = true;
@@ -1232,7 +1241,7 @@ router.post('/signin',
                 email: admin.email,
                 fullName: admin.fullName,
                 role: role,
-                status: 'active',
+                status: refreshed?.status || 'inactive',
                 isFirstLogin: false
               }
             });
@@ -1391,11 +1400,8 @@ router.post('/mobile/admin/login',
           // Convert to Date object if it's stored as a string (Mongoose should handle this, but ensure compatibility)
           const rememberUntilDate = admin.rememberUntil instanceof Date ? admin.rememberUntil : new Date(admin.rememberUntil);
           if (new Date() < rememberUntilDate) {
-          // Update last login time and set status to active
-          await Admin.findByIdAndUpdate(admin._id, {
-          lastLoginAt: new Date(),
-          status: 'active'
-        });
+          await setAdminBaristaSessionActive(admin._id);
+          const refreshed = await Admin.findById(admin._id).select('status');
         
         // Clear failed attempts on successful login
         req.shouldClearFailedAttempts = true;
@@ -1417,7 +1423,7 @@ router.post('/mobile/admin/login',
                 email: admin.email,
                 fullName: admin.fullName,
                 role: role,
-                status: 'active',
+                status: refreshed?.status || 'active',
                 isFirstLogin: false
               },
               rememberUntil: rememberUntilDate.toISOString()
@@ -1479,12 +1485,12 @@ router.post('/mobile/admin/verify-otp',
 
       const rememberUntil = remember24h ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
 
-      await Admin.findByIdAndUpdate(admin._id, { 
-        status: 'active',
-        lastLoginAt: new Date(),
+      await setAdminBaristaSessionActive(admin._id);
+      await Admin.findByIdAndUpdate(admin._id, {
         firstLoginCompleted: true,
         rememberUntil
       });
+      const refreshed = await Admin.findById(admin._id).select('status');
 
       const role = admin.role || 'staff';
       
@@ -1507,7 +1513,7 @@ router.post('/mobile/admin/verify-otp',
           email: admin.email,
           fullName: admin.fullName,
           role: role,
-          status: 'active',
+          status: refreshed?.status || 'active',
           isFirstLogin: true
         },
         rememberUntil: rememberUntil ? rememberUntil.toISOString() : null
@@ -1611,40 +1617,68 @@ router.put('/me', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /heartbeat - keep admin status active while using the system
+// POST /heartbeat - web dashboard session ping (does not change barista active/inactive status)
 router.post('/heartbeat', authMiddleware, async (req, res) => {
   try {
-    const { role, userId } = req.user;
-    
-    // If admin, keep status as 'active' and update last activity
-    if (role === 'staff' || role === 'manager' || role === 'superadmin') {
-      await Admin.findByIdAndUpdate(userId, { 
-        status: 'active',
-        lastLoginAt: new Date()
-      });
-    }
-    
     res.status(200).json({ message: 'Heartbeat received' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// POST /logout - logout and set admin status to inactive
+// POST /logout - web dashboard logout (does not change barista session status)
 router.post('/logout', authMiddleware, async (req, res) => {
   try {
-    const { role } = req.user;
-    
-    // If admin, set status to 'inactive' on logout
-    if (role === 'staff' || role === 'manager' || role === 'superadmin') {
-      await Admin.findByIdAndUpdate(req.user.userId, { status: 'inactive' });
-    }
-    
     res.status(200).json({ message: 'Logout successful' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
+// POST /admin/logout - Barista app logout by email (mounted at /api/admin/logout for mobile)
+const adminLogoutByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const admin = await setAdminBaristaSessionInactiveByEmail(email);
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    res.status(200).json({
+      message: 'Logout successful',
+      status: 'inactive'
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// POST /admin/barista-heartbeat - keep barista session active while app is open
+const adminBaristaHeartbeatByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const admin = await Admin.findOne({ email: String(email).trim().toLowerCase() });
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    await setAdminBaristaSessionActive(admin._id);
+    res.status(200).json({ message: 'Barista session active', status: 'active' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+router.post('/admin/logout', adminLogoutByEmail);
+router.post('/admin/barista-heartbeat', adminBaristaHeartbeatByEmail);
 
 // POST /me/avatar - upload profile picture
 router.post('/me/avatar', authMiddleware, profileUpload.single('avatar'), async (req, res) => {
@@ -1677,5 +1711,8 @@ router.post('/me/avatar', authMiddleware, profileUpload.single('avatar'), async 
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
+router.adminLogoutByEmail = adminLogoutByEmail;
+router.adminBaristaHeartbeatByEmail = adminBaristaHeartbeatByEmail;
 
 module.exports = router;

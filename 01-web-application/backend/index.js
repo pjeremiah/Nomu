@@ -179,6 +179,13 @@ const engagementRoutes = require('./routes/engagement');
 
 // Register routes
 app.use('/api/auth', authRoutes);
+// Barista app uses /api/admin/* (not under /api/auth)
+if (authRoutes.adminLogoutByEmail) {
+  app.post('/api/admin/logout', authRoutes.adminLogoutByEmail);
+}
+if (authRoutes.adminBaristaHeartbeatByEmail) {
+  app.post('/api/admin/barista-heartbeat', authRoutes.adminBaristaHeartbeatByEmail);
+}
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/admins', adminRoutes);

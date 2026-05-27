@@ -126,7 +126,7 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
   if (loading) {
     return (
       <div className="admin-analytics-loading" style={{ textAlign: 'center', padding: '16px' }}>
-        Loading Student vs Employee best sellers...
+        Loading best seller charts by customer type…
       </div>
     );
   }
