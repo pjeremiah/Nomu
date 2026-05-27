@@ -176,6 +176,12 @@
   border-bottom: none;
 }
 
+.admin-analytics-info-card .eb-category-block--chart .eb-chart-wrap {
+  width: 100%;
+  min-height: 280px;
+  margin-top: 4px;
+}
+
 .admin-analytics-info-card .eb-category-label {
   display: flex;
   align-items: center;

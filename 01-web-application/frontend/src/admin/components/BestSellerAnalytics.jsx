@@ -7,6 +7,17 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 applyPlugin(jsPDF);
 
+/** Y-axis for quantity charts: ticks 0, 3, 6, … with domain ending on a multiple of `step`. */
+function quantityAxisFromMax(maxQty, step = 3) {
+  const max = Math.max(0, Number(maxQty) || 0);
+  const yMax = Math.max(step, Math.ceil(max / step) * step);
+  const ticks = [];
+  for (let v = 0; v <= yMax; v += step) {
+    ticks.push(v);
+  }
+  return { domain: [0, yMax], ticks };
+}
+
 const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
   const [analyticsData, setAnalyticsData] = useState({
     bestSellers: [],
@@ -367,6 +378,23 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     : null;
   const bestSellerName = analyticsData.bestSellers.length > 0 ? analyticsData.bestSellers[0].itemName : null;
 
+  const topSellingQtyMax = analyticsData.bestSellers.length > 0
+    ? Math.max(...analyticsData.bestSellers.map((item) => Number(item.totalQuantity) || 0))
+    : 0;
+  const topSellingAxis = quantityAxisFromMax(topSellingQtyMax, 3);
+
+  const categoryBuckets = analyticsData.bestSellersByCategory?.categories || {};
+  const categoryDisplayOrder = ['Donuts', 'Pizzas', 'Drinks', 'Pastries'];
+  let byCategoryGlobalMax = 0;
+  categoryDisplayOrder.forEach((cat) => {
+    const arr = categoryBuckets[cat];
+    if (!Array.isArray(arr)) return;
+    arr.forEach((item) => {
+      byCategoryGlobalMax = Math.max(byCategoryGlobalMax, Number(item.totalQuantity) || 0);
+    });
+  });
+  const byCategoryAxis = quantityAxisFromMax(byCategoryGlobalMax, 3);
+
   return (
     <div className="bestseller-analytics-container">
       {/* No Data Message */}
@@ -477,7 +505,12 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
                   height={120}
                   tick={{ fontSize: 12 }}
                 />
-                <YAxis tick={{ fontSize: 12 }} />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  domain={topSellingAxis.domain}
+                  ticks={topSellingAxis.ticks}
+                  allowDecimals={false}
+                />
                 <Tooltip 
                   formatter={(value, name) => [
                     formatNumber(value), 
@@ -553,7 +586,12 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
                             height={80}
                             tick={{ fontSize: 12 }}
                           />
-                          <YAxis tick={{ fontSize: 12 }} />
+                          <YAxis
+                            tick={{ fontSize: 12 }}
+                            domain={byCategoryAxis.domain}
+                            ticks={byCategoryAxis.ticks}
+                            allowDecimals={false}
+                          />
                           <Tooltip 
                             formatter={(value) => [formatNumber(value), 'Quantity']}
                           />

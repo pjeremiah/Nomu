@@ -1,10 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip
+} from 'recharts';
 import { FaBriefcase, FaGraduationCap } from 'react-icons/fa';
 
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
-const formatEmploymentChartNumber = (num) => new Intl.NumberFormat('en-US').format(num);
+const formatQty = (num) => new Intl.NumberFormat('en-US').format(num);
 
 function aggregateEmploymentColumn(catMap) {
   let totalQty = 0;
@@ -17,13 +25,6 @@ function aggregateEmploymentColumn(catMap) {
     });
   });
   return { totalQty, totalOrders };
-}
-
-function rankBadgeClass(index) {
-  if (index === 0) return 'eb-rank eb-rank--1';
-  if (index === 1) return 'eb-rank eb-rank--2';
-  if (index === 2) return 'eb-rank eb-rank--3';
-  return 'eb-rank eb-rank--n';
 }
 
 const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
@@ -83,25 +84,6 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
     fetchData();
   }, [fetchData]);
 
-  const chartData = useMemo(() => {
-    const result = [];
-    const employmentData = data?.employment || {};
-    CATEGORIES.forEach((category) => {
-      const studentItems = Array.isArray(employmentData.Student?.[category]) ? employmentData.Student[category] : [];
-      const employedItems = Array.isArray(employmentData.Employed?.[category]) ? employmentData.Employed[category] : [];
-
-      const studentQty = studentItems.reduce((sum, item) => sum + Number(item.totalQuantity || 0), 0);
-      const employedQty = employedItems.reduce((sum, item) => sum + Number(item.totalQuantity || 0), 0);
-
-      result.push({
-        category,
-        Student: studentQty,
-        Employed: employedQty
-      });
-    });
-    return result;
-  }, [data]);
-
   const employmentBlocks = [
     {
       key: 'Student',
@@ -151,70 +133,13 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
 
   return (
     <div className="best-seller-employment-section" style={{ marginTop: 16 }}>
-      <h5 style={{ margin: '0 0 12px 0', color: '#003466', fontSize: '1rem', fontWeight: 600 }}>
+      <h5 style={{ margin: '0 0 8px 0', color: '#003466', fontSize: '1rem', fontWeight: 600 }}>
         Best Seller by Employment (Student vs Employee)
       </h5>
       <p className="admin-analytics-muted" style={{ margin: '0 0 16px 0', maxWidth: '720px' }}>
-        Top items per category for each group. Bars below compare items <strong>within the same category</strong> (longer = more quantity sold for that group).
+        Top <strong>10</strong> items per category by quantity sold — separate charts for <strong>Students</strong> and{' '}
+        <strong>Employees</strong>.
       </p>
-
-      <div
-        style={{
-          borderRadius: 12,
-          border: '1px solid #e9ecef',
-          background: '#ffffff',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
-          padding: 16,
-          marginBottom: 16
-        }}
-      >
-        <div style={{ marginBottom: 12 }}>
-          <div className="admin-analytics-muted">
-            Visual comparison of <strong>total quantity sold</strong> by employment type for each product category.
-          </div>
-        </div>
-        <div style={{ width: '100%', height: 360 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              margin={{ top: 10, right: 20, left: 0, bottom: 40 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="category"
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-                axisLine={{ stroke: '#dee2e6' }}
-              />
-              <YAxis
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => formatEmploymentChartNumber(value)}
-              />
-              <Tooltip
-                formatter={(value, name) => [
-                  formatEmploymentChartNumber(value),
-                  name === 'Students' || name === 'Student' ? 'Students' : 'Employees'
-                ]}
-              />
-              <Legend wrapperStyle={{ paddingTop: 12 }} />
-              <Bar
-                dataKey="Student"
-                name="Students"
-                fill="#7b1fa2"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={40}
-              />
-              <Bar
-                dataKey="Employed"
-                name="Employees"
-                fill="#1976d2"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={40}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
 
       <div className="eb-detail-grid">
         {employmentBlocks.map((block) => {
@@ -241,57 +166,69 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
                 <>
                   <div className="eb-summary-strip">
                     <span className="eb-summary-pill">
-                      Total qty: <strong>{formatEmploymentChartNumber(totalQty)}</strong>
+                      Total qty: <strong>{formatQty(totalQty)}</strong>
                     </span>
                     <span className="eb-summary-pill">
-                      Orders: <strong>{formatEmploymentChartNumber(totalOrders)}</strong>
+                      Orders: <strong>{formatQty(totalOrders)}</strong>
                     </span>
                   </div>
                   {CATEGORIES.map((category) => {
-                    const topItems = Array.isArray(categories[category]) ? categories[category] : [];
-                    const catQty = topItems.reduce((s, item) => s + Number(item.totalQuantity || 0), 0);
-                    const catOrders = topItems.reduce((s, item) => s + Number(item.totalOrders || 0), 0);
-                    const maxItemQty = Math.max(...topItems.map((i) => Number(i.totalQuantity || 0)), 1);
+                    const raw = Array.isArray(categories[category]) ? categories[category] : [];
+                    const chartRows = raw.map((item, i) => ({
+                      ...item,
+                      key: `${item.itemName || 'item'}-${i}`,
+                      itemName: item.itemName || 'Unknown'
+                    }));
+                    const catQty = chartRows.reduce((s, item) => s + Number(item.totalQuantity || 0), 0);
+                    const catOrders = chartRows.reduce((s, item) => s + Number(item.totalOrders || 0), 0);
 
                     return (
-                      <div key={`${block.key}-${category}`} className="eb-category-block">
+                      <div key={`${block.key}-${category}`} className="eb-category-block eb-category-block--chart">
                         <div className="eb-category-label">
                           <span className="eb-category-title">{category}</span>
-                          {topItems.length > 0 ? (
+                          {chartRows.length > 0 ? (
                             <span className="eb-category-meta">
-                              {topItems.length} item{topItems.length !== 1 ? 's' : ''} · {formatEmploymentChartNumber(catQty)} qty ·{' '}
-                              {formatEmploymentChartNumber(catOrders)} orders
+                              Top {chartRows.length} · {formatQty(catQty)} qty · {formatQty(catOrders)} orders
                             </span>
                           ) : null}
                         </div>
-                        {topItems.length > 0 ? (
-                          topItems.map((item, idx) => {
-                            const qty = Number(item.totalQuantity || 0);
-                            const ord = Number(item.totalOrders || 0);
-                            const pct = maxItemQty > 0 ? Math.round((qty / maxItemQty) * 100) : 0;
-                            return (
-                              <div key={`${block.key}-${category}-${item.itemName}-${idx}`} className="eb-item-row">
-                                <div className={rankBadgeClass(idx)}>{idx + 1}</div>
-                                <div>
-                                  <div className="eb-item-name">{item.itemName}</div>
-                                  <div className="eb-item-stats">
-                                    <span>
-                                      Qty: <strong>{formatEmploymentChartNumber(qty)}</strong>
-                                    </span>
-                                    <span>
-                                      Orders: <strong>{formatEmploymentChartNumber(ord)}</strong>
-                                    </span>
-                                  </div>
-                                  <div className="eb-qty-bar-track" aria-hidden>
-                                    <div
-                                      className="eb-qty-bar-fill"
-                                      style={{ width: `${pct}%`, background: accent }}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
+                        {chartRows.length > 0 ? (
+                          <div className="eb-chart-wrap">
+                            <ResponsiveContainer width="100%" height={280}>
+                              <BarChart
+                                data={chartRows}
+                                margin={{ top: 8, right: 12, left: 4, bottom: chartRows.length > 4 ? 88 : 56 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis
+                                  dataKey="itemName"
+                                  angle={-32}
+                                  textAnchor="end"
+                                  interval={0}
+                                  height={chartRows.length > 4 ? 82 : 52}
+                                  tick={{ fontSize: 10 }}
+                                  tickLine={false}
+                                  axisLine={{ stroke: '#dee2e6' }}
+                                />
+                                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={36} />
+                                <Tooltip
+                                  formatter={(value, name) => {
+                                    if (name === 'totalQuantity') return [formatQty(value), 'Quantity'];
+                                    if (name === 'totalOrders') return [formatQty(value), 'Orders'];
+                                    return [value, name];
+                                  }}
+                                  labelFormatter={(label) => `Item: ${label}`}
+                                />
+                                <Bar
+                                  dataKey="totalQuantity"
+                                  name="Quantity"
+                                  fill={accent}
+                                  radius={[4, 4, 0, 0]}
+                                  maxBarSize={48}
+                                />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
                         ) : (
                           <div className="eb-empty-category">No sales in this category for {block.title.toLowerCase()}.</div>
                         )}
