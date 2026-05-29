@@ -18,6 +18,17 @@ function quantityAxisFromMax(maxQty, step = 3) {
   return { domain: [0, yMax], ticks };
 }
 
+/** Share of total quantity sold by the #1 best seller (uses API quantityPercentage when present). */
+function topItemQuantitySharePct(bestSellers) {
+  if (!Array.isArray(bestSellers) || bestSellers.length === 0) return null;
+  const first = bestSellers[0];
+  const fromApi = parseFloat(first.quantityPercentage);
+  if (!Number.isNaN(fromApi)) return fromApi.toFixed(1);
+  const total = bestSellers.reduce((sum, item) => sum + (Number(item.totalQuantity) || 0), 0);
+  if (total <= 0) return null;
+  return ((Number(first.totalQuantity) || 0) / total * 100).toFixed(1);
+}
+
 const EMPLOYMENT_CATEGORY_KEYS = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
 
 /** Sum quantity for Student or Employed across shelf categories (same shape as employment analytics API). */
@@ -72,9 +83,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
   const handleExportPDF = useCallback(async () => {
     const rows = analyticsData.bestSellers || [];
     const totalQty = rows.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
-    const top3Share = rows.length >= 3
-      ? rows.slice(0, 3).reduce((sum, item) => sum + parseFloat(item.quantityPercentage || 0), 0).toFixed(1)
-      : null;
+    const top1Share = topItemQuantitySharePct(rows);
     const bestSellerName = rows.length > 0 ? rows[0].itemName : null;
     const periodLabel = getPeriodDateRange(period) || period;
 
@@ -122,7 +131,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     );
     y += 26;
 
-    if (bestSellerName || top3Share != null) {
+    if (bestSellerName || top1Share != null) {
       doc.setFont(undefined, 'bold');
       doc.text('Insights', 14, y);
       y += 6;
@@ -131,8 +140,8 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
         doc.text(`#1 this period: ${bestSellerName}`, 14, y);
         y += 6;
       }
-      if (top3Share != null) {
-        doc.text(`Top 3 items account for ${top3Share}% of quantity sold.`, 14, y);
+      if (top1Share != null) {
+        doc.text(`This item accounts for ${top1Share}% of quantity sold.`, 14, y);
         y += 8;
       }
       y += 4;
@@ -517,9 +526,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
   }
 
   const periodLabel = getPeriodDateRange(period);
-  const top3Share = analyticsData.bestSellers.length >= 3
-    ? analyticsData.bestSellers.slice(0, 3).reduce((sum, item) => sum + parseFloat(item.quantityPercentage || 0), 0).toFixed(1)
-    : null;
+  const top1Share = topItemQuantitySharePct(analyticsData.bestSellers);
   const bestSellerName = analyticsData.bestSellers.length > 0 ? analyticsData.bestSellers[0].itemName : null;
 
   const topSellingQtyMax = analyticsData.bestSellers.length > 0
@@ -632,7 +639,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
       )}
 
       {/* Insights card */}
-      {analyticsData.bestSellers.length > 0 && (top3Share || bestSellerName) && (
+      {analyticsData.bestSellers.length > 0 && (top1Share != null || bestSellerName) && (
         <div className="insights-card">
           <div className="insights-card-header">
             <FaTrophy style={{ color: '#f9a825', marginRight: '8px', fontSize: '1.1rem' }} />
@@ -642,8 +649,8 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             {bestSellerName && (
               <li>#1 this period: <strong>{bestSellerName}</strong></li>
             )}
-            {top3Share != null && (
-              <li>Your top 3 items account for <strong>{top3Share}%</strong> of quantity sold.</li>
+            {top1Share != null && (
+              <li>This item accounts for <strong>{top1Share}%</strong> of quantity sold.</li>
             )}
           </ul>
         </div>
