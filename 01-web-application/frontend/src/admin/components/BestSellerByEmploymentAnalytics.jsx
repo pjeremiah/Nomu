@@ -111,13 +111,13 @@ const BestSellerByEmploymentAnalytics = ({ period = 'monthly' }) => {
   const employmentBlocks = [
     {
       key: 'Student',
-      title: 'Best Seller for Students',
+      title: 'Best Seller for Students (By Category)',
       barColor: STUDENT_BAR_COLOR,
       icon: <FaGraduationCap style={{ color: '#003466' }} aria-hidden />
     },
     {
       key: 'Employed',
-      title: 'Best Seller for Employee',
+      title: 'Best Seller for Employee (By Category)',
       barColor: EMPLOYED_BAR_COLOR,
       icon: <FaBriefcase style={{ color: '#003466' }} aria-hidden />
     }

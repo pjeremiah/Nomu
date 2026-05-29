@@ -248,8 +248,8 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
 
     const employmentCategoryOrder = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
     const employmentGroups = [
-      ['Student', 'Best Seller for Students'],
-      ['Employed', 'Best Seller for Employee']
+      ['Student', 'Best Seller for Students (By Category)'],
+      ['Employed', 'Best Seller for Employee (By Category)']
     ];
 
     addNewPageIfNeeded(48);
