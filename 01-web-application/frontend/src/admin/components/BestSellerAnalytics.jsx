@@ -111,12 +111,12 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
     doc.text(`Top Items: ${rows.length}`, 14, y);
     doc.text(`Total Quantity: ${formatNumber(totalQty)}`, 14, y + 6);
     doc.text(
-      `Best Seller for Students (qty): ${formatNumber(employmentSummary.studentQty)}`,
+      `Total Quantity for Students: ${formatNumber(employmentSummary.studentQty)}`,
       14,
       y + 12
     );
     doc.text(
-      `Best Seller for Employee (qty): ${formatNumber(employmentSummary.employeeQty)}`,
+      `Total Quantity for Employee: ${formatNumber(employmentSummary.employeeQty)}`,
       14,
       y + 18
     );
@@ -616,7 +616,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             </div>
             <div className="summary-content">
               <div className="summary-value">{formatNumber(employmentSummary.studentQty)}</div>
-              <div className="summary-label">Best Seller for Students</div>
+              <div className="summary-label">Total Quantity for Students</div>
             </div>
           </div>
           <div className="summary-card">
@@ -625,7 +625,7 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             </div>
             <div className="summary-content">
               <div className="summary-value">{formatNumber(employmentSummary.employeeQty)}</div>
-              <div className="summary-label">Best Seller for Employee</div>
+              <div className="summary-label">Total Quantity for Employee</div>
             </div>
           </div>
         </div>
