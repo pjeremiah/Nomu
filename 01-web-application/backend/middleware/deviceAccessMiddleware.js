@@ -1,4 +1,5 @@
-const MOBILE_USER_AGENT_REGEX = /iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone|Mobile/i;
+/** Phone UA only — bare "Mobile" matches iPad Safari (Mobile/15E148) and must be excluded. */
+const MOBILE_USER_AGENT_REGEX = /iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone/i;
 const TABLET_USER_AGENT_REGEX = /iPad|Tablet|PlayBook|Silk|Kindle|Nexus 7|Nexus 10|SM-T|Tab/i;
 
 const isLikelyMobileRequest = (req) => {

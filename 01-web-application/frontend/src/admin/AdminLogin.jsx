@@ -190,7 +190,11 @@ const AdminLogin = () => {
   useEffect(() => {
     const check = () => setIsMobile(isRestrictedAdminDevice());
     window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    window.addEventListener('orientationchange', check);
+    return () => {
+      window.removeEventListener('resize', check);
+      window.removeEventListener('orientationchange', check);
+    };
   }, []);
 
   useEffect(() => {
