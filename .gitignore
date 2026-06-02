@@ -5,6 +5,8 @@
 .env.test.local
 .env.production.local
 *.env
+# Safe to commit: production build flags only (no secrets)
+!01-web-application/frontend/.env.production
 
 # Dependencies
 node_modules/
