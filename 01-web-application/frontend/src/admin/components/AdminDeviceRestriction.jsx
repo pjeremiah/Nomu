@@ -95,7 +95,7 @@ const AdminDeviceRestriction = ({ onBackHome, isLoading = false }) => {
 
         <Title>Admin access is restricted on mobile phones</Title>
         <Message>
-          This admin dashboard cannot be accessed on phones, even when Desktop mode is enabled.
+          This admin dashboard cannot be accessed on Android or iPhone screens, even when &ldquo;Desktop site&rdquo; is turned on in the browser.
           <br />
           <br />
           Please sign in using a tablet, laptop, or desktop computer.
