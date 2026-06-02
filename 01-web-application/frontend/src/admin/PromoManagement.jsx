@@ -4,6 +4,7 @@ import { Star, Search, Check, Loader2 } from "lucide-react";
 import { BsGift } from "react-icons/bs";
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
+import { AdminStatCardsGrid, AdminStatCard, getPromoRewardStatusColors } from './components/AdminStatCards';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -934,88 +935,23 @@ const PromoManagement = () => {
         }}>{error}</div>
       )}
 
-      {/* Stats - one row like Reward Management */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'row',
-        gap: '12px',
-        marginBottom: '1.5rem',
-        overflowX: 'auto',
-        padding: '0 4px'
-      }}>
-        {PROMO_STATUS.map((status) => (
-          <div
-            key={status}
-            style={{
-              background: '#fff',
-              padding: '0.5rem 0.75rem',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-              border: '1px solid #e9ecef',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-              cursor: 'pointer',
-              minWidth: '120px',
-              flex: '1'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)';
-            }}
-          >
-            <div style={{
-              fontSize: '1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              background: status === 'Active' ? '#e8f5e8' : 
-                         status === 'Inactive' ? '#f8f9fa' :
-                         status === 'Scheduled' ? '#fff3e0' :
-                         '#ffebee',
-              color: status === 'Active' ? '#2e7d32' : 
-                     status === 'Inactive' ? '#6c757d' :
-                     status === 'Scheduled' ? '#f57c00' :
-                     '#d32f2f'
-            }}>
-              <BsGift />
-            </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{
-                fontSize: '0.8rem',
-                color: '#6c757d',
-                fontWeight: '500',
-                marginBottom: '0.5rem'
-              }}>
-                {status}
-              </div>
-              <div style={{
-                fontSize: '1.5rem',
-                fontWeight: '700',
-                color: '#212c59',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem'
-              }}>
-                {loading ? (
-                  <FaSpinner style={{ animation: 'spin 1s linear infinite' }} />
-                ) : (
-                  statusCounts[status]
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <AdminStatCardsGrid variant="compact" count={4}>
+        {PROMO_STATUS.map((status) => {
+          const colors = getPromoRewardStatusColors(status);
+          return (
+            <AdminStatCard
+              key={status}
+              variant="compact"
+              label={status}
+              value={statusCounts[status]}
+              icon={BsGift}
+              iconColor={colors.iconColor}
+              iconBackground={colors.iconBackground}
+              loading={loading}
+            />
+          );
+        })}
+      </AdminStatCardsGrid>
 
       {/* Search and Filters */}
       <div className="search-filter-container" style={{

@@ -4,6 +4,7 @@ import { MessageSquare, Check, X } from 'lucide-react';
 import { MdNotifications } from 'react-icons/md';
 import Pagination from 'react-bootstrap/Pagination';
 import PageHeader from './components/PageHeader';
+import { AdminStatCardsGrid, AdminStatCard } from './components/AdminStatCards';
 
 // Function to mask email addresses for privacy
 const maskEmail = (email) => {
@@ -352,169 +353,35 @@ const CustomerFeedback = () => {
         icon={MessageSquare}
       />
       
-      {/* Stats Cards */}
-      <div style={{
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-        gap: '1.5rem', 
-        marginBottom: '2rem'
-      }}>
-        {/* Total Feedback */}
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-          border: '1px solid #e9ecef',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
-        }}>
-          <div style={{
-            fontSize: '2rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '50%',
-            width: '50px',
-            height: '50px',
-            background: '#fce4ec',
-            color: '#c2185b'
-          }}>
-            <FaStar />
-          </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{
-              fontSize: '0.9rem',
-              color: '#6c757d',
-              fontWeight: '500',
-              marginBottom: '0.5rem'
-            }}>
-              Total Feedback
-            </div>
-            <div style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#212c59'
-            }}>
-              {feedback.length}
-            </div>
-          </div>
-        </div>
-
-        {/* Pending Feedback */}
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-          border: '1px solid #e9ecef',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
-        }}>
-          <div style={{
-            fontSize: '2rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '50%',
-            width: '50px',
-            height: '50px',
-            background: '#fff3e0',
-            color: '#f57c00'
-          }}>
-            <FaClock />
-          </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{
-              fontSize: '0.9rem',
-              color: '#6c757d',
-              fontWeight: '500',
-              marginBottom: '0.5rem'
-            }}>
-              Pending Feedback
-            </div>
-            <div style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#212c59'
-            }}>
-              {feedback.filter(f => f.status === 'pending').length}
-            </div>
-          </div>
-        </div>
-
-        {/* Replied by Admin */}
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-          border: '1px solid #e9ecef',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
-        }}>
-          <div style={{
-            fontSize: '2rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '50%',
-            width: '50px',
-            height: '50px',
-            background: '#e8f5e8',
-            color: '#2e7d32'
-          }}>
-            <MdNotifications />
-          </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{
-              fontSize: '0.9rem',
-              color: '#6c757d',
-              fontWeight: '500',
-              marginBottom: '0.5rem'
-            }}>
-              Replied by Admin
-            </div>
-            <div style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#212c59'
-            }}>
-              {feedback.filter(f => f.status === 'replied').length}
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminStatCardsGrid variant="featured" count={3}>
+        <AdminStatCard
+          variant="featured"
+          label="Total Feedback"
+          value={feedback.length}
+          icon={FaStar}
+          iconColor="#c2185b"
+          iconBackground="#fce4ec"
+          loading={loading}
+        />
+        <AdminStatCard
+          variant="featured"
+          label="Pending Feedback"
+          value={feedback.filter((f) => f.status === 'pending').length}
+          icon={FaClock}
+          iconColor="#f57c00"
+          iconBackground="#fff3e0"
+          loading={loading}
+        />
+        <AdminStatCard
+          variant="featured"
+          label="Replied by Admin"
+          value={feedback.filter((f) => f.status === 'replied').length}
+          icon={MdNotifications}
+          iconColor="#2e7d32"
+          iconBackground="#e8f5e8"
+          loading={loading}
+        />
+      </AdminStatCardsGrid>
 
       {/* Search and Refresh */}
       <div style={{

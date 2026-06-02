@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FaTrash, FaPlus, FaEye, FaImages, FaTimes, FaStar, FaEdit, FaInstagram, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { Grid3X3, Check, Loader2 } from 'lucide-react';
+import { AdminStatCardsGrid, AdminStatCard } from './components/AdminStatCards';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const MAX_MEDIA_PER_POST = 5;
@@ -821,36 +822,17 @@ const GalleryManagement = () => {
         icon={Grid3X3}
       />
 
-      <div style={{
-        background: '#fff',
-        padding: '1.5rem',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-        marginBottom: '1.5rem'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1rem',
-          width: '100%'
-        }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: '1rem',
-            alignItems: 'center',
-            marginBottom: '0',
-            flexWrap: 'nowrap',
-            flex: '0 0 auto'
-          }}>
-            <h5 style={{ margin: 0, color: '#212c59', fontWeight: '600' }}>
-              Gallery Posts ({posts.length})
-            </h5>
-          </div>
-          <div style={{ flex: '1' }}></div>
-        </div>
-      </div>
+      <AdminStatCardsGrid variant="compact" count={1} className="admin-stat-cards--single">
+        <AdminStatCard
+          variant="compact"
+          label={`Gallery Post${posts.length === 1 ? '' : 's'}`}
+          value={posts.length}
+          icon={Grid3X3}
+          iconColor="#212c59"
+          iconBackground="#e8eef8"
+          loading={loading}
+        />
+      </AdminStatCardsGrid>
 
       {error && (
         <div style={{ 

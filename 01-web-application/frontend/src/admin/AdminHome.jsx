@@ -9,85 +9,8 @@ import BestSellerByEmploymentAnalytics from './components/BestSellerByEmployment
 import AnalyticsDisplay from './components/AnalyticsDisplay';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
+import { AdminStatCardsGrid, AdminStatCard } from './components/AdminStatCards';
 import './styles/adminAnalyticsTypography.css';
-
-const StatCard = ({ title, value, icon: Icon, color, subtitle, loading = false, showDropdown = false, dropdownValue = 'monthly', onDropdownChange = null }) => (
-  <div className="stat-card" style={{
-    background: '#fff',
-    padding: '0.75rem',
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-    border: '1px solid #e9ecef',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    cursor: 'pointer'
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = 'translateY(-2px)';
-    e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = 'translateY(0)';
-    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
-  }}>
-    <div className="stat-icon" style={{
-      fontSize: '1.2rem',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: '50%',
-      width: '32px',
-      height: '32px',
-      background: color.background,
-      color: color.text
-    }}>
-      <Icon />
-    </div>
-    <div className="stat-info" style={{ flex: 1, textAlign: 'center' }}>
-      <div className="stat-label" style={{
-        fontSize: '0.8rem',
-        color: '#6c757d',
-        fontWeight: '500',
-        marginBottom: '0.5rem'
-      }}>
-        {title}
-      </div>
-      <div className="stat-value" style={{
-        fontSize: '1.5rem',
-        fontWeight: '700',
-        color: '#212c59',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.5rem'
-      }}>
-        {loading ? (
-          <FaSpinner style={{ animation: 'spin 1s linear infinite' }} />
-        ) : (
-          value
-        )}
-      </div>
-    </div>
-    {showDropdown && onDropdownChange && (
-      <div style={{ marginLeft: 'auto' }}>
-        <EnhancedDropdown
-          options={[
-            { value: 'daily', label: 'Daily' },
-            { value: 'weekly', label: 'Weekly' },
-            { value: 'monthly', label: 'Monthly' },
-            { value: 'yearly', label: 'Yearly' }
-          ]}
-          value={dropdownValue}
-          onChange={onDropdownChange}
-          minWidth="120px"
-          variant="compact"
-        />
-      </div>
-    )}
-  </div>
-);
 
 const InfoCard = ({ title, children, icon: Icon, color = '#003466', extraContent = null, style = {}, className = '' }) => (
   <div
@@ -490,29 +413,26 @@ const AdminHome = () => {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '0.75rem',
-        marginBottom: '1.5rem'
-      }}
-      className="stats-grid">
-        <StatCard
-          title="Total Customers"
+      <AdminStatCardsGrid variant="compact" count={2}>
+        <AdminStatCard
+          variant="compact"
+          label="Total Customers"
           value={stats.totalCustomers.toLocaleString()}
           icon={FaUsers}
-          color={{ background: '#e3f2fd', text: '#1976d2' }}
+          iconColor="#1976d2"
+          iconBackground="#e3f2fd"
           loading={loading}
         />
-        <StatCard
-          title="Total Orders"
+        <AdminStatCard
+          variant="compact"
+          label="Total Orders"
           value={stats.totalOrders.toLocaleString()}
           icon={FaChartLine}
-          color={{ background: '#e8f5e9', text: '#388e3c' }}
+          iconColor="#388e3c"
+          iconBackground="#e8f5e9"
           loading={loading}
         />
-      </div>
+      </AdminStatCardsGrid>
 
 
       
@@ -879,37 +799,3 @@ const AdminHome = () => {
 };
 
 export default AdminHome;
-
-// Add CSS for responsive design
-const styles = `
-  @media (max-width: 1400px) {
-    .stats-grid {
-      grid-template-columns: repeat(3, 1fr) !important;
-    }
-  }
-  
-  @media (max-width: 1200px) {
-    .stats-grid {
-      grid-template-columns: repeat(3, 1fr) !important;
-    }
-  }
-  
-  @media (max-width: 768px) {
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr) !important;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    .stats-grid {
-      grid-template-columns: 1fr !important;
-    }
-  }
-`;
-
-// Inject styles
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = styles;
-  document.head.appendChild(styleSheet);
-} 

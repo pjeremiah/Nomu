@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { FaChartBar, FaCoffee, FaTrophy, FaFileDownload, FaGraduationCap, FaBriefcase } from 'react-icons/fa';
+import { AdminStatCardsGrid, AdminStatCard } from './AdminStatCards';
 import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 applyPlugin(jsPDF);
@@ -598,44 +599,40 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
 
       {/* Summary Cards */}
       {analyticsData.bestSellers.length > 0 && (
-        <div className="summary-cards">
-          <div className="summary-card">
-            <div className="summary-icon">
-              <FaCoffee style={{ color: '#1976d2' }} />
-            </div>
-            <div className="summary-content">
-              <div className="summary-value">{analyticsData.bestSellers.length}</div>
-              <div className="summary-label">Top Items</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">
-              <FaChartBar style={{ color: '#2e7d32' }} />
-            </div>
-            <div className="summary-content">
-              <div className="summary-value">{formatNumber(analyticsData.bestSellers.reduce((sum, item) => sum + item.totalQuantity, 0))}</div>
-              <div className="summary-label">Total Quantity</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">
-              <FaGraduationCap style={{ color: '#0d9488' }} />
-            </div>
-            <div className="summary-content">
-              <div className="summary-value">{formatNumber(employmentSummary.studentQty)}</div>
-              <div className="summary-label">Total Quantity for Students</div>
-            </div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-icon">
-              <FaBriefcase style={{ color: '#c2410c' }} />
-            </div>
-            <div className="summary-content">
-              <div className="summary-value">{formatNumber(employmentSummary.employeeQty)}</div>
-              <div className="summary-label">Total Quantity for Employee</div>
-            </div>
-          </div>
-        </div>
+        <AdminStatCardsGrid variant="compact" count={4}>
+          <AdminStatCard
+            variant="compact"
+            icon={FaCoffee}
+            iconColor="#1976d2"
+            iconBackground="#f8f9fa"
+            value={analyticsData.bestSellers.length}
+            label="Top Items"
+          />
+          <AdminStatCard
+            variant="compact"
+            icon={FaChartBar}
+            iconColor="#2e7d32"
+            iconBackground="#f8f9fa"
+            value={formatNumber(analyticsData.bestSellers.reduce((sum, item) => sum + item.totalQuantity, 0))}
+            label="Total Quantity"
+          />
+          <AdminStatCard
+            variant="compact"
+            icon={FaGraduationCap}
+            iconColor="#0d9488"
+            iconBackground="#f8f9fa"
+            value={formatNumber(employmentSummary.studentQty)}
+            label="Total Quantity for Students"
+          />
+          <AdminStatCard
+            variant="compact"
+            icon={FaBriefcase}
+            iconColor="#c2410c"
+            iconBackground="#f8f9fa"
+            value={formatNumber(employmentSummary.employeeQty)}
+            label="Total Quantity for Employee"
+          />
+        </AdminStatCardsGrid>
       )}
 
       {/* Insights card */}
@@ -779,49 +776,6 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
         .bestseller-analytics-container {
           padding: 0;
           width: 100%;
-        }
-        
-        .summary-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 20px;
-          margin-bottom: 30px;
-          margin-top: 20px;
-        }
-        
-        .summary-card {
-          background: white;
-          padding: 20px;
-          border-radius: 12px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-          border: 1px solid #e9ecef;
-          display: flex;
-          align-items: center;
-          gap: 15px;
-        }
-        
-        .summary-icon {
-          font-size: 24px;
-          padding: 12px;
-          border-radius: 8px;
-          background: #f8f9fa;
-        }
-        
-        .summary-content {
-          flex: 1;
-        }
-        
-        .summary-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: #003466;
-          line-height: 1;
-        }
-        
-        .summary-label {
-          font-size: 14px;
-          color: #6c757d;
-          margin-top: 4px;
         }
         
         .insights-card {
@@ -1070,10 +1024,6 @@ const BestSellerAnalytics = forwardRef(({ period = 'monthly' }, ref) => {
             padding: 15px;
           }
           
-          .summary-cards {
-            grid-template-columns: 1fr;
-            gap: 15px;
-          }
         }
         
         @media (max-width: 600px) {

@@ -5,6 +5,7 @@ import { MdCardGiftcard, MdDescription, MdDateRange } from "react-icons/md";
 import { Search } from "lucide-react";
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
+import { AdminStatCardsGrid, AdminStatCard, getPromoRewardStatusColors } from './components/AdminStatCards';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -817,85 +818,23 @@ const RewardManagement = () => {
         </div>
       )}
 
-      {/* Stats */}
       {!loading && (
-      <div
-        className="stats-container"
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          gap: '12px',
-          marginBottom: '1.5rem',
-          overflowX: 'auto',
-          padding: '0 4px'
-        }}
-      >
-        {REWARD_STATUS.map((status) => (
-        <div
-            key={status}
-          className="stat-card"
-          style={{
-            background: '#fff',
-            padding: '0.5rem 0.75rem',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-            border: '1px solid #e9ecef',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-            cursor: 'pointer',
-            minWidth: '120px',
-            flex: '1'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
-          }}
-        >
-          <div
-            style={{
-              fontSize: '1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              background: status === 'Active' ? '#e8f5e8' : 
-                         status === 'Inactive' ? '#f5f5f5' : 
-                         status === 'Scheduled' ? '#fff3cd' : '#f8d7da',
-              color: status === 'Active' ? '#28a745' : 
-                     status === 'Inactive' ? '#6c757d' : 
-                     status === 'Scheduled' ? '#ffc107' : '#dc3545'
-            }}
-          >
-              <Gift />
-          </div>
-          <div className="stat-info" style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ 
-                fontSize: '0.8rem',
-                color: '#6c757d',
-                fontWeight: '500',
-                marginBottom: '0.5rem'
-              }}>{status}</div>
-              <div style={{ 
-                fontSize: '1.5rem',
-                fontWeight: '700',
-                color: '#212c59',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem'
-              }}>{statusCounts[status]}</div>
-            </div>
-          </div>
-        ))}
-        </div>
+        <AdminStatCardsGrid variant="compact" count={4}>
+          {REWARD_STATUS.map((status) => {
+            const colors = getPromoRewardStatusColors(status);
+            return (
+              <AdminStatCard
+                key={status}
+                variant="compact"
+                label={status}
+                value={statusCounts[status]}
+                icon={Gift}
+                iconColor={colors.iconColor}
+                iconBackground={colors.iconBackground}
+              />
+            );
+          })}
+        </AdminStatCardsGrid>
       )}
 
       {/* Search and Filters */}
