@@ -198,6 +198,13 @@
   margin-bottom: 0.5rem;
 }
 
+.admin-stat-card__hint {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
 .admin-stat-card__spinner {
   animation: admin-stat-spin 1s linear infinite;
 }

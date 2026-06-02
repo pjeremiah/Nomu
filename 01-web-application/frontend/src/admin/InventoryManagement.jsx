@@ -11,6 +11,7 @@ import { useModalContext } from './context/ModalContext';
 import EnhancedDropdown from './components/EnhancedDropdown';
 import PageHeader from './components/PageHeader';
 import ResponsiveModal from './components/ResponsiveModal';
+import { AdminStatCardsGrid, AdminStatCard } from './components/AdminStatCards';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const CATEGORIES = ['Donuts', 'Drinks', 'Pastries', 'Pizzas'];
@@ -887,14 +888,14 @@ const InventoryManagement = () => {
     );
   }
 
+  const lowStockCount = Math.max(
+    dashboardData.lowStockItems ?? 0,
+    items.filter((i) => i.currentStock > 0 && i.currentStock <= (i.minimumThreshold ?? i.minThreshold ?? 0)).length
+  );
+  const outOfStockCount = dashboardData.outOfStockItems || 0;
+
   return (
-    <div style={{
-      padding: '2rem',
-      fontFamily: "'Montserrat', sans-serif",
-      color: '#212c59',
-      minHeight: '100vh',
-      background: '#f8f9fa'
-    }}>
+    <div className="admin-page inventory-management-page">
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
@@ -908,155 +909,58 @@ const InventoryManagement = () => {
       {/* Page Header - same style as Customer Feedback and other admin pages */}
       <PageHeader title="Inventory Management" icon={Package} />
 
-      {/* Dashboard Stats */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '1.5rem',
-        marginBottom: '2rem'
-      }}>
-        <div style={{
-          background: '#fff',
-          padding: '1.5rem',
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-          border: '1px solid #e9ecef'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              fontSize: '2rem',
-              color: '#1976d2',
-              background: '#e3f2fd',
-              borderRadius: '50%',
-              width: '50px',
-              height: '50px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaBox />
-            </div>
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.5rem' }}>Total Items</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#212c59' }}>
-                {dashboardData.totalItems || 0}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setFilters(prev => ({ ...prev, stockStatus: prev.stockStatus === 'low_stock' ? 'all' : 'low_stock' }))}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilters(prev => ({ ...prev, stockStatus: prev.stockStatus === 'low_stock' ? 'all' : 'low_stock' })); } }}
-          title={(dashboardData.lowStockItems ?? 0) > 0 ? 'Click to show only low stock items' : 'No low stock items'}
-          style={{
-            background: (dashboardData.lowStockItems ?? 0) > 0 ? '#fffbf0' : '#fff',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-            border: (dashboardData.lowStockItems ?? 0) > 0 ? '2px solid #ffc107' : '1px solid #e9ecef',
-            cursor: 'pointer',
-            transition: 'box-shadow 0.2s ease, transform 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            if ((dashboardData.lowStockItems ?? 0) > 0) {
-              e.currentTarget.style.boxShadow = '0 6px 24px rgba(255, 193, 7, 0.25)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              fontSize: '2rem',
-              color: '#ffc107',
-              background: '#fff3cd',
-              borderRadius: '50%',
-              width: '50px',
-              height: '50px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaExclamationTriangle />
-            </div>
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.5rem' }}>Low Stock</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#212c59' }}>
-                {Math.max(
-                  dashboardData.lowStockItems ?? 0,
-                  items.filter((i) => i.currentStock > 0 && i.currentStock <= (i.minimumThreshold ?? i.minThreshold ?? 0)).length
-                )}
-              </div>
-              {(dashboardData.lowStockItems ?? 0) > 0 && (
-                <div style={{ fontSize: '0.75rem', color: '#b38600', marginTop: '0.25rem' }}>
-                  Click to view
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setFilters(prev => ({ ...prev, stockStatus: prev.stockStatus === 'out_of_stock' ? 'all' : 'out_of_stock' }))}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilters(prev => ({ ...prev, stockStatus: prev.stockStatus === 'out_of_stock' ? 'all' : 'out_of_stock' })); } }}
-          title={(dashboardData.outOfStockItems ?? 0) > 0 ? 'Click to show only out of stock items' : 'No out of stock items'}
-          style={{
-            background: (dashboardData.outOfStockItems ?? 0) > 0 ? '#fff5f5' : '#fff',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-            border: (dashboardData.outOfStockItems ?? 0) > 0 ? '2px solid #dc3545' : '1px solid #e9ecef',
-            cursor: 'pointer',
-            transition: 'box-shadow 0.2s ease, transform 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            if ((dashboardData.outOfStockItems ?? 0) > 0) {
-              e.currentTarget.style.boxShadow = '0 6px 24px rgba(220, 53, 69, 0.2)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              fontSize: '2rem',
-              color: '#dc3545',
-              background: '#f8d7da',
-              borderRadius: '50%',
-              width: '50px',
-              height: '50px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaBox />
-            </div>
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.5rem' }}>Out of Stock</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#212c59' }}>
-                {dashboardData.outOfStockItems || 0}
-              </div>
-              {(dashboardData.outOfStockItems ?? 0) > 0 && (
-                <div style={{ fontSize: '0.75rem', color: '#c82333', marginTop: '0.25rem' }}>
-                  Click to view
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-      </div>
+      <AdminStatCardsGrid variant="featured" count={3}>
+        <AdminStatCard
+          variant="featured"
+          label="Total Items"
+          value={dashboardData.totalItems || 0}
+          icon={FaBox}
+          iconColor="#1976d2"
+          iconBackground="#e3f2fd"
+        />
+        <AdminStatCard
+          variant="featured"
+          label="Low Stock"
+          value={lowStockCount}
+          icon={FaExclamationTriangle}
+          iconColor="#ffc107"
+          iconBackground="#fff3cd"
+          onClick={() =>
+            setFilters((prev) => ({
+              ...prev,
+              stockStatus: prev.stockStatus === 'low_stock' ? 'all' : 'low_stock',
+            }))
+          }
+          title={lowStockCount > 0 ? 'Click to show only low stock items' : 'No low stock items'}
+          hint={lowStockCount > 0 ? 'Click to view' : undefined}
+          cardStyle={
+            lowStockCount > 0
+              ? { background: '#fffbf0', border: '2px solid #ffc107' }
+              : undefined
+          }
+        />
+        <AdminStatCard
+          variant="featured"
+          label="Out of Stock"
+          value={outOfStockCount}
+          icon={FaBox}
+          iconColor="#dc3545"
+          iconBackground="#f8d7da"
+          onClick={() =>
+            setFilters((prev) => ({
+              ...prev,
+              stockStatus: prev.stockStatus === 'out_of_stock' ? 'all' : 'out_of_stock',
+            }))
+          }
+          title={outOfStockCount > 0 ? 'Click to show only out of stock items' : 'No out of stock items'}
+          hint={outOfStockCount > 0 ? 'Click to view' : undefined}
+          cardStyle={
+            outOfStockCount > 0
+              ? { background: '#fff5f5', border: '2px solid #dc3545' }
+              : undefined
+          }
+        />
+      </AdminStatCardsGrid>
 
       {/* Low stock alert banner - so baristas see at a glance and can jump to low stock items */}
       {(dashboardData.lowStockItems ?? 0) > 0 && (

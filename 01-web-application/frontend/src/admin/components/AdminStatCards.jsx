@@ -33,8 +33,15 @@ export const AdminStatCard = ({
   iconColor = '#1976d2',
   iconBackground = '#f8f9fa',
   loading = false,
+  onClick,
+  onKeyDown,
+  title,
+  hint,
+  cardClassName = '',
+  cardStyle = {},
 }) => {
   const isFeatured = variant === 'featured';
+  const isInteractive = Boolean(onClick);
   const displayValue = loading ? (
     <FaSpinner className="admin-stat-card__spinner" aria-hidden />
   ) : (
@@ -46,13 +53,40 @@ export const AdminStatCard = ({
   ) : null;
 
   const accentStyle = { '--stat-accent-color': iconColor };
+  const combinedStyle = {
+    ...accentStyle,
+    ...cardStyle,
+    ...(isInteractive ? { cursor: 'pointer' } : {}),
+  };
+
+  const handleKeyDown =
+    onKeyDown ||
+    (isInteractive
+      ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick(e);
+          }
+        }
+      : undefined);
+
+  const cardProps = {
+    className: `admin-stat-card admin-stat-card--${isFeatured ? 'featured' : 'compact'} ${cardClassName}`.trim(),
+    style: combinedStyle,
+    ...(isInteractive
+      ? {
+          role: 'button',
+          tabIndex: 0,
+          onClick,
+          onKeyDown: handleKeyDown,
+          title,
+        }
+      : {}),
+  };
 
   if (isFeatured) {
     return (
-      <div
-        className="admin-stat-card admin-stat-card--featured"
-        style={accentStyle}
-      >
+      <div {...cardProps}>
         <div
           className="admin-stat-card__icon--featured"
           style={{ background: iconBackground, color: iconColor }}
@@ -62,16 +96,14 @@ export const AdminStatCard = ({
         <div className="admin-stat-card__body admin-stat-card__body--featured">
           <div className="admin-stat-card__label admin-stat-card__label--featured-top">{label}</div>
           <div className="admin-stat-card__value admin-stat-card__value--featured">{displayValue}</div>
+          {hint ? <div className="admin-stat-card__hint">{hint}</div> : null}
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="admin-stat-card admin-stat-card--compact"
-      style={accentStyle}
-    >
+    <div {...cardProps}>
       <div
         className="admin-stat-card__icon--compact"
         style={{ background: iconBackground, color: iconColor }}
