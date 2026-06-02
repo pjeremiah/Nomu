@@ -45,9 +45,14 @@ export const AdminStatCard = ({
     <Icon style={{ color: iconColor }} />
   ) : null;
 
+  const accentStyle = { '--stat-accent-color': iconColor };
+
   if (isFeatured) {
     return (
-      <div className="admin-stat-card admin-stat-card--featured">
+      <div
+        className="admin-stat-card admin-stat-card--featured"
+        style={accentStyle}
+      >
         <div
           className="admin-stat-card__icon--featured"
           style={{ background: iconBackground, color: iconColor }}
@@ -63,7 +68,10 @@ export const AdminStatCard = ({
   }
 
   return (
-    <div className="admin-stat-card admin-stat-card--compact">
+    <div
+      className="admin-stat-card admin-stat-card--compact"
+      style={accentStyle}
+    >
       <div
         className="admin-stat-card__icon--compact"
         style={{ background: iconBackground, color: iconColor }}

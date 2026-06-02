@@ -386,12 +386,9 @@ const AdminHome = () => {
   }
 
   return (
-    <div style={{
-      padding: '1rem',
+    <div className="admin-page admin-dashboard-page" style={{
       fontFamily: 'Montserrat, sans-serif',
       color: '#212c59',
-      minHeight: '100vh',
-      background: '#f8f9fa'
     }}>
       {/* Page Header */}
       <PageHeader 

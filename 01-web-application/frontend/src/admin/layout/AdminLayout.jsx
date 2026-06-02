@@ -8,6 +8,7 @@ import { useModalContext } from '../context/ModalContext';
 import useMobileDetection from '../hooks/useMobileDetection';
 import MobileRedirect from '../components/MobileRedirect';
 import { useAuth } from '../../contexts/AuthContext';
+import '../styles/adminTablet.css';
 
 /** Served from web `public/` (same pattern as customer app APK on NomuApp page). */
 const DOWNLOAD_BARISTA_APK_URL = '/Nomu-Barista-Application.apk';
@@ -309,10 +310,21 @@ const NavItemContainer = styled.div`
 /* Main content leaves space for sidebar */
 const Main = styled.main`
   flex: 1;
-  padding: 15px;
-  margin-left: 220px; /* same width as sidebar */
+  min-width: 0;
+  width: calc(100vw - 220px);
   max-width: calc(100vw - 220px);
+  margin-left: 220px;
+  padding: 15px;
   box-sizing: border-box;
+  overflow-x: hidden;
+
+  @media (max-width: 1366px) {
+    padding: 12px;
+  }
+
+  @media (max-width: 1024px) {
+    padding: 10px;
+  }
 `;
 
 /* Fade In Animation - removed as it's not being used */
@@ -613,7 +625,7 @@ const AdminLayout = ({ children }) => {
       </Sidebar>
       
       <Main>
-        {children}
+        <div className="admin-main-content">{children}</div>
       </Main>
 
       {showLogoutConfirm && (

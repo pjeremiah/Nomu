@@ -809,13 +809,7 @@ const GalleryManagement = () => {
   }
 
   return (
-    <div style={{
-      padding: '2rem',
-      fontFamily: "'Montserrat', sans-serif",
-      color: '#212c59',
-      minHeight: '100vh',
-      background: '#f8f9fa'
-    }}>
+    <div className="admin-page gallery-management-page">
       {/* Page Header */}
       <PageHeader 
         title="Gallery Management" 

@@ -340,13 +340,7 @@ const CustomerFeedback = () => {
   }
 
   return (
-    <div style={{
-      padding: '2rem',
-      fontFamily: "'Montserrat', sans-serif",
-      color: '#212c59',
-      minHeight: '100vh',
-      background: '#f8f9fa'
-    }}>
+    <div className="admin-page customer-feedback-page">
       {/* Page Header */}
       <PageHeader 
         title="Customer Feedback" 
@@ -429,14 +423,7 @@ const CustomerFeedback = () => {
       </div>
 
       {/* Professional Feedback Table */}
-      <div style={{
-        background: '#ffffff',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        marginBottom: '4rem'
-      }}>
+      <div className="admin-table-panel">
 
         {feedback.length === 0 ? (
           <div style={{
@@ -479,22 +466,9 @@ const CustomerFeedback = () => {
             </p>
           </div>
         ) : (
-          <>
-            {/* Table Header */}
-            <div style={{
-              background: '#212c59',
-              padding: '1.5rem 2rem',
-              borderBottom: '2px solid #b08d57',
-              display: 'grid',
-              gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(200px, 1.5fr) minmax(180px, 1.2fr) minmax(100px, 0.8fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr)',
-              gap: '1rem',
-              alignItems: 'center',
-              fontWeight: '700',
-              fontSize: '0.9rem',
-              color: 'white',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>
+          <div className="admin-table-scroll">
+            <div className="admin-data-table--feedback">
+            <div className="admin-table-header admin-table-header--feedback">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
                 <FaStar style={{ color: '#b08d57', fontSize: '1rem' }} />
                 CUSTOMER
@@ -530,16 +504,11 @@ const CustomerFeedback = () => {
             {paginatedFeedback.map((item, index) => (
               <div
                 key={item._id}
+                className="admin-table-row admin-table-row--feedback"
                 style={{
-                  padding: '1.5rem 2rem',
                   borderBottom: index < paginatedFeedback.length - 1 ? '1px solid #f1f5f9' : 'none',
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(200px, 1.5fr) minmax(180px, 1.2fr) minmax(100px, 0.8fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr)',
-                  gap: '1rem',
-                  alignItems: 'center',
-                  transition: 'background-color 0.2s ease',
                   cursor: 'pointer',
-                  minHeight: '80px'
+                  minHeight: '80px',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#f8fafc';
@@ -713,7 +682,8 @@ const CustomerFeedback = () => {
                 </div>
               </div>
             ))}
-          </>
+            </div>
+          </div>
         )}
       </div>
 

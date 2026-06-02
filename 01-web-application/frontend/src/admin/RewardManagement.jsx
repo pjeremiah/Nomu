@@ -757,13 +757,7 @@ const RewardManagement = () => {
   }
 
   return (
-    <div style={{
-      padding: '2rem',
-      fontFamily: "'Montserrat', sans-serif",
-      color: '#212c59',
-      minHeight: '100vh',
-      background: '#f8f9fa'
-    }}>
+    <div className="admin-page reward-management">
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes rewardSuccessSlideIn { from { opacity: 0; transform: scale(0.92) translateY(-16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -838,23 +832,18 @@ const RewardManagement = () => {
       )}
 
       {/* Search and Filters */}
-      <div style={{
-        background: '#fff',
-        padding: '1.5rem',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-        marginBottom: '2rem',
-        border: '1px solid #e9ecef',
-        display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div style={{
-          position: 'relative',
-          flex: '1',
-          minWidth: '300px'
-        }}>
+      <div
+        className="admin-filters-bar"
+        style={{
+          background: '#fff',
+          padding: '1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          marginBottom: '2rem',
+          border: '1px solid #e9ecef',
+        }}
+      >
+        <div className="admin-search-field" style={{ position: 'relative' }}>
           <Search 
             style={{
               position: 'absolute',
@@ -900,29 +889,10 @@ const RewardManagement = () => {
       </div>
 
       {/* Professional Reward Table */}
-      <div style={{
-        background: '#ffffff',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        marginBottom: '4rem'
-      }}>
-        {/* Table Header */}
-        <div style={{
-          background: '#212c59',
-          padding: '1.5rem 2rem',
-          borderBottom: '2px solid #b08d57',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(200px, 2fr) minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1.5fr) minmax(100px, 0.6fr)',
-          gap: '1rem',
-          alignItems: 'center',
-          fontWeight: '700',
-          fontSize: '0.9rem',
-          color: 'white',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em'
-        }}>
+      <div className="admin-table-panel">
+        <div className="admin-table-scroll">
+          <div className="admin-data-table--reward">
+        <div className="admin-table-header admin-table-header--reward">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
             <MdCardGiftcard style={{ color: '#b08d57', fontSize: '1rem' }} />
             REWARD
@@ -958,15 +928,10 @@ const RewardManagement = () => {
           filteredRewards.map((reward, index) => (
             <div
               key={reward._id}
+              className="admin-table-row admin-table-row--reward"
               style={{
-                padding: '1.5rem 2rem',
                 borderBottom: index < filteredRewards.length - 1 ? '1px solid #f1f5f9' : 'none',
-                display: 'grid',
-                gridTemplateColumns: 'minmax(200px, 2fr) minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1.5fr) minmax(100px, 0.6fr)',
-                gap: '1rem',
-                alignItems: 'center',
-                transition: 'background-color 0.2s ease',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = '#f8fafc';
@@ -1274,6 +1239,8 @@ const RewardManagement = () => {
             )}
           </div>
         ) : null}
+          </div>
+        </div>
       </div>
 
       {/* Delete Confirm Modal */}

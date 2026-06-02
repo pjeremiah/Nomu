@@ -2,58 +2,104 @@
 
 .admin-stat-cards {
   width: 100%;
+  max-width: 100%;
   margin-bottom: 1.5rem;
+  box-sizing: border-box;
 }
 
+/* Default: 2 columns (tablet-friendly for 2 and 4 card layouts) */
 .admin-stat-cards--compact {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.admin-stat-cards--compact.admin-stat-cards--cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.admin-stat-cards--compact.admin-stat-cards--cols-4 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.admin-stat-cards--compact.admin-stat-cards--single {
+  grid-template-columns: minmax(0, 320px);
 }
 
 .admin-stat-cards--featured {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: 1fr;
+  gap: 1rem;
 }
 
-/* Tablet / iPad: 2 & 4 → 2 columns; 3 → stacked */
-@media (min-width: 600px) and (max-width: 1024px) {
-  .admin-stat-cards--compact {
+/* Tablet portrait: keep 2-col compact; stack featured */
+@media (max-width: 1024px) {
+  .admin-stat-cards--compact,
+  .admin-stat-cards--compact.admin-stat-cards--cols-4 {
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 12px;
   }
 
-  .admin-stat-cards--featured {
+  .admin-stat-cards .admin-stat-card--compact {
+    padding: 14px;
+    padding-top: 18px;
+  }
+
+  .admin-stat-cards .admin-stat-card--featured {
+    padding: 1.1rem;
+    padding-top: calc(1.1rem + 4px);
+  }
+
+  .admin-stat-card__icon--compact {
+    font-size: 20px;
+    padding: 10px;
+  }
+
+  .admin-stat-card__value {
+    font-size: 1.35rem;
+  }
+
+  .admin-stat-card__label {
+    font-size: 12px;
+  }
+}
+
+/* Very narrow: single column */
+@media (max-width: 520px) {
+  .admin-stat-cards--compact,
+  .admin-stat-cards--compact.admin-stat-cards--cols-4,
+  .admin-stat-cards--compact.admin-stat-cards--cols-2 {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Tablet landscape: 3 featured cards in one row */
+@media (min-width: 900px) and (max-width: 1400px) and (orientation: landscape) {
+  .admin-stat-cards--featured.admin-stat-cards--cols-3 {
+    grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
   }
 }
 
-@media (max-width: 599px) {
-  .admin-stat-cards--compact,
-  .admin-stat-cards--featured {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Desktop: four compact cards in one row when space allows */
-@media (min-width: 1200px) {
+/* Wide desktop only: 4 compact cards in one row */
+@media (min-width: 1400px) {
   .admin-stat-cards--compact.admin-stat-cards--cols-4 {
     grid-template-columns: repeat(4, 1fr);
-  }
-
-  .admin-stat-cards--compact.admin-stat-cards--cols-2 {
-    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
   }
 
   .admin-stat-cards--featured.admin-stat-cards--cols-3 {
     grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
   }
 }
 
-.admin-stat-card {
-  background: #fff;
+/* Scoped under .admin-stat-cards to override legacy index.css .admin-stat-card rules */
+.admin-stat-cards .admin-stat-card {
+  --stat-accent-color: #1976d2;
+  position: relative;
+  overflow: hidden;
+  background: #fff !important;
   border: 1px solid #e9ecef;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
@@ -61,18 +107,32 @@
   align-items: center;
   gap: 15px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
 }
 
-.admin-stat-card--compact {
+/* Top accent bar — same color as each card's icon (not global blue) */
+.admin-stat-cards .admin-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--stat-accent-color) !important;
+}
+
+.admin-stat-cards .admin-stat-card--compact {
   padding: 20px;
+  padding-top: 24px;
 }
 
-.admin-stat-card--featured {
+.admin-stat-cards .admin-stat-card--featured {
   padding: 1.5rem;
+  padding-top: calc(1.5rem + 4px);
   gap: 1rem;
 }
 
-.admin-stat-card:hover {
+.admin-stat-cards .admin-stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
 }
@@ -117,6 +177,7 @@
   font-weight: 700;
   color: #003466;
   line-height: 1.2;
+  word-break: break-word;
 }
 
 .admin-stat-card__value--featured {

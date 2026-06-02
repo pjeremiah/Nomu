@@ -350,13 +350,7 @@ const MenuManagement = () => {
   };
 
   return (
-    <div style={{
-      padding: '2rem',
-      fontFamily: "'Montserrat', sans-serif",
-      color: '#212c59',
-      minHeight: '100vh',
-      background: '#f8f9fa'
-    }}>
+    <div className="admin-page menu-management-page">
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }

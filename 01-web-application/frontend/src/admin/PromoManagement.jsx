@@ -903,11 +903,7 @@ const PromoManagement = () => {
   }
 
   return (
-    <div style={{
-      padding: '2rem',
-      fontFamily: "'Montserrat', sans-serif",
-      color: '#212c59'
-    }}>
+    <div className="admin-page promo-management">
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes promoSuccessSlideIn { from { opacity: 0; transform: scale(0.92) translateY(-16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -954,23 +950,18 @@ const PromoManagement = () => {
       </AdminStatCardsGrid>
 
       {/* Search and Filters */}
-      <div className="search-filter-container" style={{
-        background: '#fff',
-        padding: '1.5rem',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-        border: '1px solid #e9ecef',
-        marginBottom: '1.5rem',
-        display: 'flex',
-        gap: '1rem',
-        alignItems: 'center',
-        flexWrap: 'wrap'
-      }}>
-        <div style={{
-          position: 'relative',
-          flex: '1',
-          minWidth: '300px'
-        }}>
+      <div
+        className="admin-filters-bar search-filter-container"
+        style={{
+          background: '#fff',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+          border: '1px solid #e9ecef',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <div className="admin-search-field" style={{ position: 'relative' }}>
           <Search 
             style={{
               position: 'absolute',
@@ -1032,31 +1023,11 @@ const PromoManagement = () => {
 
       {/* Professional Promo Table */}
       {!loading && (
-        <div style={{
-          background: '#ffffff',
-                  borderRadius: '8px', // SLIGHT CURVE LIKE ADD NEW PROMO
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-          border: '1px solid #e2e8f0',
-          overflow: 'hidden',
-          marginBottom: '4rem'
-        }}>
+        <div className="admin-table-panel">
           {filteredPromos.length > 0 ? (
-            <>
-              {/* Table Header */}
-              <div style={{
-                background: '#212c59',
-                padding: '1.5rem 2rem',
-                borderBottom: '2px solid #b08d57',
-                display: 'grid',
-                gridTemplateColumns: 'minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(120px, 1fr)',
-                gap: '1rem',
-                alignItems: 'center',
-                fontWeight: '700',
-                fontSize: '0.9rem',
-                color: 'white',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em'
-              }}>
+            <div className="admin-table-scroll">
+              <div className="admin-data-table--promo">
+              <div className="admin-table-header admin-table-header--promo">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <BsGift style={{ color: '#b08d57', fontSize: '1rem' }} />
                   PROMOTION
@@ -1088,15 +1059,10 @@ const PromoManagement = () => {
               {filteredPromos.map((promo, index) => (
                 <div
                   key={promo._id}
+                  className="admin-table-row admin-table-row--promo"
                   style={{
-                    padding: '1.5rem 2rem',
                     borderBottom: index < filteredPromos.length - 1 ? '1px solid #f1f5f9' : 'none',
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(200px, 2fr) minmax(150px, 1.5fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(120px, 1fr)',
-                    gap: '1rem',
-                    alignItems: 'center',
-                    transition: 'background-color 0.2s ease',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#f8fafc';
@@ -1339,7 +1305,8 @@ const PromoManagement = () => {
                   </div>
                 </div>
               ))}
-            </>
+              </div>
+            </div>
           ) : (
             <div style={{
               textAlign: 'center',

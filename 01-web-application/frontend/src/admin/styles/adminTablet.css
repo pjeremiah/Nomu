@@ -1,0 +1,170 @@
+/**
+ * Admin layout fixes for tablet / iPad (portrait & landscape).
+ * Desktop (wide screens) is unchanged.
+ */
+
+.admin-main-content {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Shared page shell — use class admin-page on page roots */
+.admin-page {
+  padding: 2rem;
+  font-family: 'Montserrat', sans-serif;
+  color: #212c59;
+  min-height: 100vh;
+  background: #f8f9fa;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1366px) {
+  .admin-page {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .admin-page {
+    padding: 0.75rem;
+  }
+}
+
+/* Search + filter rows */
+.admin-filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-filters-bar .admin-search-field {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-filters-bar .admin-search-field input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Scrollable data tables on narrow viewports */
+.admin-table-panel {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  margin-bottom: 4rem;
+}
+
+.admin-table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+}
+
+.admin-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.admin-table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(33, 44, 89, 0.25);
+  border-radius: 4px;
+}
+
+.admin-data-table--reward {
+  min-width: 980px;
+}
+
+.admin-data-table--promo {
+  min-width: 820px;
+}
+
+.admin-data-table--feedback {
+  min-width: 900px;
+}
+
+.admin-table-header,
+.admin-table-row {
+  display: grid;
+  gap: 1rem;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.admin-table-header {
+  background: #212c59;
+  padding: 1rem 1.25rem;
+  border-bottom: 2px solid #b08d57;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-table-row {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.2s ease;
+}
+
+.admin-table-row--reward {
+  grid-template-columns:
+    minmax(160px, 2fr) minmax(160px, 2fr) minmax(120px, 1.5fr) minmax(100px, 1fr)
+    minmax(130px, 1.5fr) minmax(90px, 0.6fr);
+}
+
+.admin-table-header--reward {
+  grid-template-columns:
+    minmax(160px, 2fr) minmax(160px, 2fr) minmax(120px, 1.5fr) minmax(100px, 1fr)
+    minmax(130px, 1.5fr) minmax(90px, 0.6fr);
+}
+
+.admin-table-row--promo,
+.admin-table-header--promo {
+  grid-template-columns:
+    minmax(180px, 2fr) minmax(140px, 1.5fr) minmax(100px, 1fr) minmax(130px, 1fr)
+    minmax(100px, 1fr);
+}
+
+.admin-table-row--feedback,
+.admin-table-header--feedback {
+  grid-template-columns:
+    minmax(120px, 1.2fr) minmax(160px, 1.5fr) minmax(150px, 1.2fr) minmax(90px, 0.8fr)
+    minmax(120px, 0.8fr) minmax(90px, 0.6fr);
+}
+
+@media (max-width: 1366px) {
+  .admin-table-header,
+  .admin-table-row {
+    padding: 0.85rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .admin-table-header {
+    font-size: 0.75rem;
+  }
+}
+
+/* Page headers scale down slightly on tablet */
+@media (max-width: 1024px) {
+  .admin-page h1 {
+    font-size: 1.35rem !important;
+  }
+}
