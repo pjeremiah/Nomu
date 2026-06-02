@@ -33,20 +33,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const List<Map<String, dynamic>> _pages = [
     {
       'icon': Icons.star_rounded,
-      'title': 'Earn points',
-      'subtitle': 'Get 1 point for every ₱100 you spend at Nomu Cafe.',
+      'title': 'Earn stamps',
+      'subtitle': 'Get 1 stamp per visit when you spend at least ₱100 on paid items at Nomu Cafe.',
       'color': AppTheme.accent,
     },
     {
       'icon': Icons.qr_code_scanner_rounded,
       'title': 'Scan at checkout',
-      'subtitle': 'Show your QR code when you order to collect points.',
+      'subtitle': 'Show your QR code when you order so the barista can add your stamp.',
       'color': AppTheme.primary,
     },
     {
       'icon': Icons.card_giftcard_rounded,
       'title': 'Redeem rewards',
-      'subtitle': 'Use 5 points for a free drink, 10 for a premium treat. Claim at any branch!',
+      'subtitle': '5 stamps for a free pastry or donut, 10 stamps for a free drink or pizza. Claim in the app!',
       'color': AppTheme.success,
     },
   ];

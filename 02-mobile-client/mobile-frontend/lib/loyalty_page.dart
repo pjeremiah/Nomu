@@ -1704,7 +1704,7 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
       final progress = (currentPoints / target).clamp(0.0, 1.0);
       final toGo = target - currentPoints;
       final label = currentPoints >= 10
-          ? 'You\'re in! Claim rewards at any branch.'
+          ? 'You\'re in! Claim your rewards in the app.'
           : toGo <= 0
               ? 'Almost there!'
               : '$toGo point${toGo == 1 ? '' : 's'} to next reward';
