@@ -134,6 +134,14 @@ String loyaltyClaimTypeFromAdminReward(String rewardType, int pointsRequired, St
   return 'bonus';
 }
 
+enum _RewardClaimControlState {
+  locked,
+  active,
+  expired,
+  claimed,
+  pendingWindow,
+}
+
 class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin {
   int? points;
   bool isLoading = true;
@@ -184,6 +192,9 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   // Timer for updating relative time display
   Timer? _timeUpdateTimer;
 
+  /// Throttle loyalty API refresh right after a claim window expires locally.
+  DateTime? _lastLoyaltyRefreshOnExpiry;
+
   /// Set when dispose() runs so we never use animation controllers after dispose (avoids crash).
   bool _controllersDisposed = false;
 
@@ -199,24 +210,159 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
     return _parseLoyaltyDate(ten ? lw['tier10ClaimBy'] : lw['tier5ClaimBy']);
   }
 
+  bool _tierWindowExpiredForBanner(int pointsRequired, String rewardTypeLower) {
+    final lw = loyaltyWindows;
+    if (lw == null) return false;
+    final now = DateTime.now();
+    final ten = _isTenStampRewardBanner(pointsRequired, rewardTypeLower);
+
+    if (ten) {
+      if (_parseBoolSafe(lw['tier10Expired'])) return true;
+      final d = _parseLoyaltyDate(lw['tier10ClaimBy']);
+      if (d != null && !d.isAfter(now)) return true;
+      return false;
+    }
+
+    // Already claimed in-app this cycle — not "expired" (handled as Claimed).
+    if (_parseBoolSafe(lw['tier5RewardClaimed'])) return false;
+    if (_parseBoolSafe(lw['tier5Expired'])) return true;
+    final d = _parseLoyaltyDate(lw['tier5ClaimBy']);
+    if (d != null && !d.isAfter(now)) return true;
+    return false;
+  }
+
+  /// Whether the 24h tap-Claim window is currently open (server deadline in the future).
   bool _claimWindowOpenForBanner(int pointsRequired, String rewardTypeLower) {
+    if (_tierWindowExpiredForBanner(pointsRequired, rewardTypeLower)) return false;
     final end = _activeClaimDeadlineForBanner(pointsRequired, rewardTypeLower);
     if (end == null) return false;
     return end.isAfter(DateTime.now());
   }
 
-  bool _tierWindowExpiredForBanner(int pointsRequired, String rewardTypeLower) {
+  int _stampTierForPointsRequired(int pointsRequired) {
+    return pointsRequired >= 10 ? 10 : 5;
+  }
+
+  /// True if this stamp tier was already claimed in the current loyalty cycle (RewardClaim history).
+  bool _historyHasClaimForBanner({
+    required int pointsRequired,
+    required String rewardType,
+    required String title,
+  }) {
+    final stampTier = _stampTierForPointsRequired(pointsRequired);
+    final effectiveCycle = currentCycle < 1 ? 1 : currentCycle;
+    final expectedType =
+        loyaltyClaimTypeFromAdminReward(rewardType, pointsRequired, title);
+    final titleLower = title.trim().toLowerCase();
+
+    for (final claim in rewardsHistory) {
+      final claimCycle = _parseIntSafe(claim['cycle'], 0);
+      if (claimCycle >= 1 && claimCycle != effectiveCycle) continue;
+      // Legacy rows without cycle only count on the first card (cycle 1).
+      if (claimCycle < 1 && effectiveCycle > 1) continue;
+
+      final claimTier = _parseIntSafe(claim['loyaltyStampTier'], 0);
+      if (claimTier > 0 && claimTier == stampTier) return true;
+
+      final claimType = (claim['type'] as String? ?? '').toLowerCase();
+      final claimDesc = (claim['description'] as String? ?? '').trim().toLowerCase();
+      if (expectedType == 'bonus') {
+        if (claimType == 'bonus' && claimDesc == titleLower) return true;
+      } else if (claimType == expectedType) {
+        return true;
+      }
+
+      // Same cycle, same tier bucket (one 5-tier and one 10-tier claim per cycle).
+      if (stampTier == 5 && (claimType == 'donut' || claimType == 'pastry')) return true;
+      if (stampTier == 10 &&
+          (claimType == 'coffee' || claimType == 'drink' || claimType == 'pizza')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isRewardClaimedForBanner({
+    required int pointsRequired,
+    required String rewardType,
+    required String title,
+    required bool statusMapClaimed,
+  }) {
+    if (statusMapClaimed) return true;
+    return _historyHasClaimForBanner(
+      pointsRequired: pointsRequired,
+      rewardType: rewardType,
+      title: title,
+    );
+  }
+
+  /// 24h tap-Claim window ended without a claim this cycle (matches server rejection).
+  bool _claimWindowElapsedWithoutClaim(int pointsRequired, String rewardTypeLower) {
+    if (_tierWindowExpiredForBanner(pointsRequired, rewardTypeLower)) return true;
+
     final lw = loyaltyWindows;
     if (lw == null) return false;
-    if (_isTenStampRewardBanner(pointsRequired, rewardTypeLower)) {
-      final d = _parseLoyaltyDate(lw['tier10ClaimBy']);
-      if (d != null && !d.isAfter(DateTime.now())) return true;
+    final now = DateTime.now();
+    final ten = _isTenStampRewardBanner(pointsRequired, rewardTypeLower);
+
+    if (ten) {
+      final by = _parseLoyaltyDate(lw['tier10ClaimBy']);
+      if (by != null && !by.isAfter(now)) return true;
+      final eligible = _parseLoyaltyDate(lw['tier10EligibleAt']);
+      if (by == null &&
+          eligible != null &&
+          !now.isBefore(eligible.add(const Duration(hours: 24)))) {
+        return true;
+      }
       return false;
     }
-    if (_parseBoolSafe(lw['tier5Expired'])) return true;
-    final d = _parseLoyaltyDate(lw['tier5ClaimBy']);
-    if (d != null && !d.isAfter(DateTime.now())) return true;
+
+    final by = _parseLoyaltyDate(lw['tier5ClaimBy']);
+    if (by != null && !by.isAfter(now)) return true;
+    final eligible = _parseLoyaltyDate(lw['tier5EligibleAt']);
+    if (by == null &&
+        eligible != null &&
+        !now.isBefore(eligible.add(const Duration(hours: 24)))) {
+      return true;
+    }
     return false;
+  }
+
+  /// Drives Claim / Expired / Claimed / locked UI on reward banners.
+  _RewardClaimControlState _rewardClaimControlState({
+    required int pointsRequired,
+    required String rewardTypeLower,
+    required String rewardType,
+    required String title,
+    required bool alreadyClaimed,
+    required int currentPoints,
+  }) {
+    final claimed = _isRewardClaimedForBanner(
+      pointsRequired: pointsRequired,
+      rewardType: rewardType,
+      title: title,
+      statusMapClaimed: alreadyClaimed,
+    );
+    if (claimed) return _RewardClaimControlState.claimed;
+    if (currentPoints < pointsRequired) return _RewardClaimControlState.locked;
+
+    final lw = loyaltyWindows;
+    if (!_isTenStampRewardBanner(pointsRequired, rewardTypeLower) &&
+        lw != null &&
+        _parseBoolSafe(lw['tier5RewardClaimed'])) {
+      return _RewardClaimControlState.claimed;
+    }
+
+    if (_claimWindowOpenForBanner(pointsRequired, rewardTypeLower)) {
+      return _RewardClaimControlState.active;
+    }
+
+    if (_claimWindowElapsedWithoutClaim(pointsRequired, rewardTypeLower)) {
+      return _RewardClaimControlState.expired;
+    }
+
+    // Enough stamps but deadline not loaded yet — wait for API sync; do not allow claim.
+    return _RewardClaimControlState.pendingWindow;
   }
 
   String? _countdownLabelForBanner(int pointsRequired, String rewardTypeLower) {
@@ -1085,8 +1231,10 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
   }
 
   void _checkRewardClaimStatus() {
-    if (!mounted || points == null || activeRewards.isEmpty || _isLoadingRewards) {
-      LoggingService.instance.loyalty('Skipping reward claim status check - mounted: $mounted, points: $points, activeRewards: ${activeRewards.length}, isLoading: $_isLoadingRewards');
+    if (!mounted || points == null || activeRewards.isEmpty) {
+      LoggingService.instance.loyalty(
+        'Skipping reward claim status check - mounted: $mounted, points: $points, activeRewards: ${activeRewards.length}',
+      );
       return;
     }
     
@@ -1120,30 +1268,13 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
         continue;
       }
       
-      // Claimed = only if THIS specific reward was claimed in the current cycle.
-      // Match strictly by claim TYPE only (backend stores 'donut' or 'coffee'). Do not use description.
-      // Ignore legacy claims with cycle 0 so they never mark a reward as claimed.
-      final effectiveCycle = currentCycle < 1 ? 1 : currentCycle;
-      bool wasClaimed = false;
-      for (final claim in rewardsHistory) {
-        final claimCycle = _parseIntSafe(claim['cycle'], 0);
-        if (claimCycle < 1 || claimCycle != effectiveCycle) continue; // only consider current cycle; ignore cycle 0
-        final claimType = (claim['type'] as String? ?? '').toLowerCase();
-        final claimDesc = (claim['description'] as String? ?? '').trim().toLowerCase();
-        final titleLower = title.trim().toLowerCase();
-        final expectedClaim =
-            loyaltyClaimTypeFromAdminReward(rewardType, pointsRequired, title);
-        bool isMatch = false;
-        if (expectedClaim == 'bonus') {
-          isMatch = claimType == 'bonus' && claimDesc == titleLower;
-        } else {
-          isMatch = claimType == expectedClaim;
-        }
-        if (isMatch) {
-          wasClaimed = true;
-          LoggingService.instance.loyalty('Reward $title claimed in cycle $currentCycle');
-          break;
-        }
+      bool wasClaimed = _historyHasClaimForBanner(
+        pointsRequired: pointsRequired,
+        rewardType: rewardType,
+        title: title,
+      );
+      if (wasClaimed) {
+        LoggingService.instance.loyalty('Reward $title claimed in cycle $currentCycle (history/tier match)');
       }
       // Session claim just claimed: show as claimed immediately
       if (!wasClaimed && sessionClaimedRewards.containsKey(rewardId)) {
@@ -2099,11 +2230,7 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                 rewardType: rewardType,
                 bannerColor: bannerColor,
                 iconName: iconName,
-                isClaimable: hasEnoughPoints &&
-                    !isClaimed &&
-                    (!_tierWindowExpiredForBanner(pointsRequired, rewardType.toLowerCase()) &&
-                        (_claimWindowOpenForBanner(pointsRequired, rewardType.toLowerCase()) ||
-                            _activeClaimDeadlineForBanner(pointsRequired, rewardType.toLowerCase()) == null)),
+                isClaimable: hasEnoughPoints && !isClaimed,
               ),
             ),
           ),
@@ -2193,20 +2320,25 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                 builder: (context) {
                   final alreadyClaimed = rewardClaimedStatus[rewardId] == true;
                   final currentPoints = points ?? 0;
-                  final canClaimNow = currentPoints >= pointsRequired;
                   final rtl = rewardType.toLowerCase();
 
-                  Widget claimButton(void Function()? onPressed, {String label = 'Claim'}) {
+                  Widget claimButton(
+                    void Function()? onPressed, {
+                    String label = 'Claim',
+                    Color backgroundColor = const Color(0xFF242C5B),
+                  }) {
                     return ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF242C5B),
+                        backgroundColor: backgroundColor,
+                        disabledBackgroundColor: backgroundColor,
                         foregroundColor: Colors.white,
+                        disabledForegroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         minimumSize: const Size(72, 36),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: onPressed,
-                      child: _isClaimingReward
+                      child: _isClaimingReward && onPressed != null
                           ? const SizedBox(
                               width: 16,
                               height: 16,
@@ -2217,6 +2349,10 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                             )
                           : Text(label),
                     );
+                  }
+
+                  Widget expiredClaimButton() {
+                    return claimButton(null, label: 'Expired', backgroundColor: Colors.red.shade700);
                   }
 
                   Widget claimColumn(void Function()? onPressed, {String label = 'Claim'}) {
@@ -2245,44 +2381,52 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
 
                   // Admin-defined stamp threshold ([pointsRequired]) and rewardType drive tier + claim mapping.
                   if (pointsRequired > 0) {
-                    if (canClaimNow && alreadyClaimed) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('Claimed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                      );
-                    }
-                    if (canClaimNow) {
-                      final expired = _tierWindowExpiredForBanner(pointsRequired, rtl);
-                      if (expired) {
+                    final control = _rewardClaimControlState(
+                      pointsRequired: pointsRequired,
+                      rewardTypeLower: rtl,
+                      rewardType: rewardType,
+                      title: title,
+                      alreadyClaimed: alreadyClaimed,
+                      currentPoints: currentPoints,
+                    );
+
+                    switch (control) {
+                      case _RewardClaimControlState.claimed:
                         return const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('Expired', style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                          child: Text('Claimed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                         );
-                      }
-                      final windowOpen = _claimWindowOpenForBanner(pointsRequired, rtl);
-                      final dl = _activeClaimDeadlineForBanner(pointsRequired, rtl);
-                      final canPress = !expired && (windowOpen || dl == null);
-                      return claimColumn(
-                        _isClaimingReward || !canPress
-                            ? null
-                            : () {
-                                _claimDynamicReward(context, rewardId, pointsRequired, rewardType, title);
-                              },
-                      );
+                      case _RewardClaimControlState.expired:
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: expiredClaimButton(),
+                        );
+                      case _RewardClaimControlState.active:
+                        return claimColumn(
+                          _isClaimingReward
+                              ? null
+                              : () {
+                                  _claimDynamicReward(context, rewardId, pointsRequired, rewardType, title);
+                                },
+                        );
+                      case _RewardClaimControlState.pendingWindow:
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: claimButton(
+                            null,
+                            label: 'Claim',
+                            backgroundColor: Colors.grey.shade600,
+                          ),
+                        );
+                      case _RewardClaimControlState.locked:
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            'Need ${pointsRequired - currentPoints} more stamps',
+                            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                          ),
+                        );
                     }
-                    if (alreadyClaimed) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('Claimed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                      );
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        'Need ${pointsRequired - currentPoints} more points',
-                        style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                      ),
-                    );
                   }
 
                   // Fallback for other reward types (if any)
@@ -2354,6 +2498,40 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
 
   void _claimDynamicReward(BuildContext context, String rewardId, int pointsRequired, String rewardType, String title) async {
     if (_isClaimingReward) return;
+
+    final rtl = rewardType.toLowerCase();
+    final claimControl = _rewardClaimControlState(
+      pointsRequired: pointsRequired,
+      rewardTypeLower: rtl,
+      rewardType: rewardType,
+      title: title,
+      alreadyClaimed: rewardClaimedStatus[rewardId] == true,
+      currentPoints: points ?? 0,
+    );
+    if (claimControl == _RewardClaimControlState.expired) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This reward\'s 24-hour Claim window has expired.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+    if (claimControl != _RewardClaimControlState.active) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reward is not ready to claim yet. Pull to refresh or try again shortly.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
     
     LoggingService.instance.loyalty('Claiming dynamic reward: $title for $pointsRequired points');
     
@@ -2406,6 +2584,10 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
                 rewardClaimedStatus[rewardId] = true;
                 if (pointsRequired >= 10) rewardClaimed10 = true;
                 sessionClaimedRewards[rewardId] = DateTime.now();
+                final lw = result['loyaltyWindows'];
+                if (lw is Map) {
+                  loyaltyWindows = Map<String, dynamic>.from(lw);
+                }
               });
             }
             
@@ -2857,9 +3039,29 @@ class _LoyaltyPageState extends State<LoyaltyPage> with TickerProviderStateMixin
     _timeUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (loyaltyWindows != null || rewardsHistory.isNotEmpty) {
+        _maybeSyncLoyaltyAfterExpiryTick();
         setState(() {});
       }
     });
+  }
+
+  /// After the 24h Claim deadline passes locally, refresh user data so [tier5Expired] / cycle match the server.
+  void _maybeSyncLoyaltyAfterExpiryTick() {
+    if (loyaltyWindows == null || points == null || activeRewards.isEmpty) return;
+    for (final reward in activeRewards) {
+      final pr = _parseIntSafe(reward['pointsRequired']);
+      if (pr <= 0 || points! < pr) continue;
+      final rtl = (reward['rewardType'] as String? ?? '').toLowerCase();
+      if (!_tierWindowExpiredForBanner(pr, rtl)) continue;
+
+      final now = DateTime.now();
+      final last = _lastLoyaltyRefreshOnExpiry;
+      if (last != null && now.difference(last) < const Duration(seconds: 45)) return;
+
+      _lastLoyaltyRefreshOnExpiry = now;
+      fetchPoints(forceRefresh: true);
+      return;
+    }
   }
 
   // Method to handle external point updates (prevents glitches)
