@@ -7,7 +7,8 @@
     "dev": "nodemon index.js",
     "mobile": "node barista-server.js",
     "mobile-dev": "nodemon barista-server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:analytics": "node scripts/seed-analytics-demo-data.js --confirm"
   },
   "author": "",
   "license": "ISC",
