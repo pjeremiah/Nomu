@@ -150,8 +150,14 @@ const SignInForm = ({ onSubmit, onSwitch, onOTPStateChange, preventRedirect = fa
           setError('This app is for admin sign-in only. Customer accounts are managed in the Nomu Cafe mobile app.');
         }
       } catch (error) {
-
-        setError(error.message || 'Sign in failed');
+        const msg = String(error?.message || '');
+        if (msg === 'Failed to fetch' || error?.name === 'TypeError') {
+          setError(
+            'Cannot reach the Nomu server. Check your internet connection, then try again. If this continues, ask an admin to redeploy nomu-backend on Render.',
+          );
+        } else {
+          setError(msg || 'Sign in failed');
+        }
       } finally {
         setIsLoading(false);
       }

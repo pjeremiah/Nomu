@@ -212,7 +212,8 @@ const corsOptions = {
     'X-Client-Version',
     'X-Platform',
     'X-Admin-Mobile-Context',
-    'X-Admin-Device-Type'
+    'X-Admin-Device-Type',
+    'X-Admin-Physical-Short'
   ],
   exposedHeaders: [
     'Content-Length', 
