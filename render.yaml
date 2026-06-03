@@ -40,7 +40,7 @@ services:
       - key: MAX_FILE_SIZE
         value: "5242880"
       - key: ALLOWED_ORIGINS
-        value: https://nomu.cafe,https://www.nomu.cafe,https://nomucafe.onrender.com
+        value: https://nomu.cafe,https://www.nomu.cafe,https://nomucafe.onrender.com,https://nomu-frontend.onrender.com
       - key: TRUST_PROXY
         value: "true"
       - key: CORS_CREDENTIALS
@@ -54,9 +54,9 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
 
-  # Frontend Web Service (Static - No Auto Deploy)
+  # Frontend Web Service (Static) — Render dashboard name: NomuCafe → nomucafe.onrender.com
   - type: web
-    name: nomu-frontend
+    name: NomuCafe
     env: static
     buildCommand: cd 01-web-application/frontend && npm ci && npm run build
     staticPublishPath: 01-web-application/frontend/build
@@ -70,3 +70,38 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  # Mobile + barista API (customer app, barista admin login, loyalty, inventory)
+  - type: web
+    name: nomu-mobile-backend
+    env: node
+    plan: starter
+    buildCommand: cd 02-mobile-client/mobile-backend && npm run install-deps
+    startCommand: cd 02-mobile-client/mobile-backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: SERVER_HOST
+        value: 0.0.0.0
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: WEB_BACKEND_URL
+        value: https://nomu-backend.onrender.com
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "100"
+      - key: ENABLE_SECURITY_HEADERS
+        value: "true"
+      - key: ENABLE_CORS_SECURITY
+        value: "true"
+    healthCheckPath: /api/health
+    autoDeploy: true

@@ -9,6 +9,13 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # Existing code uses withOpacity/print heavily — treat as hints, not Problems noise
+  errors:
+    deprecated_member_use: ignore
+    avoid_print: ignore
+    dangling_library_doc_comments: ignore
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

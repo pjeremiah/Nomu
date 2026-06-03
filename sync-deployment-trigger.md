@@ -12,7 +12,9 @@
 
 ## Deployment Status:
 - **Backend Service**: nomu-backend (Auto-deploy enabled)
-- **Frontend Service**: nomu-frontend / NomuCafe (Static; `autoDeploy: true` in blueprint)
+- **Frontend Service**: NomuCafe → https://nomucafe.onrender.com (Static; `autoDeploy: true` in blueprint)
+- **Web API**: nomu-backend → https://nomu-backend.onrender.com (`01-web-application/backend`)
+- **Mobile API**: nomu-mobile-backend → https://nomu-mobile-backend.onrender.com (`02-mobile-client/mobile-backend`)
 - **Branch**: main (Default)
 
 ---

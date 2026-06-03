@@ -195,8 +195,8 @@ class Config {
       return overrideHost.trim();
     }
 
-    // Check .env file first
-    if (_envHost.isNotEmpty) {
+    // Check .env file first (ignore 0.0.0.0 — server bind address, not the API host)
+    if (_envHost.isNotEmpty && _envHost != '0.0.0.0') {
       Logger.config('Using env host: $_envHost');
       return _envHost;
     }

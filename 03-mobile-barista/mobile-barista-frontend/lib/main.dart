@@ -10,23 +10,20 @@ void main() async {
   try {
     Logger.config('Initializing environment variables...', 'MAIN');
     
-    // Always initialize dotenv with default values first
-    await dotenv.load(fileName: ".env", mergeWith: {
-      'SERVER_HOST': 'nomu-backend.onrender.com',
+    // Deployed Render API (do not load barista-backend/.env — its SERVER_HOST=0.0.0.0 is for Node only)
+    const deployedApi = {
+      'SERVER_HOST': 'nomu-mobile-backend.onrender.com',
       'SERVER_PORT': '443',
-    });
-    Logger.success('Default environment variables initialized', 'MAIN');
-    
-    // Try to load from mobile-barista-backend/.env file to override defaults
-    try {
-      await dotenv.load(fileName: "../mobile-barista-backend/.env", mergeWith: dotenv.env);
-      Logger.success('Mobile barista backend .env file loaded and merged', 'MAIN');
-    } catch (e) {
-      Logger.warning('Mobile barista backend .env file not found, using defaults: $e', 'MAIN');
-    }
+    };
+    await dotenv.load(
+      fileName: '.env',
+      isOptional: true,
+      mergeWith: deployedApi,
+    );
+    Logger.success('Environment initialized for Render deployment', 'MAIN');
     
     // Log server configuration
-    final host = dotenv.env['SERVER_HOST'] ?? 'nomu-backend.onrender.com';
+    final host = dotenv.env['SERVER_HOST'] ?? 'nomu-mobile-backend.onrender.com';
     final port = dotenv.env['SERVER_PORT'] ?? '443';
     Logger.api('Server configuration:');
     Logger.api('   - HOST: $host');
@@ -47,18 +44,11 @@ void main() async {
     }
   } catch (e) {
     Logger.error('Failed to initialize environment: $e', 'MAIN');
-    Logger.warning('App will continue with hardcoded defaults', 'MAIN');
-    
-    // Last resort: try to initialize with empty file
-    try {
-      await dotenv.load(fileName: ".env", mergeWith: {
-        'SERVER_HOST': '192.168.100.131',
-        'SERVER_PORT': '5001',
-      });
-      Logger.success('Emergency fallback environment initialized', 'MAIN');
-    } catch (fallbackError) {
-      Logger.error('Emergency fallback also failed: $fallbackError', 'MAIN');
-    }
+    Logger.warning('App will continue with Render API defaults', 'MAIN');
+    dotenv.testLoad(
+      fileInput:
+          'SERVER_HOST=nomu-mobile-backend.onrender.com\nSERVER_PORT=443\n',
+    );
   }
   
   // Force clear any existing server overrides to ensure we use the correct IP
