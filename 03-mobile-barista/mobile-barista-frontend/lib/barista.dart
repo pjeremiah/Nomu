@@ -134,6 +134,8 @@ class BaristaScannerPage extends StatefulWidget {
 class _BaristaScannerPageState extends State<BaristaScannerPage>
     with WidgetsBindingObserver {
   MobileScannerController? controller;
+  int _scannerSession = 0;
+  Timer? _layoutChangeDebounce;
   String? qrResult;
   bool _identifiedViaManualLookup = false;
   bool isCameraPaused = false;
@@ -166,18 +168,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     // Initialize mobile scanner controller with proper configuration
     controller = _createScannerController();
     
-    // Add debug listener for scanner state
-    controller!.addListener(() {
-      Logger.debug('Controller listener triggered', 'SCANNER');
-    });
-    
-    // Start the scanner
-    controller!.start().then((_) {
-      Logger.success('Scanner started successfully', 'SCANNER');
-    }).catchError((error) {
-      Logger.error('Failed to start scanner: $error', 'SCANNER');
-    });
-    
     // Initialize Socket.IO connection
     _initializeSocket();
     
@@ -195,35 +185,31 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _layoutChangeDebounce?.cancel();
+    _layoutChangeDebounce = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
-      unawaited(_refreshScannerAfterLayoutChange());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_refreshScannerAfterLayoutChange());
+      });
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed && !isCameraPaused) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_recreateScannerController());
+      });
+    }
   }
 
   /// Keeps the camera preview active after rotation or window resize.
   Future<void> _refreshScannerAfterLayoutChange() async {
-    if (!mounted || controller == null) {
-      if (mounted) setState(() {});
-      return;
-    }
-    if (isCameraPaused) {
-      if (mounted) setState(() {});
-      return;
-    }
-
-    final ctrl = controller!;
-    try {
-      await ctrl.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 280));
-      if (!mounted || isCameraPaused) return;
-      await ctrl.start();
-      Logger.debug('Scanner restarted after layout change', 'SCANNER');
-    } catch (e) {
-      Logger.warning('Scanner restart after layout change: $e', 'SCANNER');
-      await _recreateScannerController();
-    }
-    if (mounted) setState(() {});
+    if (!mounted || isCameraPaused) return;
+    await _recreateScannerController();
   }
 
   MobileScannerController _createScannerController() {
@@ -235,31 +221,29 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     );
   }
 
+  /// Disposes the old controller and mounts a fresh [MobileScanner] via [_scannerSession].
   Future<void> _recreateScannerController() async {
     if (!mounted) return;
+
     final old = controller;
-    controller = _createScannerController();
+    controller = null;
+    if (mounted) {
+      setState(() => _scannerSession++);
+    }
+
+    try {
+      await old?.stop();
+    } catch (_) {}
     try {
       await old?.dispose();
     } catch (_) {}
-    if (!isCameraPaused && mounted) {
-      try {
-        await controller!.start();
-        Logger.debug('Scanner recreated and started', 'SCANNER');
-      } catch (e) {
-        Logger.error('Recreated scanner failed to start: $e', 'SCANNER');
-      }
-    }
-  }
 
-  Future<void> _ensureScannerRunning() async {
-    if (!mounted || controller == null || isCameraPaused) return;
-    try {
-      await controller!.start();
-    } catch (e) {
-      Logger.warning('Scanner start failed, recreating controller: $e', 'SCANNER');
-      await _recreateScannerController();
-    }
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+
+    controller = _createScannerController();
+    if (mounted) setState(() {});
+    Logger.debug('Scanner session $_scannerSession ready', 'SCANNER');
   }
 
   /// Adds dialog selections to [_currentTransactionItems]. Returns false if nothing was added.
@@ -603,10 +587,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   @override
   void reassemble() {
     super.reassemble();
-    if (controller != null) {
-      controller!.stop();
-      controller!.start();
-    }
+    unawaited(_recreateScannerController());
   }
 
   /// Clears barista session only — keeps login "Remember me" and 24h mirror prefs.
@@ -673,7 +654,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     }
 
     setState(() => isProcessing = true);
-    await controller?.stop();
 
     _processedCodes.add(qrToken);
     _lastProcessedTime = DateTime.now();
@@ -683,7 +663,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     if (mounted) {
       setState(() {
         qrResult = qrToken;
-        isCameraPaused = true;
         isProcessing = false;
         _identifiedViaManualLookup = true;
       });
@@ -802,29 +781,49 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
         return Stack(
           fit: StackFit.expand,
           children: [
-            SizedBox.expand(
-              child: MobileScanner(
-                controller: controller!,
-                onDetect: _onQRDetect,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, child) {
-                  Logger.error('MobileScanner error: $error', 'SCANNER');
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Camera unavailable.\nRotate to portrait or tap Resume Scanning.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 14,
+            if (controller == null)
+              const ColoredBox(
+                color: Colors.black,
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              )
+            else
+              SizedBox.expand(
+                child: MobileScanner(
+                  key: ValueKey(_scannerSession),
+                  controller: controller!,
+                  onDetect: _onQRDetect,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, child) {
+                    Logger.error('MobileScanner error: $error', 'SCANNER');
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Camera unavailable.\nTap below to restart the scanner.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            OutlinedButton(
+                              onPressed: () => unawaited(_recreateScannerController()),
+                              style: NomuAppTheme.modalConfirmOutlineStyle,
+                              child: const Text('Restart Camera'),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
             CustomPaint(
               painter: _ScannerOutsideDimPainter(
                 holeSize: scanSize,
@@ -1200,9 +1199,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
       isProcessing = true;
     });
     
-    // Stop scanner immediately to prevent further detections
-    await controller?.stop();
-    
     // Handle transaction logic
     _handleTransactionLogic(scannedCode);
     
@@ -1217,8 +1213,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
       return false;
     }
     
-    if (isProcessing) {
-      Logger.qr('Already processing, ignoring');
+    if (isProcessing || qrResult != null || isCameraPaused) {
+      Logger.qr('Scan ignored — processing=${isProcessing}, qrResult=${qrResult != null}, paused=$isCameraPaused');
       return false;
     }
     
@@ -1307,7 +1303,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     
     setState(() {
       qrResult = scannedCode;
-      isCameraPaused = true;
       isProcessing = false;
       _identifiedViaManualLookup = false;
     });
@@ -2294,9 +2289,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
       _identifiedViaManualLookup = false;
     });
 
-    await _ensureScannerRunning();
-    if (mounted) setState(() {});
-    Logger.debug('Scanner resumed - cleared processed codes cache', 'SCANNER');
+    await _recreateScannerController();
+    Logger.debug('Scanner resumed with new session $_scannerSession', 'SCANNER');
   }
   
   // Clean up old processed codes to prevent memory buildup
@@ -2357,6 +2351,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _layoutChangeDebounce?.cancel();
     _baristaSessionTimer?.cancel();
     _animationTimer?.cancel();
     _debounceTimer?.cancel();
