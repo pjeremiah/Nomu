@@ -604,12 +604,12 @@ const AdminLayout = ({ children }) => {
             <DownloadButton 
               href={DOWNLOAD_BARISTA_APK_URL}
               download="Nomu-Barista-Application.apk"
-              title="Download Barista App (APK v1.0.18+19)"
+              title="Download Barista App (APK)"
             >
               <NavIcon>
                 <Smartphone size={18} />
               </NavIcon>
-              Download Barista App (v1.0.18)
+              Download Barista App
             </DownloadButton>
           </nav>
           <div style={{marginTop: 'auto'}}>
