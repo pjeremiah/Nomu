@@ -9,6 +9,7 @@ import 'login.dart';
 import 'api/api.dart';
 import 'services/socket_service.dart';
 import 'services/inventory_scanner_service.dart';
+import 'widgets/barista_camera_scanner.dart';
 import 'widgets/custom_toast.dart';
 import 'widgets/manual_lookup_dialog.dart';
 import 'widgets/nomu_modal.dart';
@@ -133,9 +134,10 @@ class BaristaScannerPage extends StatefulWidget {
 
 class _BaristaScannerPageState extends State<BaristaScannerPage>
     with WidgetsBindingObserver {
-  MobileScannerController? controller;
+  final GlobalKey<BaristaCameraScannerState> _cameraKey =
+      GlobalKey<BaristaCameraScannerState>();
   int _scannerSession = 0;
-  Timer? _layoutChangeDebounce;
+  Orientation? _committedOrientation;
   String? qrResult;
   bool _identifiedViaManualLookup = false;
   bool isCameraPaused = false;
@@ -165,9 +167,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     Logger.barista('BaristaScannerPage initialized - Barista user logged in successfully!');
     Logger.barista('Ready to scan QR codes and process orders');
     
-    // Initialize mobile scanner controller with proper configuration
-    controller = _createScannerController();
-    
     // Initialize Socket.IO connection
     _initializeSocket();
     
@@ -185,65 +184,18 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    _layoutChangeDebounce?.cancel();
-    _layoutChangeDebounce = Timer(const Duration(milliseconds: 350), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        unawaited(_refreshScannerAfterLayoutChange());
-      });
-    });
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed && !isCameraPaused) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        unawaited(_recreateScannerController());
-      });
-    }
-  }
-
-  /// Keeps the camera preview active after rotation or window resize.
-  Future<void> _refreshScannerAfterLayoutChange() async {
-    if (!mounted || isCameraPaused) return;
-    await _recreateScannerController();
-  }
-
-  MobileScannerController _createScannerController() {
-    return MobileScannerController(
-      detectionSpeed: DetectionSpeed.noDuplicates,
-      facing: CameraFacing.back,
-      torchEnabled: false,
-      detectionTimeoutMs: AppConstants.scannerDetectionTimeoutMs,
-    );
-  }
-
-  /// Disposes the old controller and mounts a fresh [MobileScanner] via [_scannerSession].
-  Future<void> _recreateScannerController() async {
-    if (!mounted) return;
-
-    final old = controller;
-    controller = null;
-    if (mounted) {
+      final orientation = MediaQuery.orientationOf(context);
+      if (_committedOrientation == null) {
+        _committedOrientation = orientation;
+        return;
+      }
+      if (_committedOrientation == orientation) return;
+      _committedOrientation = orientation;
       setState(() => _scannerSession++);
-    }
-
-    try {
-      await old?.stop();
-    } catch (_) {}
-    try {
-      await old?.dispose();
-    } catch (_) {}
-
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
-
-    controller = _createScannerController();
-    if (mounted) setState(() {});
-    Logger.debug('Scanner session $_scannerSession ready', 'SCANNER');
+      Logger.debug('Scanner session $_scannerSession after rotation', 'SCANNER');
+    });
   }
 
   /// Adds dialog selections to [_currentTransactionItems]. Returns false if nothing was added.
@@ -587,7 +539,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   @override
   void reassemble() {
     super.reassemble();
-    unawaited(_recreateScannerController());
+    if (mounted) setState(() => _scannerSession++);
   }
 
   /// Clears barista session only — keeps login "Remember me" and 24h mirror prefs.
@@ -781,49 +733,14 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
         return Stack(
           fit: StackFit.expand,
           children: [
-            if (controller == null)
-              const ColoredBox(
-                color: Colors.black,
-                child: Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              )
-            else
-              SizedBox.expand(
-                child: MobileScanner(
-                  key: ValueKey(_scannerSession),
-                  controller: controller!,
-                  onDetect: _onQRDetect,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, child) {
-                    Logger.error('MobileScanner error: $error', 'SCANNER');
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Camera unavailable.\nTap below to restart the scanner.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            OutlinedButton(
-                              onPressed: () => unawaited(_recreateScannerController()),
-                              style: NomuAppTheme.modalConfirmOutlineStyle,
-                              child: const Text('Restart Camera'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+            SizedBox.expand(
+              child: BaristaCameraScanner(
+                key: _cameraKey,
+                sessionToken: _scannerSession,
+                onDetect: _onQRDetect,
+                fit: BoxFit.cover,
               ),
+            ),
             CustomPaint(
               painter: _ScannerOutsideDimPainter(
                 holeSize: scanSize,
@@ -956,6 +873,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
           ),
           onPressed: () async {
             await _resumeScanning();
+            await _cameraKey.currentState?.forceRestart();
           },
         ),
       ),
@@ -2289,8 +2207,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
       _identifiedViaManualLookup = false;
     });
 
-    await _recreateScannerController();
-    Logger.debug('Scanner resumed with new session $_scannerSession', 'SCANNER');
+    await _cameraKey.currentState?.ensureRunning();
+    Logger.debug('Scanner resumed after transaction/dialog', 'SCANNER');
   }
   
   // Clean up old processed codes to prevent memory buildup
@@ -2351,11 +2269,10 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _layoutChangeDebounce?.cancel();
     _baristaSessionTimer?.cancel();
     _animationTimer?.cancel();
     _debounceTimer?.cancel();
-    controller?.dispose();
+    // Camera disposed by [BaristaCameraScanner].
     // Don't disconnect socket here as it might be used by other parts of the app
     // SocketService.disconnect();
     super.dispose();
