@@ -11,7 +11,9 @@ import 'services/socket_service.dart';
 import 'services/inventory_scanner_service.dart';
 import 'widgets/custom_toast.dart';
 import 'widgets/manual_lookup_dialog.dart';
+import 'widgets/nomu_modal.dart';
 import 'widgets/notification_banner.dart';
+import 'theme/nomu_app_theme.dart';
 import 'utils/qr_validation_utils.dart';
 import 'utils/logger.dart';
 import 'constants/app_constants.dart';
@@ -129,7 +131,8 @@ class BaristaScannerPage extends StatefulWidget {
   State<BaristaScannerPage> createState() => _BaristaScannerPageState();
 }
 
-class _BaristaScannerPageState extends State<BaristaScannerPage> {
+class _BaristaScannerPageState extends State<BaristaScannerPage>
+    with WidgetsBindingObserver {
   MobileScannerController? controller;
   String? qrResult;
   bool _identifiedViaManualLookup = false;
@@ -156,6 +159,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Logger.barista('BaristaScannerPage initialized - Barista user logged in successfully!');
     Logger.barista('Ready to scan QR codes and process orders');
     
@@ -191,6 +195,30 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     });
 
     _startBaristaSessionHeartbeat();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    unawaited(_refreshScannerAfterLayoutChange());
+  }
+
+  /// Keeps the camera preview active after rotation or window resize.
+  Future<void> _refreshScannerAfterLayoutChange() async {
+    if (!mounted || isCameraPaused || isProcessing || controller == null) {
+      if (mounted) setState(() {});
+      return;
+    }
+    try {
+      await controller!.stop();
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      if (!mounted || isCameraPaused || isProcessing) return;
+      await controller!.start();
+      Logger.debug('Scanner restarted after layout change', 'SCANNER');
+    } catch (e) {
+      Logger.warning('Scanner restart after layout change: $e', 'SCANNER');
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _startBaristaSessionHeartbeat() async {
@@ -478,14 +506,20 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     }
   }
 
-  double _scanBoxSize(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final isLandscape = size.width > size.height;
+  double _scanBoxSizeFromConstraints(
+    double maxWidth,
+    double maxHeight,
+    bool isLandscape,
+  ) {
     if (isLandscape) {
-      return math.min(size.height * 0.52, size.width * 0.28).clamp(140.0, 240.0);
+      const instructionReserve = 52.0;
+      final usableHeight = math.max(0.0, maxHeight - instructionReserve);
+      return math
+          .min(usableHeight * 0.9, maxWidth * 0.38)
+          .clamp(96.0, 170.0);
     }
     return math
-        .min(AppConstants.scanningBoxSize, size.width * 0.78)
+        .min(AppConstants.scanningBoxSize, maxWidth * 0.78)
         .clamp(180.0, AppConstants.scanningBoxSize);
   }
 
@@ -531,6 +565,9 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
   }
 
   Widget _buildAppBar(BuildContext context) {
+    final isLandscape =
+        MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+
     return Container(
       height: 70,
       width: double.infinity,
@@ -540,65 +577,81 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
           fit: BoxFit.cover,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Stack(
-        alignment: Alignment.center,
+        fit: StackFit.expand,
         children: [
-          Row(
-            children: [
-              Image.asset('assets/images/nomutrans.png', height: 36),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Barista QR Scanner',
-                  style: TextStyle(
-                    fontSize: MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height
-                        ? 16
-                        : 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.logout, color: Colors.white),
-                tooltip: 'Logout',
-                onPressed: () async {
-                  final shouldLogout =
-                      await showBaristaLogoutConfirmationDialog(context);
-                  if (shouldLogout == true && context.mounted) {
-                    await _performLogout();
-                  }
-                },
-              ),
-            ],
-          ),
-          Material(
-            color: Colors.white.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(24),
-            child: InkWell(
-              onTap: isProcessing ? null : _openManualLookup,
-              borderRadius: BorderRadius.circular(24),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.person_search, color: Colors.white, size: 18),
-                    const SizedBox(width: 6),
-                    Text(
-                      AppConstants.manualLookupButton,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height
-                            ? 12
-                            : 13,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset('assets/images/nomutrans.png', height: 36),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.sizeOf(context).width * 0.32,
+                      ),
+                      child: Text(
+                        'Barista QR Scanner',
+                        style: TextStyle(
+                          fontSize: isLandscape ? 16 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              tooltip: 'Logout',
+              onPressed: () async {
+                final shouldLogout =
+                    await showBaristaLogoutConfirmationDialog(context);
+                if (shouldLogout == true && context.mounted) {
+                  await _performLogout();
+                }
+              },
+            ),
+          ),
+          Center(
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(24),
+              child: InkWell(
+                onTap: isProcessing ? null : _openManualLookup,
+                borderRadius: BorderRadius.circular(24),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person_search,
+                          color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        AppConstants.manualLookupButton,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: isLandscape ? 12 : 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -613,132 +666,145 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     double scanSize, {
     bool compactInstructions = false,
   }) {
-    return Stack(
-      children: [
-        MobileScanner(
-          controller: controller!,
-          onDetect: _onQRDetect,
-        ),
-        CustomPaint(
-          painter: _ScannerOutsideDimPainter(
-            holeSize: scanSize,
-            borderRadius: 20,
-            dimColor: Colors.black.withValues(alpha: 0.45),
-          ),
-          child: const SizedBox.expand(),
-        ),
-        Center(
-          child: SizedBox(
-            width: scanSize,
-            height: scanSize,
-            child: Stack(
-              children: [
-                ..._buildCornerIndicators(),
-                if (!isCameraPaused && qrResult == null)
-                  _buildScanningAnimation(scanSize),
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        width: 1,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalPad = constraints.maxWidth * 0.05;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            MobileScanner(
+              controller: controller!,
+              onDetect: _onQRDetect,
+              fit: BoxFit.cover,
+            ),
+            CustomPaint(
+              painter: _ScannerOutsideDimPainter(
+                holeSize: scanSize,
+                borderRadius: 20,
+                dimColor: Colors.black.withValues(alpha: 0.45),
+              ),
+              child: const SizedBox.expand(),
+            ),
+            Center(
+              child: SizedBox(
+                width: scanSize,
+                height: scanSize,
+                child: Stack(
+                  children: [
+                    ..._buildCornerIndicators(),
+                    if (!isCameraPaused && qrResult == null)
+                      _buildScanningAnimation(scanSize),
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.qr_code_scanner,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                       ),
                     ),
-                    child: const Icon(
-                      Icons.qr_code_scanner,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          top: compactInstructions ? 8 : 50,
-          left: MediaQuery.sizeOf(context).width * 0.05,
-          right: MediaQuery.sizeOf(context).width * 0.05,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: compactInstructions ? 12 : MediaQuery.sizeOf(context).width * 0.06,
-              vertical: compactInstructions ? 10 : 16,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.black.withValues(alpha: 0.8),
-                  Colors.black.withValues(alpha: 0.6),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 1.5,
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+            Positioned(
+              top: compactInstructions ? 6 : 50,
+              left: horizontalPad,
+              right: horizontalPad,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compactInstructions ? 12 : horizontalPad,
+                  vertical: compactInstructions ? 8 : 16,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.black.withValues(alpha: 0.6),
+                    ],
                   ),
-                  child: Icon(
-                    Icons.qr_code_scanner,
-                    color: Colors.white,
-                    size: compactInstructions ? 16 : 20,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    width: 1.5,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    AppConstants.positionQRCodeMessage,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: compactInstructions ? 13 : 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.qr_code_scanner,
+                        color: Colors.white,
+                        size: compactInstructions ? 16 : 20,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        AppConstants.positionQRCodeMessage,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: compactInstructions ? 13 : 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildResumeScanButton(BuildContext context) {
+  Widget _buildResumeScanButton(BuildContext context, {bool compact = false}) {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: MediaQuery.sizeOf(context).width * 0.05,
-        vertical: 8,
+        vertical: compact ? 4 : 8,
       ),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
-          icon: const Icon(Icons.camera_alt, size: 20),
+          icon: Icon(Icons.camera_alt, size: compact ? 18 : 20),
           label: Text(
             AppConstants.resumeScanningButton,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: compact ? 14 : 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+            padding: EdgeInsets.symmetric(
+              vertical: compact ? 10 : 14,
+              horizontal: 20,
+            ),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: () async {
@@ -757,12 +823,45 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
 
   Widget _buildStatusCard(BuildContext context, {bool compact = false}) {
     final horizontalPad = MediaQuery.sizeOf(context).width * 0.05;
+
+    Widget iconWidget(IconData icon, Color color) {
+      return Container(
+        padding: EdgeInsets.all(compact ? 8 : 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Icon(icon, color: color, size: compact ? 26 : 32),
+      );
+    }
+
+    final bool identified = qrResult != null;
+    final IconData statusIcon = identified
+        ? (_identifiedViaManualLookup ? Icons.person_search : Icons.check_circle)
+        : Icons.qr_code_scanner;
+    final Color statusColor = identified ? Colors.green : Colors.blue;
+    final String title = identified
+        ? (_identifiedViaManualLookup
+            ? AppConstants.customerIdentifiedMessage
+            : AppConstants.qrCodeScannedMessage)
+        : AppConstants.scanQRCodeMessage;
+    final String subtitle = identified
+        ? (_identifiedViaManualLookup
+            ? AppConstants.manualLookupProcessingMessage
+            : AppConstants.processingOrderMessage)
+        : AppConstants.pointCameraMessage;
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(horizontalPad, compact ? 4 : 8, horizontalPad, compact ? 8 : 16),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPad,
+        compact ? 4 : 8,
+        horizontalPad,
+        compact ? 8 : 16,
+      ),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(compact ? 12 : MediaQuery.sizeOf(context).width * 0.04),
-        constraints: BoxConstraints(minHeight: compact ? 88 : 100),
+        padding: EdgeInsets.all(compact ? 10 : MediaQuery.sizeOf(context).width * 0.04),
+        constraints: BoxConstraints(minHeight: compact ? 72 : 100),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -775,84 +874,66 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
           ],
           border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (qrResult != null) ...[
-                Container(
-                  padding: EdgeInsets.all(compact ? 8 : 12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(50),
+        child: compact
+            ? Row(
+                children: [
+                  iconWidget(statusIcon, statusColor),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: identified ? Colors.green : Colors.black,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Icon(
-                    _identifiedViaManualLookup ? Icons.person_search : Icons.check_circle,
-                    color: Colors.green,
-                    size: compact ? 26 : 32,
-                  ),
+                ],
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    iconWidget(statusIcon, statusColor),
+                    SizedBox(height: compact ? 8 : 12),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: identified ? Colors.green : Colors.black,
+                        fontSize: compact ? 16 : 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: compact ? 4 : 6),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: compact ? 12 : 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-                SizedBox(height: compact ? 8 : 12),
-                Text(
-                  _identifiedViaManualLookup
-                      ? AppConstants.customerIdentifiedMessage
-                      : AppConstants.qrCodeScannedMessage,
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontSize: compact ? 16 : 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: compact ? 4 : 6),
-                Text(
-                  _identifiedViaManualLookup
-                      ? AppConstants.manualLookupProcessingMessage
-                      : AppConstants.processingOrderMessage,
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: compact ? 12 : 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ] else ...[
-                Container(
-                  padding: EdgeInsets.all(compact ? 8 : 12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(50),
-                  ),
-                  child: Icon(
-                    Icons.qr_code_scanner,
-                    color: Colors.blue,
-                    size: compact ? 26 : 32,
-                  ),
-                ),
-                SizedBox(height: compact ? 8 : 12),
-                Text(
-                  AppConstants.scanQRCodeMessage,
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: compact ? 16 : 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: compact ? 4 : 6),
-                Text(
-                  AppConstants.pointCameraMessage,
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: compact ? 12 : 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
-          ),
-        ),
+              ),
       ),
     );
   }
@@ -885,49 +966,42 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
             children: [
               _buildAppBar(context),
               Expanded(
-                child: OrientationBuilder(
-                  builder: (context, orientation) {
-                    final scanSize = _scanBoxSize(context);
-                    final isLandscape = orientation == Orientation.landscape;
+                child: SafeArea(
+                  top: false,
+                  left: false,
+                  right: false,
+                  minimum: const EdgeInsets.only(bottom: 4),
+                  child: OrientationBuilder(
+                    builder: (context, orientation) {
+                      final isLandscape =
+                          orientation == Orientation.landscape;
 
-                    if (isLandscape) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                      return Column(
                         children: [
                           Expanded(
-                            flex: 3,
-                            child: _buildScannerStack(
-                              context,
-                              scanSize,
-                              compactInstructions: true,
+                            child: LayoutBuilder(
+                              builder: (context, scannerConstraints) {
+                                final scanSize = _scanBoxSizeFromConstraints(
+                                  scannerConstraints.maxWidth,
+                                  scannerConstraints.maxHeight,
+                                  isLandscape,
+                                );
+                                return _buildScannerStack(
+                                  context,
+                                  scanSize,
+                                  compactInstructions: isLandscape,
+                                );
+                              },
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (isCameraPaused) _buildResumeScanButton(context),
-                                  _buildStatusCard(context, compact: true),
-                                ],
-                              ),
-                            ),
-                          ),
+                          if (isCameraPaused)
+                            _buildResumeScanButton(context,
+                                compact: isLandscape),
+                          _buildStatusCard(context, compact: isLandscape),
                         ],
                       );
-                    }
-
-                    return Column(
-                      children: [
-                        Expanded(
-                          child: _buildScannerStack(context, scanSize),
-                        ),
-                        if (isCameraPaused) _buildResumeScanButton(context),
-                        _buildStatusCard(context),
-                      ],
-                    );
-                  },
+                    },
+                  ),
                 ),
               ),
             ],
@@ -1147,23 +1221,51 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
             
             updateFilteredItems();
             
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.98,
-                maxHeight: MediaQuery.of(context).size.height * 0.9,
-              ),
-              child: AlertDialog(
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Select Inventory Items (Multiple Selection)'),
+            final dialogMaxW = MediaQuery.sizeOf(context).width * 0.98;
+            final dialogMaxH = MediaQuery.sizeOf(context).height * 0.9;
+
+            return Theme(
+              data: NomuModal.wrapTheme(context),
+              child: Dialog(
+                shape: RoundedRectangleBorder(borderRadius: NomuAppTheme.dialogRadius),
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: dialogMaxW,
+                    maxHeight: dialogMaxH,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: NomuAppTheme.white,
+                      borderRadius: NomuAppTheme.dialogRadius,
+                      boxShadow: NomuAppTheme.dialogShadow,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Select Inventory Items (Multiple Selection)',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: NomuAppTheme.neutral900,
+                                ),
+                              ),
                   if (_currentTransactionItems.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
                       'Current Transaction: ${_currentTransactionItems.map((l) => l.displayLabel()).join(', ')}',
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.grey,
+                        color: NomuAppTheme.neutral600,
                         fontWeight: FontWeight.normal,
                       ),
                     ),
@@ -1174,9 +1276,10 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                       height: 120,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        color: NomuAppTheme.darkBlue.withValues(alpha: 0.08),
+                        borderRadius: NomuAppTheme.buttonRadius,
+                        border: Border.all(
+                            color: NomuAppTheme.goldBrown.withValues(alpha: 0.4)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1233,19 +1336,19 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                         ],
                       ),
                     ),
-                ],
-              ),
-              content: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.95,
-                height: MediaQuery.of(context).size.height * 0.7,
-                child: Column(
-                  children: [
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              children: [
                     // Search bar
                     TextField(
                       decoration: const InputDecoration(
                         hintText: 'Search items...',
                         prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       onChanged: (value) {
@@ -1282,8 +1385,6 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                                         updateFilteredItems();
                                       });
                                     },
-                                    selectedColor: Colors.blue.withOpacity(0.3),
-                                    checkmarkColor: Colors.blue,
                                   ),
                                 );
                               },
@@ -1323,7 +1424,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                           return const Center(
                             child: Text(
                               'No items found',
-                              style: TextStyle(color: Colors.grey),
+                              style: TextStyle(color: NomuAppTheme.neutral600),
                             ),
                           );
                         }
@@ -1382,10 +1483,10 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                                     OutlinedButton(
                                       style: btnStyle.copyWith(
                                         foregroundColor:
-                                            WidgetStateProperty.all(Colors.deepPurple),
+                                            WidgetStateProperty.all(NomuAppTheme.goldBrown),
                                         side: WidgetStateProperty.all(
                                             const BorderSide(
-                                                color: Colors.deepPurple)),
+                                                color: NomuAppTheme.goldBrown)),
                                       ),
                                       onPressed: () {
                                         setState(() {
@@ -1442,10 +1543,10 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                                           horizontal: 4, vertical: 6),
                                       child: Text(
                                         '₱${_unitPriceFromInventoryRow(item).round()}',
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
-                                          color: Colors.blueGrey.shade800,
+                                          color: NomuAppTheme.darkBlue,
                                         ),
                                       ),
                                     ),
@@ -1538,7 +1639,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                             return Card(
                               margin: const EdgeInsets.symmetric(vertical: 2),
                               color: anySelected
-                                  ? Colors.blue.withOpacity(0.1)
+                                  ? NomuAppTheme.darkBlue.withValues(alpha: 0.08)
                                   : null,
                               child: Padding(
                                 padding: const EdgeInsets.all(12.0),
@@ -1553,8 +1654,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                                             ? FontWeight.bold
                                             : FontWeight.normal,
                                         color: isInFilteredList
-                                            ? null
-                                            : Colors.grey.shade600,
+                                            ? NomuAppTheme.neutral900
+                                            : NomuAppTheme.neutral600,
                                       ),
                                     ),
                                     if (category.isNotEmpty) ...[
@@ -1564,8 +1665,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: isInFilteredList
-                                              ? Colors.grey
-                                              : Colors.grey.shade500,
+                                              ? NomuAppTheme.neutral600
+                                              : NomuAppTheme.neutral600.withValues(alpha: 0.7),
                                         ),
                                       ),
                                     ],
@@ -1579,41 +1680,56 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
                         );
                       }(),
                     ),
-                  ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                          child: NomuAppTheme.modalBottomActions(
+                            dialogMaxWidth: dialogMaxW,
+                            buttons: [
+                              OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: Text(AppConstants.cancelButton),
+                              ),
+                              if (_currentTransactionItems.isNotEmpty)
+                                OutlinedButton(
+                                  onPressed: () {
+                                    Navigator.of(context, rootNavigator: true)
+                                        .pop('COMPLETE_TRANSACTION');
+                                  },
+                                  child: Text(AppConstants.completeTransactionButton),
+                                ),
+                              ElevatedButton(
+                                onPressed: tempSelectedItems.isEmpty
+                                    ? null
+                                    : () {
+                                        final selectedItems = <Map<String, dynamic>>[];
+                                        tempSelectedItems.forEach((itemId, quantity) {
+                                          final item = _getItemBySelectionKey(itemId);
+                                          if (item != null) {
+                                            for (int i = 0; i < quantity; i++) {
+                                              selectedItems
+                                                  .add(Map<String, dynamic>.from(item));
+                                            }
+                                          }
+                                        });
+                                        Navigator.of(context, rootNavigator: true)
+                                            .pop(selectedItems);
+                                      },
+                                child: Text(
+                                  'Add ${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity)} Item${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity) != 1 ? 's' : ''}',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(AppConstants.cancelButton),
-                ),
-                if (_currentTransactionItems.isNotEmpty)
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context, rootNavigator: true).pop('COMPLETE_TRANSACTION');
-                    },
-                    child: Text(AppConstants.completeTransactionButton),
-                  ),
-                ElevatedButton(
-                  onPressed: tempSelectedItems.isEmpty
-                      ? null
-                      : () {
-                          // Convert selected items with quantities to item objects
-                          final selectedItems = <Map<String, dynamic>>[];
-                          tempSelectedItems.forEach((itemId, quantity) {
-                            final item = _getItemBySelectionKey(itemId);
-                            if (item != null) {
-                              for (int i = 0; i < quantity; i++) {
-                                selectedItems.add(Map<String, dynamic>.from(item));
-                              }
-                            }
-                          });
-                          Navigator.of(context, rootNavigator: true).pop(selectedItems);
-                        },
-                  child: Text('Add ${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity)} Item${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity) != 1 ? 's' : ''}'),
-                ),
-              ],
-            ),
             );
           },
         );
@@ -1750,28 +1866,19 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
   }
 
   Future<void> _showTransactionUpdateDialog(String selectedItems) async {
-    final shouldComplete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppConstants.transactionUpdatedTitle),
-        content: Text('Added: $selectedItems\n\nTotal items: ${_currentTransactionItems.length}\n\nWould you like to add more items or complete the transaction?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AppConstants.addMoreButton),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(AppConstants.completeTransactionButton),
-          ),
-        ],
-      ),
+    final shouldComplete = await NomuModal.showConfirm(
+      context,
+      title: AppConstants.transactionUpdatedTitle,
+      message:
+          'Added: $selectedItems\n\nTotal items: ${_currentTransactionItems.length}\n\nWould you like to add more items or complete the transaction?',
+      icon: Icons.shopping_cart_outlined,
+      cancelLabel: AppConstants.addMoreButton,
+      confirmLabel: AppConstants.completeTransactionButton,
     );
-    
+
     if (shouldComplete == true) {
       await _completeTransaction(qrResult!, '');
-    } else {
-      // Resume scanning for more items
+    } else if (shouldComplete == false) {
       _resumeScanning();
     }
   }
@@ -1860,21 +1967,14 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
   
   // Show error dialog
   void _showErrorDialog(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _resumeScanning();
-            },
-            child: Text(AppConstants.okButton),
-          ),
-        ],
-      ),
+    NomuModal.showMessage(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
+      iconColor: NomuAppTheme.error,
+      primaryLabel: AppConstants.okButton,
+      onPrimary: _resumeScanning,
     );
   }
   
@@ -2084,7 +2184,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
   }
   
   // Show transaction success dialog
-  Future<void> _showTransactionSuccessDialog(Map<String, dynamic> result, String transactionSummary) async {
+  Future<void> _showTransactionSuccessDialog(
+      Map<String, dynamic> result, String transactionSummary) async {
     final rawEarned = result['pointsAdded'];
     final int earned = rawEarned is num
         ? rawEarned.toInt()
@@ -2092,305 +2193,56 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     final earnedLabel = earned == 1
         ? '1 ${AppConstants.pointLabel}'
         : '$earned ${AppConstants.pointsLabel}';
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        elevation: 20,
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          padding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.of(context).size.width * 0.05,
-            vertical: MediaQuery.of(context).size.height * 0.02,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF4CAF50),
-                Color(0xFF45A049),
-              ],
-            ),
-          ),
-          child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-              // Success icon
-              Container(
-                padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: Icon(
-                  Icons.check_circle,
-                  color: Colors.white,
-                  size: MediaQuery.of(context).size.width * 0.12,
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // Title
-              Text(
-                AppConstants.transactionCompleteTitle,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: MediaQuery.of(context).size.width * 0.06,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  decoration: TextDecoration.none,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // Transaction details
-              Flexible(
-                child: Container(
-                  padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDetailRow('✅', AppConstants.itemsLabel, transactionSummary),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                      _buildDetailRow('🎯', AppConstants.customerEarnedLabel, earnedLabel),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                      _buildDetailRow('📊', AppConstants.totalPointsLabel, '${result['points']}'),
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                      _buildDetailRow('📋', AppConstants.totalOrdersLabel, '${result['totalOrders']}'),
-                      if (result['fulfilledRewardBuckets'] is List &&
-                          (result['fulfilledRewardBuckets'] as List).isNotEmpty) ...[
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                        _buildDetailRow(
-                          '🎁',
-                          'Reward pickup',
-                          (result['fulfilledRewardBuckets'] as List)
-                              .map((e) {
-                                if (e is Map) {
-                                  return (e['rewardBucket'] ?? 'item').toString();
-                                }
-                                return e.toString();
-                              })
-                              .join(', '),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // OK button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _resumeScanning();
-            },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF4CAF50),
-                    padding: EdgeInsets.symmetric(
-                      vertical: MediaQuery.of(context).size.height * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 4,
-                  ),
-                  child: Text(
-                    'Continue Scanning',
-                    style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.04,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildDetailRow(String emoji, String label, String value) {
-    return Row(
-      children: [
-        Text(
-          emoji,
-          style: TextStyle(fontSize: MediaQuery.of(context).size.width * 0.05),
+    final detailRows = <Widget>[
+      NomuModal.detailRow(AppConstants.itemsLabel, transactionSummary, emoji: '✅'),
+      NomuModal.detailRow(AppConstants.customerEarnedLabel, earnedLabel, emoji: '🎯'),
+      NomuModal.detailRow(AppConstants.totalPointsLabel, '${result['points']}', emoji: '📊'),
+      NomuModal.detailRow(AppConstants.totalOrdersLabel, '${result['totalOrders']}', emoji: '📋'),
+    ];
+    if (result['fulfilledRewardBuckets'] is List &&
+        (result['fulfilledRewardBuckets'] as List).isNotEmpty) {
+      detailRows.add(
+        NomuModal.detailRow(
+          'Reward pickup',
+          (result['fulfilledRewardBuckets'] as List)
+              .map((e) {
+                if (e is Map) {
+                  return (e['rewardBucket'] ?? 'item').toString();
+                }
+                return e.toString();
+              })
+              .join(', '),
+          emoji: '🎁',
         ),
-        SizedBox(width: MediaQuery.of(context).size.width * 0.03),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: MediaQuery.of(context).size.width * 0.035,
-              fontWeight: FontWeight.w500,
-              decoration: TextDecoration.none,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: MediaQuery.of(context).size.width * 0.035,
-              fontWeight: FontWeight.bold,
-              decoration: TextDecoration.none,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+      );
+    }
+
+    await NomuModal.showRich(
+      context,
+      title: AppConstants.transactionCompleteTitle,
+      icon: Icons.check_circle_rounded,
+      iconColor: NomuAppTheme.goldDark,
+      content: NomuModal.detailPanel(rows: detailRows),
+      primaryLabel: 'Continue Scanning',
+      onPrimary: _resumeScanning,
     );
   }
 
   // Show card full dialog when customer has reached maximum points
   Future<void> _showCardFullDialog(Map<String, dynamic> result) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        elevation: 20,
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          padding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.of(context).size.width * 0.05,
-            vertical: MediaQuery.of(context).size.height * 0.02,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFF9800),
-                Color(0xFFF57C00),
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Warning icon
-              Container(
-                padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: Icon(
-                  Icons.warning,
-                  color: Colors.white,
-                  size: MediaQuery.of(context).size.width * 0.12,
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // Title
-              Text(
-                AppConstants.cardFullTitle,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: MediaQuery.of(context).size.width * 0.06,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  decoration: TextDecoration.none,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.015),
-              
-              // Message
-              Flexible(
-                child: Container(
-                  padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'This customer already has ${_readableStampCountForDialog(result)} stamps. No more can be added.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: MediaQuery.of(context).size.width * 0.04,
-                      height: 1.4,
-                      decoration: TextDecoration.none,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // OK button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _resumeScanning();
-            },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFFF9800),
-                    padding: EdgeInsets.symmetric(
-                      vertical: MediaQuery.of(context).size.height * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 4,
-                  ),
-                  child: Text(
-                    'Continue Scanning',
-                    style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.04,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    await NomuModal.showMessage(
+      context,
+      title: AppConstants.cardFullTitle,
+      message:
+          'This customer already has ${_readableStampCountForDialog(result)} stamps. No more can be added.',
+      icon: Icons.warning_amber_rounded,
+      iconColor: NomuAppTheme.goldBrown,
+      primaryLabel: 'Continue Scanning',
+      onPrimary: _resumeScanning,
     );
   }
 
-  // Show rate limit dialog when customer has reached daily scan limit
   Future<void> _showRateLimitDialog(Map<String, dynamic> result) async {
     final errLower = (result['error']?.toString() ?? '').toLowerCase();
     final isPointsLimit = errLower.contains('points');
@@ -2408,123 +2260,14 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
             ? 'This customer has reached their daily scan limit ($maxScansInt scans per day). Please ask them to return tomorrow.'
             : 'This customer has reached their daily scan limit. Please ask them to return tomorrow.');
 
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        elevation: 20,
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          padding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.of(context).size.width * 0.05,
-            vertical: MediaQuery.of(context).size.height * 0.02,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFF5722),
-                Color(0xFFE64A19),
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon
-              Container(
-                width: MediaQuery.of(context).size.width * 0.15,
-                height: MediaQuery.of(context).size.width * 0.15,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.access_time,
-                  color: Colors.white,
-                  size: MediaQuery.of(context).size.width * 0.08,
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // Title
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: MediaQuery.of(context).size.width * 0.05,
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.none,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-              
-              // Message
-              Container(
-                width: double.infinity,
-                child: Container(
-                  padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    body,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: MediaQuery.of(context).size.width * 0.04,
-                      height: 1.4,
-                      decoration: TextDecoration.none,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // OK button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _resumeScanning();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFFF5722),
-                    padding: EdgeInsets.symmetric(
-                      vertical: MediaQuery.of(context).size.height * 0.02,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 4,
-                  ),
-                  child: Text(
-                    'Continue Scanning',
-                    style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.04,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    await NomuModal.showMessage(
+      context,
+      title: title,
+      message: body,
+      icon: Icons.access_time_rounded,
+      iconColor: NomuAppTheme.goldBrown,
+      primaryLabel: 'Continue Scanning',
+      onPrimary: _resumeScanning,
     );
   }
 
@@ -2604,6 +2347,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _baristaSessionTimer?.cancel();
     _animationTimer?.cancel();
     _debounceTimer?.cancel();
