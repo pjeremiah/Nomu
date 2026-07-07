@@ -65,55 +65,22 @@ Future<bool?> showBaristaLogoutConfirmationDialog(BuildContext context) {
             const SizedBox(height: 28),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: NomuAppTheme.modalBottomActions(
-                  dialogMaxWidth: 340,
-                  buttons: [
-                    OutlinedButton(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: NomuAppTheme.outlineCancelButton(
+                      label: 'Cancel',
                       onPressed: () => Navigator.pop(dialogContext, false),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: NomuAppTheme.white,
-                        foregroundColor: NomuAppTheme.goldBrown,
-                        side: const BorderSide(color: NomuAppTheme.goldBrown),
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        alignment: Alignment.center,
-                        textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.0,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: NomuAppTheme.buttonRadius,
-                        ),
-                      ),
-                      child: const Text('Cancel'),
                     ),
-                    OutlinedButton(
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: NomuAppTheme.outlineConfirmButton(
+                      label: 'Log Out',
                       onPressed: () => Navigator.pop(dialogContext, true),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: NomuAppTheme.white,
-                        foregroundColor: NomuAppTheme.darkBlue,
-                        side: const BorderSide(color: NomuAppTheme.darkBlue),
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        alignment: Alignment.center,
-                        textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.0,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: NomuAppTheme.buttonRadius,
-                        ),
-                      ),
-                      child: const Text('Log Out'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

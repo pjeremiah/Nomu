@@ -31,11 +31,121 @@ class NomuAppTheme {
         ),
       ];
 
-  /// Modal action buttons stacked and centered at the bottom.
+  /// Gold-outline cancel (matches client logout modal).
+  static ButtonStyle get modalCancelOutlineStyle => OutlinedButton.styleFrom(
+        backgroundColor: white,
+        foregroundColor: goldBrown,
+        side: const BorderSide(color: goldBrown),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+      );
+
+  /// Dark-blue-outline confirm (matches client logout modal).
+  static ButtonStyle get modalConfirmOutlineStyle => OutlinedButton.styleFrom(
+        backgroundColor: white,
+        foregroundColor: darkBlue,
+        disabledBackgroundColor: white,
+        disabledForegroundColor: darkBlue.withValues(alpha: 0.35),
+        side: const BorderSide(color: darkBlue),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+      );
+
+  static Widget outlineCancelButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: modalCancelOutlineStyle,
+      child: Text(label),
+    );
+  }
+
+  static Widget outlineConfirmButton({
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: modalConfirmOutlineStyle,
+      child: Text(label, textAlign: TextAlign.center),
+    );
+  }
+
+  /// Inventory modal: Cancel + optional Complete row, then Add Items.
+  static Widget inventorySelectionActions({
+    required VoidCallback onCancel,
+    VoidCallback? onComplete,
+    required VoidCallback? onAdd,
+    required String addLabel,
+    required bool addEnabled,
+    String cancelLabel = 'Cancel',
+    String completeLabel = 'Complete Transaction',
+  }) {
+    if (onComplete != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: outlineCancelButton(label: cancelLabel, onPressed: onCancel),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: outlineConfirmButton(label: completeLabel, onPressed: onComplete),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: outlineConfirmButton(
+              label: addLabel,
+              onPressed: addEnabled ? onAdd : null,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: outlineCancelButton(label: cancelLabel, onPressed: onCancel),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: outlineConfirmButton(
+            label: addLabel,
+            onPressed: addEnabled ? onAdd : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Modal action buttons at the bottom. Two buttons sit side-by-side (client app style);
+  /// one or three+ buttons stack vertically and stay centered.
   static Widget modalBottomActions({
     required double dialogMaxWidth,
     required List<Widget> buttons,
+    bool forceVertical = false,
   }) {
+    if (!forceVertical && buttons.length == 2) {
+      return Row(
+        children: [
+          for (var i = 0; i < buttons.length; i++) ...[
+            if (i > 0) const SizedBox(width: 12),
+            Expanded(child: buttons[i]),
+          ],
+        ],
+      );
+    }
+
     final buttonWidth = (dialogMaxWidth - 48).clamp(220.0, 300.0);
     return Column(
       mainAxisSize: MainAxisSize.min,

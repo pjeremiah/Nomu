@@ -200,23 +200,37 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    unawaited(_refreshScannerAfterLayoutChange());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_refreshScannerAfterLayoutChange());
+    });
   }
 
   /// Keeps the camera preview active after rotation or window resize.
   Future<void> _refreshScannerAfterLayoutChange() async {
-    if (!mounted || isCameraPaused || isProcessing || controller == null) {
+    if (!mounted || controller == null) {
       if (mounted) setState(() {});
       return;
     }
+    if (isCameraPaused || isProcessing) {
+      if (mounted) setState(() {});
+      return;
+    }
+
+    final ctrl = controller!;
     try {
-      await controller!.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 120));
+      await ctrl.stop();
+      await Future<void>.delayed(const Duration(milliseconds: 280));
       if (!mounted || isCameraPaused || isProcessing) return;
-      await controller!.start();
+      await ctrl.start();
       Logger.debug('Scanner restarted after layout change', 'SCANNER');
     } catch (e) {
       Logger.warning('Scanner restart after layout change: $e', 'SCANNER');
+      try {
+        if (mounted && !isCameraPaused && !isProcessing) {
+          await ctrl.start();
+        }
+      } catch (_) {}
     }
     if (mounted) setState(() {});
   }
@@ -512,11 +526,11 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     bool isLandscape,
   ) {
     if (isLandscape) {
-      const instructionReserve = 52.0;
-      final usableHeight = math.max(0.0, maxHeight - instructionReserve);
-      return math
-          .min(usableHeight * 0.9, maxWidth * 0.38)
-          .clamp(96.0, 170.0);
+      // Landscape height is tight — use nearly all scanner area (instruction banner only).
+      const topBannerReserve = 48.0;
+      final available = math.max(0.0, maxHeight - topBannerReserve);
+      final size = math.min(available * 0.88, maxWidth * 0.52);
+      return size.clamp(180.0, math.min(320.0, available));
     }
     return math
         .min(AppConstants.scanningBoxSize, maxWidth * 0.78)
@@ -665,6 +679,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     BuildContext context,
     double scanSize, {
     bool compactInstructions = false,
+    required Orientation orientation,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -672,10 +687,29 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
         return Stack(
           fit: StackFit.expand,
           children: [
-            MobileScanner(
-              controller: controller!,
-              onDetect: _onQRDetect,
-              fit: BoxFit.cover,
+            SizedBox.expand(
+              child: MobileScanner(
+                key: ValueKey(orientation),
+                controller: controller!,
+                onDetect: _onQRDetect,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, child) {
+                  Logger.error('MobileScanner error: $error', 'SCANNER');
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Camera unavailable.\nRotate to portrait or tap Resume Scanning.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
             CustomPaint(
               painter: _ScannerOutsideDimPainter(
@@ -691,7 +725,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
                 height: scanSize,
                 child: Stack(
                   children: [
-                    ..._buildCornerIndicators(),
+                    ..._buildCornerIndicators(scanSize),
                     if (!isCameraPaused && qrResult == null)
                       _buildScanningAnimation(scanSize),
                     Center(
@@ -975,6 +1009,9 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
                     builder: (context, orientation) {
                       final isLandscape =
                           orientation == Orientation.landscape;
+                      final showStatusCard = !isLandscape ||
+                          isCameraPaused ||
+                          qrResult != null;
 
                       return Column(
                         children: [
@@ -990,6 +1027,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
                                   context,
                                   scanSize,
                                   compactInstructions: isLandscape,
+                                  orientation: orientation,
                                 );
                               },
                             ),
@@ -997,7 +1035,8 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
                           if (isCameraPaused)
                             _buildResumeScanButton(context,
                                 compact: isLandscape),
-                          _buildStatusCard(context, compact: isLandscape),
+                          if (showStatusCard)
+                            _buildStatusCard(context, compact: isLandscape),
                         ],
                       );
                     },
@@ -1686,43 +1725,33 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
                         ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                          child: NomuAppTheme.modalBottomActions(
-                            dialogMaxWidth: dialogMaxW,
-                            buttons: [
-                              OutlinedButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: Text(AppConstants.cancelButton),
-                              ),
-                              if (_currentTransactionItems.isNotEmpty)
-                                OutlinedButton(
-                                  onPressed: () {
+                          child: NomuAppTheme.inventorySelectionActions(
+                            cancelLabel: AppConstants.cancelButton,
+                            completeLabel: AppConstants.completeTransactionButton,
+                            onCancel: () => Navigator.of(context).pop(),
+                            onComplete: _currentTransactionItems.isNotEmpty
+                                ? () {
                                     Navigator.of(context, rootNavigator: true)
                                         .pop('COMPLETE_TRANSACTION');
-                                  },
-                                  child: Text(AppConstants.completeTransactionButton),
-                                ),
-                              ElevatedButton(
-                                onPressed: tempSelectedItems.isEmpty
-                                    ? null
-                                    : () {
-                                        final selectedItems = <Map<String, dynamic>>[];
-                                        tempSelectedItems.forEach((itemId, quantity) {
-                                          final item = _getItemBySelectionKey(itemId);
-                                          if (item != null) {
-                                            for (int i = 0; i < quantity; i++) {
-                                              selectedItems
-                                                  .add(Map<String, dynamic>.from(item));
-                                            }
-                                          }
-                                        });
-                                        Navigator.of(context, rootNavigator: true)
-                                            .pop(selectedItems);
-                                      },
-                                child: Text(
-                                  'Add ${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity)} Item${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity) != 1 ? 's' : ''}',
-                                ),
-                              ),
-                            ],
+                                  }
+                                : null,
+                            addEnabled: tempSelectedItems.isNotEmpty,
+                            addLabel:
+                                'Add ${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity)} Item${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity) != 1 ? 's' : ''}',
+                            onAdd: () {
+                              final selectedItems = <Map<String, dynamic>>[];
+                              tempSelectedItems.forEach((itemId, quantity) {
+                                final item = _getItemBySelectionKey(itemId);
+                                if (item != null) {
+                                  for (int i = 0; i < quantity; i++) {
+                                    selectedItems
+                                        .add(Map<String, dynamic>.from(item));
+                                  }
+                                }
+                              });
+                              Navigator.of(context, rootNavigator: true)
+                                  .pop(selectedItems);
+                            },
                           ),
                         ),
                       ],
@@ -1884,9 +1913,9 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
   }
 
   // Build corner indicators for the scanning box
-  List<Widget> _buildCornerIndicators() {
-    const double bracketLength = 30.0;
-    const double bracketThickness = 3.0;
+  List<Widget> _buildCornerIndicators(double scanSize) {
+    final bracketLength = (scanSize * 0.12).clamp(24.0, 40.0);
+    const bracketThickness = 3.0;
     
     return [
       // Top-left corner (inverted L)

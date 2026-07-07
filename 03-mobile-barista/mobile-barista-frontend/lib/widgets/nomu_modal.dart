@@ -135,23 +135,32 @@ class NomuModal {
     );
   }
 
-  static Widget primaryButton({
+  static Widget outlineCancelButton({
     required String label,
     required VoidCallback onPressed,
   }) {
-    return ElevatedButton(
+    return NomuAppTheme.outlineCancelButton(
+      label: label,
       onPressed: onPressed,
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
     );
   }
 
-  static Widget secondaryButton({
+  static Widget outlineConfirmButton({
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return NomuAppTheme.outlineConfirmButton(
+      label: label,
+      onPressed: onPressed,
+    );
+  }
+  static Widget _singleActionButton({
     required String label,
     required VoidCallback onPressed,
   }) {
-    return OutlinedButton(
+    return NomuAppTheme.outlineConfirmButton(
+      label: label,
       onPressed: onPressed,
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
     );
   }
 
@@ -186,7 +195,7 @@ class NomuModal {
             ],
           ),
           buttons: [
-            primaryButton(
+            _singleActionButton(
               label: primaryLabel,
               onPressed: () {
                 Navigator.of(ctx).pop();
@@ -230,11 +239,11 @@ class NomuModal {
             ],
           ),
           buttons: [
-            secondaryButton(
+            outlineCancelButton(
               label: cancelLabel,
               onPressed: () => Navigator.of(ctx).pop(false),
             ),
-            primaryButton(
+            outlineConfirmButton(
               label: confirmLabel,
               onPressed: () => Navigator.of(ctx).pop(true),
             ),
@@ -262,20 +271,29 @@ class NomuModal {
 
     final buttons = <Widget>[
       if (secondaryLabel != null)
-        secondaryButton(
+        outlineCancelButton(
           label: secondaryLabel,
           onPressed: () {
             Navigator.of(context).pop();
             onSecondary?.call();
           },
         ),
-      primaryButton(
-        label: primaryLabel,
-        onPressed: () {
-          Navigator.of(context).pop();
-          onPrimary?.call();
-        },
-      ),
+      if (secondaryLabel != null)
+        outlineConfirmButton(
+          label: primaryLabel,
+          onPressed: () {
+            Navigator.of(context).pop();
+            onPrimary?.call();
+          },
+        )
+      else
+        _singleActionButton(
+          label: primaryLabel,
+          onPressed: () {
+            Navigator.of(context).pop();
+            onPrimary?.call();
+          },
+        ),
     ];
 
     return showDialog<void>(

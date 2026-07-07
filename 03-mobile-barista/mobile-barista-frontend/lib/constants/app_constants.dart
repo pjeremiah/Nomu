@@ -85,7 +85,7 @@ class AppConstants {
   static const String customerSearchHintEmail = 'customer@email.com';
   static const String customerSearchHintUsername = 'Username';
   static const String searchCustomerButton = 'Search';
-  static const String confirmCustomerButton = 'Confirm & Select Items';
+  static const String confirmCustomerButton = 'Confirm';
   static const String customerNotFoundMessage = 'No customer found. Check the email or username.';
   static const String customerFoundMessage = 'Customer Found!';
   static const String manualLookupProcessingMessage = 'Proceeding to item selection...';

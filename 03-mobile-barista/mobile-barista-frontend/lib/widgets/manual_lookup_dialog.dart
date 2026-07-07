@@ -91,9 +91,15 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
 
   Widget _typeChip({required String label, required String value, required IconData icon}) {
     final selected = _searchType == value;
+    final inactiveBg = NomuAppTheme.neutral50;
+    final inactiveBorder = NomuAppTheme.neutral600.withValues(alpha: 0.28);
+    final inactiveFg = NomuAppTheme.neutral600;
+    const activeBg = NomuAppTheme.neutral600;
+    const activeFg = NomuAppTheme.white;
+
     return Expanded(
       child: Material(
-        color: selected ? NomuAppTheme.darkBlue : NomuAppTheme.white,
+        color: selected ? activeBg : inactiveBg,
         borderRadius: NomuAppTheme.buttonRadius,
         child: InkWell(
           onTap: () {
@@ -110,7 +116,7 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
             decoration: BoxDecoration(
               borderRadius: NomuAppTheme.buttonRadius,
               border: Border.all(
-                color: selected ? NomuAppTheme.darkBlue : NomuAppTheme.goldBrown,
+                color: selected ? activeBg : inactiveBorder,
                 width: 1.5,
               ),
             ),
@@ -121,7 +127,7 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
                 Icon(
                   icon,
                   size: 18,
-                  color: selected ? NomuAppTheme.white : NomuAppTheme.darkBlue,
+                  color: selected ? activeFg : inactiveFg,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -129,7 +135,7 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: selected ? NomuAppTheme.white : NomuAppTheme.darkBlue,
+                    color: selected ? activeFg : inactiveFg,
                   ),
                 ),
               ],
@@ -222,82 +228,84 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    TextField(
-                      controller: _queryController,
-                      keyboardType: _searchType == 'email'
-                          ? TextInputType.emailAddress
-                          : TextInputType.text,
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => _runSearch(),
-                      style: const TextStyle(color: NomuAppTheme.neutral900),
-                      cursorColor: NomuAppTheme.darkBlue,
-                      decoration: InputDecoration(
-                        hintText: _searchType == 'email'
-                            ? AppConstants.customerSearchHintEmail
-                            : AppConstants.customerSearchHintUsername,
-                        hintStyle: TextStyle(
-                            color: NomuAppTheme.neutral600.withValues(alpha: 0.7)),
-                        prefixIcon: Icon(
-                          _searchType == 'email'
-                              ? Icons.email_outlined
-                              : Icons.person_outline,
-                          color: NomuAppTheme.darkBlue,
-                        ),
-                        filled: true,
-                        fillColor: NomuAppTheme.neutral50,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: NomuAppTheme.fieldRadius,
-                          borderSide: BorderSide(
-                              color:
-                                  NomuAppTheme.neutral600.withValues(alpha: 0.25)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: NomuAppTheme.fieldRadius,
-                          borderSide: const BorderSide(
-                              color: NomuAppTheme.darkBlue, width: 2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Align(
-                      alignment: Alignment.center,
-                      child: SizedBox(
-                        width: (maxW - 48).clamp(220.0, 300.0),
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: _isSearching ? null : _runSearch,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: NomuAppTheme.darkBlue,
-                            foregroundColor: NomuAppTheme.white,
-                            disabledBackgroundColor:
-                                NomuAppTheme.darkBlue.withValues(alpha: 0.45),
-                            disabledForegroundColor:
-                                NomuAppTheme.white.withValues(alpha: 0.8),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: NomuAppTheme.buttonRadius),
-                          ),
-                          icon: _isSearching
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: NomuAppTheme.white,
-                                  ),
-                                )
-                              : const Icon(Icons.search, size: 20),
-                          label: Text(
-                            _isSearching
-                                ? 'Searching...'
-                                : AppConstants.searchCustomerButton,
-                            style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w600),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _queryController,
+                            keyboardType: _searchType == 'email'
+                                ? TextInputType.emailAddress
+                                : TextInputType.text,
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (_) => _runSearch(),
+                            style: const TextStyle(color: NomuAppTheme.neutral900),
+                            cursorColor: NomuAppTheme.darkBlue,
+                            decoration: InputDecoration(
+                              hintText: _searchType == 'email'
+                                  ? AppConstants.customerSearchHintEmail
+                                  : AppConstants.customerSearchHintUsername,
+                              hintStyle: TextStyle(
+                                  color: NomuAppTheme.neutral600.withValues(alpha: 0.7)),
+                              prefixIcon: Icon(
+                                _searchType == 'email'
+                                    ? Icons.email_outlined
+                                    : Icons.person_outline,
+                                color: NomuAppTheme.neutral600,
+                              ),
+                              filled: true,
+                              fillColor: NomuAppTheme.neutral50,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: NomuAppTheme.fieldRadius,
+                                borderSide: BorderSide(
+                                    color: NomuAppTheme.neutral600
+                                        .withValues(alpha: 0.25)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: NomuAppTheme.fieldRadius,
+                                borderSide: const BorderSide(
+                                    color: NomuAppTheme.darkBlue, width: 2),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: _isSearching ? null : _runSearch,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: NomuAppTheme.darkBlue,
+                              foregroundColor: NomuAppTheme.white,
+                              disabledBackgroundColor:
+                                  NomuAppTheme.darkBlue.withValues(alpha: 0.45),
+                              disabledForegroundColor:
+                                  NomuAppTheme.white.withValues(alpha: 0.8),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: NomuAppTheme.buttonRadius),
+                            ),
+                            icon: _isSearching
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: NomuAppTheme.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.search, size: 20),
+                            label: Text(
+                              _isSearching ? '...' : 'Search',
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 12),
@@ -322,25 +330,24 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: NomuAppTheme.darkBlue.withValues(alpha: 0.06),
+                          color: NomuAppTheme.successLight,
                           borderRadius: NomuAppTheme.buttonRadius,
                           border: Border.all(
-                              color:
-                                  NomuAppTheme.goldBrown.withValues(alpha: 0.55)),
+                              color: NomuAppTheme.success.withValues(alpha: 0.45)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.check_circle_rounded,
-                                    color: NomuAppTheme.goldDark, size: 22),
+                                const Icon(Icons.check_circle_rounded,
+                                    color: NomuAppTheme.success, size: 22),
                                 const SizedBox(width: 8),
                                 Text(
                                   AppConstants.customerFoundMessage,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
-                                    color: NomuAppTheme.darkBlue,
+                                    color: NomuAppTheme.success,
                                     fontSize: 15,
                                   ),
                                 ),
@@ -380,14 +387,14 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: NomuAppTheme.gold.withValues(alpha: 0.18),
+                                color: NomuAppTheme.success.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 'Current stamps: ${_foundCustomer!['points'] ?? 0}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  color: NomuAppTheme.goldDark,
+                                  color: NomuAppTheme.success,
                                   fontSize: 14,
                                 ),
                               ),
@@ -402,47 +409,34 @@ class _ManualLookupDialogState extends State<ManualLookupDialog> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: NomuAppTheme.modalBottomActions(
-                  dialogMaxWidth: maxW,
-                  buttons: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: NomuAppTheme.goldBrown,
-                        side: const BorderSide(
-                            color: NomuAppTheme.goldBrown, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: NomuAppTheme.buttonRadius,
-                        ),
-                      ),
-                      child: const Text(
-                        AppConstants.cancelButton,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    if (_foundCustomer != null)
-                      ElevatedButton(
-                        onPressed: _confirm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: NomuAppTheme.darkBlue,
-                          foregroundColor: NomuAppTheme.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: NomuAppTheme.buttonRadius,
+              child: _foundCustomer != null
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: NomuAppTheme.outlineCancelButton(
+                            label: AppConstants.cancelButton,
+                            onPressed: () => Navigator.of(context).pop(),
                           ),
                         ),
-                        child: const Text(
-                          AppConstants.confirmCustomerButton,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: NomuAppTheme.outlineConfirmButton(
+                            label: AppConstants.confirmCustomerButton,
+                            onPressed: _confirm,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Align(
+                      alignment: Alignment.center,
+                      child: SizedBox(
+                        width: (maxW - 48).clamp(220.0, 300.0),
+                        child: NomuAppTheme.outlineCancelButton(
+                          label: AppConstants.cancelButton,
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
                       ),
-                  ],
-                ),
-              ),
+                    ),
             ),
           ],
         ),
