@@ -17,6 +17,9 @@ class AppConstants {
   static const Duration snackbarDuration = Duration(seconds: 3);
   /// Barista verification screen: wait before requesting another code (matches backend cooldown).
   static const Duration resendCooldown = Duration(seconds: 25);
+
+  /// Shown on login — bump with each hosted APK release.
+  static const String appVersion = '1.0.17+18';
   
   // QR Code Configuration
   static const int qrCodeLength = 6;

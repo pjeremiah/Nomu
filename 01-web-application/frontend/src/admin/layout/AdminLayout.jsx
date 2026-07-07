@@ -11,7 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import '../styles/adminTablet.css';
 
 /** Served from web `public/` (same pattern as customer app APK on NomuApp page). */
-const DOWNLOAD_BARISTA_APK_URL = '/Nomu-Barista-Application.apk?v=1017';
+const DOWNLOAD_BARISTA_APK_URL = '/Nomu-Barista-Application.apk?v=1018';
 
 const Page = styled.div`
   display: flex;
@@ -604,12 +604,12 @@ const AdminLayout = ({ children }) => {
             <DownloadButton 
               href={DOWNLOAD_BARISTA_APK_URL}
               download="Nomu-Barista-Application.apk"
-              title="Download Barista App (APK)"
+              title="Download Barista App (APK v1.0.17+18)"
             >
               <NavIcon>
                 <Smartphone size={18} />
               </NavIcon>
-              Download Barista App
+              Download Barista App (v1.0.17)
             </DownloadButton>
           </nav>
           <div style={{marginTop: 'auto'}}>

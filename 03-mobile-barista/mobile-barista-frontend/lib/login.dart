@@ -223,6 +223,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 20),
           _buildLoginButton(),
+          const SizedBox(height: 12),
+          Text(
+            'App version ${AppConstants.appVersion}',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
           const SizedBox(height: 20),
         ],
       ),
