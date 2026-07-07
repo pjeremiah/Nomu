@@ -19,7 +19,7 @@ class AppConstants {
   static const Duration resendCooldown = Duration(seconds: 25);
 
   /// Shown on login — bump with each hosted APK release.
-  static const String appVersion = '1.0.20+21';
+  static const String appVersion = '1.0.21+22';
   
   // QR Code Configuration
   static const int qrCodeLength = 6;
@@ -62,15 +62,12 @@ class AppConstants {
   
   // Dialog Messages
   static const String selectDrinkTitle = 'Select Drink';
-  static const String transactionUpdatedTitle = 'Transaction Updated';
   static const String transactionCompleteTitle = 'Transaction Complete!';
   static const String cardFullTitle = 'Card Full';
   static const String confirmLogoutTitle = 'Confirm Logout';
   static const String confirmLogoutMessage = 'Are you sure you want to log out?';
   
   // Button Labels
-  static const String addItemButton = 'Add Item';
-  static const String addMoreButton = 'Add More';
   static const String completeTransactionButton = 'Complete Transaction';
   static const String cancelButton = 'Cancel';
   static const String okButton = 'OK';

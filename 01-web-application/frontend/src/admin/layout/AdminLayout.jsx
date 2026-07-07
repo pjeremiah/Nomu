@@ -11,7 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import '../styles/adminTablet.css';
 
 /** Served from web `public/` (same pattern as customer app APK on NomuApp page). */
-const DOWNLOAD_BARISTA_APK_URL = '/Nomu-Barista-Application.apk?v=1021';
+const DOWNLOAD_BARISTA_APK_URL = '/Nomu-Barista-Application.apk?v=1022';
 
 const Page = styled.div`
   display: flex;
