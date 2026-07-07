@@ -262,17 +262,92 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     }
   }
 
-  /// Reopen inventory selection while keeping the open transaction.
-  Future<void> _continueAddingItems() async {
-    if (!mounted || qrResult == null) return;
-    setState(() {
-      isCameraPaused = true;
-      isProcessing = false;
-    });
-    try {
-      await controller?.stop();
-    } catch (_) {}
-    await _showDrinkSelectionDialog();
+  /// Adds dialog selections to [_currentTransactionItems]. Returns false if nothing was added.
+  Future<bool> _processSelectedInventoryItems(
+    List<Map<String, dynamic>> selectedItemsList,
+  ) async {
+    Map<String, Map<String, dynamic>> itemQuantities = {};
+    for (Map<String, dynamic> item in selectedItemsList) {
+      final itemId = item['_id'] ?? '';
+      final isRw = item[_kIsRewardRedemption] == true;
+      final rwb = item[_kRewardBucket] as String?;
+      final rawP = item[_kBaristaUnitPrice];
+      final priceKey = !isRw && rawP != null
+          ? (rawP is num ? rawP.toDouble() : (double.tryParse(rawP.toString()) ?? 0))
+              .toStringAsFixed(2)
+          : '';
+      final groupKey = isRw && rwb != null && rwb.isNotEmpty
+          ? '${itemId}_rw_$rwb'
+          : (priceKey.isNotEmpty ? '${itemId}_$priceKey' : itemId);
+
+      if (itemQuantities.containsKey(groupKey)) {
+        itemQuantities[groupKey]!['quantity'] =
+            (itemQuantities[groupKey]!['quantity'] as int) + 1;
+      } else {
+        itemQuantities[groupKey] = {
+          'item': item,
+          'quantity': 1,
+        };
+      }
+    }
+
+    var addedAny = false;
+    for (final groupKey in itemQuantities.keys) {
+      final itemData = itemQuantities[groupKey]!;
+      final item = itemData['item'] as Map<String, dynamic>;
+      final quantity = itemData['quantity'] as int;
+      final mongoId = item['_id']?.toString() ?? '';
+      final itemName = item['name'] ?? 'Unknown Item';
+      final isMenu = item['isMenu'] ?? false;
+
+      final isRwLine = item[_kIsRewardRedemption] == true;
+      double? chosenPrice;
+      if (!isRwLine) {
+        final rawBp = item[_kBaristaUnitPrice];
+        if (rawBp != null) {
+          chosenPrice = rawBp is num
+              ? rawBp.toDouble()
+              : double.tryParse(rawBp.toString());
+        }
+      }
+
+      if (isMenu) {
+        for (int i = 0; i < quantity; i++) {
+          if (isRwLine) {
+            _addItemToTransaction(
+              itemName,
+              rewardBucket: item[_kRewardBucket] as String?,
+              rewardDescription: item[_kRewardDescription] as String?,
+            );
+          } else {
+            _addItemToTransaction(itemName, unitPrice: chosenPrice);
+          }
+          addedAny = true;
+        }
+        continue;
+      }
+
+      _queueInventoryStockForCompletion(
+        itemId: mongoId,
+        quantity: quantity,
+        itemName: itemName,
+      );
+
+      for (int i = 0; i < quantity; i++) {
+        if (isRwLine) {
+          _addItemToTransaction(
+            itemName,
+            rewardBucket: item[_kRewardBucket] as String?,
+            rewardDescription: item[_kRewardDescription] as String?,
+          );
+        } else {
+          _addItemToTransaction(itemName, unitPrice: chosenPrice);
+        }
+        addedAny = true;
+      }
+    }
+
+    return addedAny;
   }
 
   Future<void> _startBaristaSessionHeartbeat() async {
@@ -1332,83 +1407,73 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
                                   color: NomuAppTheme.neutral900,
                                 ),
                               ),
-                  if (_currentTransactionItems.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Current Transaction: ${_currentTransactionItems.map((l) => l.displayLabel()).join(', ')}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: NomuAppTheme.neutral600,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  if (tempSelectedItems.isNotEmpty)
-                    Container(
-                      height: 120,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: NomuAppTheme.darkBlue.withValues(alpha: 0.08),
-                        borderRadius: NomuAppTheme.buttonRadius,
-                        border: Border.all(
-                            color: NomuAppTheme.goldBrown.withValues(alpha: 0.4)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Selected Items (${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity)}):',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Wrap(
-                                spacing: 4,
-                                runSpacing: 4,
-                                children: tempSelectedItems.entries.map((entry) {
-                                  final itemId = entry.key;
-                                  final quantity = entry.value;
-                                  final item = _getItemBySelectionKey(itemId);
-                                  final itemName = item?['name'] ?? 'Unknown Item';
-                                  final isRwChip = item?[_kIsRewardRedemption] == true;
-                                  final rwbChip = item?[_kRewardBucket] as String?;
-                                  final p = item?[_kBaristaUnitPrice];
-                                  var priceTag = '';
-                                  if (!isRwChip && p != null) {
-                                    final pd = p is num
-                                        ? p.toDouble()
-                                        : (double.tryParse(p.toString()) ?? 0);
-                                    priceTag = pd == pd.roundToDouble()
-                                        ? ' ₱${pd.round()}'
-                                        : ' ₱${pd.toStringAsFixed(2)}';
-                                  }
-                                  final rwTag = isRwChip && rwbChip != null
-                                      ? ' [${_freeRewardButtonLabel(rwbChip)}]'
-                                      : '';
-                                  return Chip(
-                                    label: Text(
-                                      '$itemName$priceTag$rwTag (x$quantity)',
-                                      style: const TextStyle(fontSize: 10),
-                                    ),
-                                    deleteIcon: const Icon(Icons.close, size: 16),
-                                    onDeleted: () {
-                                      setState(() {
-                                        tempSelectedItems.remove(itemId);
-                                      });
-                                    },
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                              if (tempSelectedItems.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  height: 120,
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: NomuAppTheme.darkBlue.withValues(alpha: 0.08),
+                                    borderRadius: NomuAppTheme.buttonRadius,
+                                    border: Border.all(
+                                        color: NomuAppTheme.goldBrown.withValues(alpha: 0.4)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Selected Items (${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity)}):',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Expanded(
+                                        child: SingleChildScrollView(
+                                          child: Wrap(
+                                            spacing: 4,
+                                            runSpacing: 4,
+                                            children: tempSelectedItems.entries.map((entry) {
+                                              final itemId = entry.key;
+                                              final quantity = entry.value;
+                                              final item = _getItemBySelectionKey(itemId);
+                                              final itemName = item?['name'] ?? 'Unknown Item';
+                                              final isRwChip = item?[_kIsRewardRedemption] == true;
+                                              final rwbChip = item?[_kRewardBucket] as String?;
+                                              final p = item?[_kBaristaUnitPrice];
+                                              var priceTag = '';
+                                              if (!isRwChip && p != null) {
+                                                final pd = p is num
+                                                    ? p.toDouble()
+                                                    : (double.tryParse(p.toString()) ?? 0);
+                                                priceTag = pd == pd.roundToDouble()
+                                                    ? ' ₱${pd.round()}'
+                                                    : ' ₱${pd.toStringAsFixed(2)}';
+                                              }
+                                              final rwTag = isRwChip && rwbChip != null
+                                                  ? ' [${_freeRewardButtonLabel(rwbChip)}]'
+                                                  : '';
+                                              return Chip(
+                                                label: Text(
+                                                  '$itemName$priceTag$rwTag (x$quantity)',
+                                                  style: const TextStyle(fontSize: 10),
+                                                ),
+                                                deleteIcon: const Icon(Icons.close, size: 16),
+                                                onDeleted: () {
+                                                  setState(() {
+                                                    tempSelectedItems.remove(itemId);
+                                                  });
+                                                },
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -1763,29 +1828,22 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
                             cancelLabel: AppConstants.cancelButton,
                             completeLabel: AppConstants.completeTransactionButton,
                             onCancel: () => Navigator.of(context).pop(),
-                            onComplete: _currentTransactionItems.isNotEmpty
-                                ? () {
+                            onComplete: tempSelectedItems.isEmpty
+                                ? null
+                                : () {
+                                    final selectedItems = <Map<String, dynamic>>[];
+                                    tempSelectedItems.forEach((itemId, quantity) {
+                                      final item = _getItemBySelectionKey(itemId);
+                                      if (item != null) {
+                                        for (int i = 0; i < quantity; i++) {
+                                          selectedItems
+                                              .add(Map<String, dynamic>.from(item));
+                                        }
+                                      }
+                                    });
                                     Navigator.of(context, rootNavigator: true)
-                                        .pop('COMPLETE_TRANSACTION');
-                                  }
-                                : null,
-                            addEnabled: tempSelectedItems.isNotEmpty,
-                            addLabel:
-                                'Add ${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity)} Item${tempSelectedItems.values.fold(0, (sum, quantity) => sum + quantity) != 1 ? 's' : ''}',
-                            onAdd: () {
-                              final selectedItems = <Map<String, dynamic>>[];
-                              tempSelectedItems.forEach((itemId, quantity) {
-                                final item = _getItemBySelectionKey(itemId);
-                                if (item != null) {
-                                  for (int i = 0; i < quantity; i++) {
-                                    selectedItems
-                                        .add(Map<String, dynamic>.from(item));
-                                  }
-                                }
-                              });
-                              Navigator.of(context, rootNavigator: true)
-                                  .pop(selectedItems);
-                            },
+                                        .pop(selectedItems);
+                                  },
                           ),
                         ),
                       ],
@@ -1800,123 +1858,22 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
     );
     
     if (selectedItems == null) {
-      if (_currentTransactionItems.isNotEmpty) {
-        await _showTransactionUpdateDialog(
-          _currentTransactionItems.map((l) => l.displayLabel()).join(', '),
-        );
-      } else {
-        await _resumeScanning();
-      }
-      return;
-    }
-
-    if (selectedItems is String && selectedItems == 'COMPLETE_TRANSACTION') {
-      await _completeTransaction(qrResult!, '');
+      await _resumeScanning();
+      _resetTransaction();
       return;
     }
 
     if (selectedItems is! List) {
-      _resumeScanning();
+      await _resumeScanning();
+      _resetTransaction();
       return;
     }
 
     final selectedItemsList =
         List<Map<String, dynamic>>.from(selectedItems);
-    
-    // Group by inventory id + chosen price tier (dual-priced SKUs may appear twice).
-    Map<String, Map<String, dynamic>> itemQuantities = {};
-    for (Map<String, dynamic> item in selectedItemsList) {
-      final itemId = item['_id'] ?? '';
-      final isRw = item[_kIsRewardRedemption] == true;
-      final rwb = item[_kRewardBucket] as String?;
-      final rawP = item[_kBaristaUnitPrice];
-      final priceKey = !isRw && rawP != null
-          ? (rawP is num ? rawP.toDouble() : (double.tryParse(rawP.toString()) ?? 0))
-              .toStringAsFixed(2)
-          : '';
-      final groupKey = isRw && rwb != null && rwb.isNotEmpty
-          ? '${itemId}_rw_$rwb'
-          : (priceKey.isNotEmpty ? '${itemId}_$priceKey' : itemId);
 
-      if (itemQuantities.containsKey(groupKey)) {
-        itemQuantities[groupKey]!['quantity'] =
-            (itemQuantities[groupKey]!['quantity'] as int) + 1;
-      } else {
-        itemQuantities[groupKey] = {
-          'item': item,
-          'quantity': 1,
-        };
-      }
-    }
-    
-    List<String> processedItemNames = [];
-    for (final groupKey in itemQuantities.keys) {
-      final itemData = itemQuantities[groupKey]!;
-      final item = itemData['item'] as Map<String, dynamic>;
-      final quantity = itemData['quantity'] as int;
-      final mongoId = item['_id']?.toString() ?? '';
-      final itemName = item['name'] ?? 'Unknown Item';
-      final currentStock = item['currentStock'] ?? 0;
-      final isMenu = item['isMenu'] ?? false;
-
-      Logger.debug(
-          'Processing item: $itemName (ID: $mongoId, isMenu: $isMenu, stock: $currentStock, quantity: $quantity)',
-          'TRANSACTION');
-      
-      final isRwLine = item[_kIsRewardRedemption] == true;
-      double? chosenPrice;
-      if (!isRwLine) {
-        final rawBp = item[_kBaristaUnitPrice];
-        if (rawBp != null) {
-          chosenPrice = rawBp is num
-              ? rawBp.toDouble()
-              : double.tryParse(rawBp.toString());
-        }
-      }
-
-      // For pure menu items (no inventory), we don't need to check stock or decrease it
-      if (isMenu) {
-        for (int i = 0; i < quantity; i++) {
-          if (isRwLine) {
-            _addItemToTransaction(
-              itemName,
-              rewardBucket: item[_kRewardBucket] as String?,
-              rewardDescription: item[_kRewardDescription] as String?,
-            );
-          } else {
-            _addItemToTransaction(itemName, unitPrice: chosenPrice);
-          }
-          processedItemNames.add(itemName);
-        }
-        Logger.success('Successfully processed menu item: $itemName (x$quantity)', 'MENU');
-        continue;
-      }
-      
-      // Inventory: defer stock decrease until loyalty API succeeds (avoids selling stock when scan fails).
-      Logger.debug(
-          'Queueing stock decrease for after loyalty success: $itemName (ID: $mongoId, quantity: $quantity)',
-          'INVENTORY');
-      _queueInventoryStockForCompletion(
-        itemId: mongoId,
-        quantity: quantity,
-        itemName: itemName,
-      );
-
-      for (int i = 0; i < quantity; i++) {
-        if (isRwLine) {
-          _addItemToTransaction(
-            itemName,
-            rewardBucket: item[_kRewardBucket] as String?,
-            rewardDescription: item[_kRewardDescription] as String?,
-          );
-        } else {
-          _addItemToTransaction(itemName, unitPrice: chosenPrice);
-        }
-        processedItemNames.add(itemName);
-      }
-    }
-    
-    if (processedItemNames.isEmpty) {
+    final added = await _processSelectedInventoryItems(selectedItemsList);
+    if (!added) {
       Logger.warning('No items were selected for processing', 'TRANSACTION');
       if (mounted) {
         CustomToast.showWarning(
@@ -1925,30 +1882,12 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
           duration: const Duration(seconds: 3),
         );
       }
-      _resumeScanning();
+      await _resumeScanning();
+      _resetTransaction();
       return;
     }
-    
-    // Show option to add more items or complete transaction
-    await _showTransactionUpdateDialog(processedItemNames.join(', '));
-  }
 
-  Future<void> _showTransactionUpdateDialog(String selectedItems) async {
-    final shouldComplete = await NomuModal.showConfirm(
-      context,
-      title: AppConstants.transactionUpdatedTitle,
-      message:
-          'Added: $selectedItems\n\nTotal items: ${_currentTransactionItems.length}\n\nWould you like to add more items or complete the transaction?',
-      icon: Icons.shopping_cart_outlined,
-      cancelLabel: AppConstants.addMoreButton,
-      confirmLabel: AppConstants.completeTransactionButton,
-    );
-
-    if (shouldComplete == true) {
-      await _completeTransaction(qrResult!, '');
-    } else if (shouldComplete == false) {
-      await _continueAddingItems();
-    }
+    await _completeTransaction(qrResult!, '');
   }
 
   // Build corner indicators for the scanning box

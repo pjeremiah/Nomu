@@ -19,7 +19,7 @@ class AppConstants {
   static const Duration resendCooldown = Duration(seconds: 25);
 
   /// Shown on login — bump with each hosted APK release.
-  static const String appVersion = '1.0.18+19';
+  static const String appVersion = '1.0.19+20';
   
   // QR Code Configuration
   static const int qrCodeLength = 6;

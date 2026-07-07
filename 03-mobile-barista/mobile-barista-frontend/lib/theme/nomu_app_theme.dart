@@ -75,43 +75,13 @@ class NomuAppTheme {
     );
   }
 
-  /// Inventory modal: Cancel + optional Complete row, then Add Items.
+  /// Inventory modal: Cancel and Complete Transaction side-by-side.
   static Widget inventorySelectionActions({
     required VoidCallback onCancel,
-    VoidCallback? onComplete,
-    required VoidCallback? onAdd,
-    required String addLabel,
-    required bool addEnabled,
+    required VoidCallback? onComplete,
     String cancelLabel = 'Cancel',
     String completeLabel = 'Complete Transaction',
   }) {
-    if (onComplete != null) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: outlineCancelButton(label: cancelLabel, onPressed: onCancel),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: outlineConfirmButton(label: completeLabel, onPressed: onComplete),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: outlineConfirmButton(
-              label: addLabel,
-              onPressed: addEnabled ? onAdd : null,
-            ),
-          ),
-        ],
-      );
-    }
-
     return Row(
       children: [
         Expanded(
@@ -120,8 +90,8 @@ class NomuAppTheme {
         const SizedBox(width: 12),
         Expanded(
           child: outlineConfirmButton(
-            label: addLabel,
-            onPressed: addEnabled ? onAdd : null,
+            label: completeLabel,
+            onPressed: onComplete,
           ),
         ),
       ],
