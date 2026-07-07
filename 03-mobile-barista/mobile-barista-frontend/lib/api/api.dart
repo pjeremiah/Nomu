@@ -452,6 +452,52 @@ class ApiService {
     return null;
   }
 
+  /// Search customer by email, username, or id (manual lookup fallback when QR fails).
+  static Future<Map<String, dynamic>?> searchCustomer({
+    required String query,
+    required String type,
+  }) async {
+    try {
+      final trimmed = query.trim();
+      if (trimmed.isEmpty) return null;
+
+      Logger.api('Searching customer: type=$type query=$trimmed', 'CUSTOMER');
+      final apiBaseUrl = await Config.apiBaseUrl;
+      final uri = Uri.parse('$apiBaseUrl/customer/search').replace(
+        queryParameters: {'query': trimmed, 'type': type},
+      );
+
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(AppConstants.apiTimeout);
+
+      Logger.api('Customer search status: ${response.statusCode}');
+      Logger.api('Customer search body: ${response.body}');
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        final customer = body['customer'];
+        if (customer is Map<String, dynamic>) {
+          return Map<String, dynamic>.from(customer);
+        }
+        return null;
+      }
+
+      if (response.statusCode == 404 || response.statusCode == 400) {
+        return {
+          'error': body['error'] ?? 'Customer not found',
+          'statusCode': response.statusCode,
+        };
+      }
+
+      return {'error': 'Search failed (${response.statusCode})', 'statusCode': response.statusCode};
+    } catch (e) {
+      Logger.exception('Exception during customer search', e, 'CUSTOMER');
+      return {'error': AppConstants.networkErrorMessage};
+    }
+  }
+
   /// Keep barista session marked active on the server while the app is in use.
   static Future<void> baristaSessionHeartbeat(String email) async {
     try {

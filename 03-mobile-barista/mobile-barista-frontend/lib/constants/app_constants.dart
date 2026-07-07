@@ -76,6 +76,20 @@ class AppConstants {
   static const String resendCodeButton = 'Resend Code';
   static const String verifyCodeButton = 'Verify Code';
   static const String resumeScanningButton = 'Resume Scanning';
+  static const String manualLookupButton = 'Manual Lookup';
+  static const String manualLookupTitle = 'Manual Customer Lookup';
+  static const String manualLookupSubtitle =
+      'Enter the customer\'s registered email or username when QR scan is unavailable.';
+  static const String searchByEmailLabel = 'Email';
+  static const String searchByUsernameLabel = 'Username';
+  static const String customerSearchHintEmail = 'customer@email.com';
+  static const String customerSearchHintUsername = 'Username';
+  static const String searchCustomerButton = 'Search';
+  static const String confirmCustomerButton = 'Confirm & Select Items';
+  static const String customerNotFoundMessage = 'No customer found. Check the email or username.';
+  static const String customerFoundMessage = 'Customer Found!';
+  static const String manualLookupProcessingMessage = 'Proceeding to item selection...';
+  static const String customerIdentifiedMessage = 'Customer Identified!';
   
   // Instructions
   static const String positionQRCodeMessage = 'Position QR code within the frame';

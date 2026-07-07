@@ -1700,6 +1700,94 @@ app.post('/api/loyalty/scan', async (req, res) => {
   }
 });
 
+/** Escape user input for safe use inside RegExp. */
+function escapeRegExp(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Manual customer lookup when QR scan fails (barista app fallback).
+ * Query params: query (required), type = email | username | id
+ */
+app.get('/api/customer/search', async (req, res) => {
+  try {
+    const rawQuery = req.query.query;
+    const rawType = (req.query.type || 'email').toString().toLowerCase().trim();
+
+    if (!rawQuery || !String(rawQuery).trim()) {
+      return res.status(400).json({ success: false, error: 'Search query is required' });
+    }
+
+    const q = String(rawQuery).trim();
+    const allowedTypes = ['email', 'username', 'id'];
+    if (!allowedTypes.includes(rawType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid search type. Use email, username, or id',
+      });
+    }
+
+    let customer = null;
+    let foundInCollection = '';
+
+    const findByEmail = async (Model) =>
+      Model.findOne({ email: { $regex: new RegExp(`^${escapeRegExp(q)}$`, 'i') } });
+    const findByUsername = async (Model) =>
+      Model.findOne({ username: { $regex: new RegExp(`^${escapeRegExp(q)}$`, 'i') } });
+
+    if (rawType === 'email') {
+      customer = await findByEmail(User);
+      if (customer) foundInCollection = 'users';
+      if (!customer) {
+        customer = await findByEmail(Customer);
+        if (customer) foundInCollection = 'customers';
+      }
+    } else if (rawType === 'username') {
+      customer = await findByUsername(User);
+      if (customer) foundInCollection = 'users';
+    } else if (rawType === 'id') {
+      if (mongoose.Types.ObjectId.isValid(q)) {
+        customer = await User.findById(q);
+        if (customer) foundInCollection = 'users';
+        if (!customer) {
+          customer = await Customer.findById(q);
+          if (customer) foundInCollection = 'customers';
+        }
+      }
+    }
+
+    if (!customer) {
+      return res.status(404).json({ success: false, error: 'Customer not found' });
+    }
+
+    if (!customer.qrToken) {
+      return res.status(404).json({
+        success: false,
+        error: 'Customer has no loyalty QR token. Ask them to open the Nomu app first.',
+      });
+    }
+
+    const displayName = customer.fullName || customer.name || customer.username || 'Customer';
+
+    res.json({
+      success: true,
+      customer: {
+        id: customer._id,
+        fullName: displayName,
+        name: displayName,
+        email: customer.email,
+        username: customer.username,
+        points: customer.points ?? 0,
+        qrToken: customer.qrToken,
+        collection: foundInCollection,
+      },
+    });
+  } catch (err) {
+    console.error('❌ [CUSTOMER SEARCH] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Get customer by QR token (for customer info display)
 app.get('/api/customer/qr/:qrToken', async (req, res) => {
   try {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'api/api.dart';
 import 'services/socket_service.dart';
 import 'services/inventory_scanner_service.dart';
 import 'widgets/custom_toast.dart';
+import 'widgets/manual_lookup_dialog.dart';
 import 'widgets/notification_banner.dart';
 import 'utils/qr_validation_utils.dart';
 import 'utils/logger.dart';
@@ -130,6 +132,7 @@ class BaristaScannerPage extends StatefulWidget {
 class _BaristaScannerPageState extends State<BaristaScannerPage> {
   MobileScannerController? controller;
   String? qrResult;
+  bool _identifiedViaManualLookup = false;
   bool isCameraPaused = false;
   bool isProcessing = false;
   Timer? _animationTimer;
@@ -475,6 +478,385 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     }
   }
 
+  double _scanBoxSize(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape = size.width > size.height;
+    if (isLandscape) {
+      return math.min(size.height * 0.52, size.width * 0.28).clamp(140.0, 240.0);
+    }
+    return math
+        .min(AppConstants.scanningBoxSize, size.width * 0.78)
+        .clamp(180.0, AppConstants.scanningBoxSize);
+  }
+
+  Future<void> _openManualLookup() async {
+    if (isProcessing) return;
+    final customer = await ManualLookupDialog.show(context);
+    if (!mounted || customer == null) return;
+    await _proceedWithManualCustomer(customer);
+  }
+
+  Future<void> _proceedWithManualCustomer(Map<String, dynamic> customer) async {
+    final qrToken = customer['qrToken']?.toString().trim();
+    if (qrToken == null || qrToken.isEmpty) {
+      if (mounted) {
+        CustomToast.showError(
+          context,
+          message: 'Customer has no loyalty token. Ask them to open the Nomu app.',
+          duration: const Duration(seconds: 4),
+        );
+      }
+      return;
+    }
+
+    setState(() => isProcessing = true);
+    await controller?.stop();
+
+    _processedCodes.add(qrToken);
+    _lastProcessedTime = DateTime.now();
+    _lastScannedCode = qrToken;
+    _lastScanTime = DateTime.now();
+
+    if (mounted) {
+      setState(() {
+        qrResult = qrToken;
+        isCameraPaused = true;
+        isProcessing = false;
+        _identifiedViaManualLookup = true;
+      });
+    }
+
+    HapticFeedback.lightImpact();
+    await _showDrinkSelectionDialog();
+  }
+
+  Widget _buildAppBar(BuildContext context) {
+    return Container(
+      height: 70,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/istetik.png'),
+          fit: BoxFit.cover,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            children: [
+              Image.asset('assets/images/nomutrans.png', height: 36),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Barista QR Scanner',
+                  style: TextStyle(
+                    fontSize: MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height
+                        ? 16
+                        : 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                tooltip: 'Logout',
+                onPressed: () async {
+                  final shouldLogout =
+                      await showBaristaLogoutConfirmationDialog(context);
+                  if (shouldLogout == true && context.mounted) {
+                    await _performLogout();
+                  }
+                },
+              ),
+            ],
+          ),
+          Material(
+            color: Colors.white.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(24),
+            child: InkWell(
+              onTap: isProcessing ? null : _openManualLookup,
+              borderRadius: BorderRadius.circular(24),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_search, color: Colors.white, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      AppConstants.manualLookupButton,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height
+                            ? 12
+                            : 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScannerStack(
+    BuildContext context,
+    double scanSize, {
+    bool compactInstructions = false,
+  }) {
+    return Stack(
+      children: [
+        MobileScanner(
+          controller: controller!,
+          onDetect: _onQRDetect,
+        ),
+        CustomPaint(
+          painter: _ScannerOutsideDimPainter(
+            holeSize: scanSize,
+            borderRadius: 20,
+            dimColor: Colors.black.withValues(alpha: 0.45),
+          ),
+          child: const SizedBox.expand(),
+        ),
+        Center(
+          child: SizedBox(
+            width: scanSize,
+            height: scanSize,
+            child: Stack(
+              children: [
+                ..._buildCornerIndicators(),
+                if (!isCameraPaused && qrResult == null)
+                  _buildScanningAnimation(scanSize),
+                Center(
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.qr_code_scanner,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: compactInstructions ? 8 : 50,
+          left: MediaQuery.sizeOf(context).width * 0.05,
+          right: MediaQuery.sizeOf(context).width * 0.05,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: compactInstructions ? 12 : MediaQuery.sizeOf(context).width * 0.06,
+              vertical: compactInstructions ? 10 : 16,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.black.withValues(alpha: 0.8),
+                  Colors.black.withValues(alpha: 0.6),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.qr_code_scanner,
+                    color: Colors.white,
+                    size: compactInstructions ? 16 : 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    AppConstants.positionQRCodeMessage,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compactInstructions ? 13 : 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResumeScanButton(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * 0.05,
+        vertical: 8,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.camera_alt, size: 20),
+          label: Text(
+            AppConstants.resumeScanningButton,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          onPressed: () async {
+            await controller?.start();
+            if (!mounted) return;
+            setState(() {
+              isCameraPaused = false;
+              qrResult = null;
+              _identifiedViaManualLookup = false;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusCard(BuildContext context, {bool compact = false}) {
+    final horizontalPad = MediaQuery.sizeOf(context).width * 0.05;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(horizontalPad, compact ? 4 : 8, horizontalPad, compact ? 8 : 16),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(compact ? 12 : MediaQuery.sizeOf(context).width * 0.04),
+        constraints: BoxConstraints(minHeight: compact ? 88 : 100),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
+            ),
+          ],
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (qrResult != null) ...[
+                Container(
+                  padding: EdgeInsets.all(compact ? 8 : 12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: Icon(
+                    _identifiedViaManualLookup ? Icons.person_search : Icons.check_circle,
+                    color: Colors.green,
+                    size: compact ? 26 : 32,
+                  ),
+                ),
+                SizedBox(height: compact ? 8 : 12),
+                Text(
+                  _identifiedViaManualLookup
+                      ? AppConstants.customerIdentifiedMessage
+                      : AppConstants.qrCodeScannedMessage,
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: compact ? 16 : 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: compact ? 4 : 6),
+                Text(
+                  _identifiedViaManualLookup
+                      ? AppConstants.manualLookupProcessingMessage
+                      : AppConstants.processingOrderMessage,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: compact ? 12 : 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ] else ...[
+                Container(
+                  padding: EdgeInsets.all(compact ? 8 : 12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: Icon(
+                    Icons.qr_code_scanner,
+                    color: Colors.blue,
+                    size: compact ? 26 : 32,
+                  ),
+                ),
+                SizedBox(height: compact ? 8 : 12),
+                Text(
+                  AppConstants.scanQRCodeMessage,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: compact ? 16 : 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: compact ? 4 : 6),
+                Text(
+                  AppConstants.pointCameraMessage,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: compact ? 12 : 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -499,334 +881,53 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
           Container(
             color: Colors.black.withValues(alpha: 0.3),
           ),
-          Container(
-            height: 70,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/images/istetik.png'),
-                fit: BoxFit.cover,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/images/nomutrans.png',
-                  height: 36,
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'Barista QR Scanner',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  tooltip: 'Logout',
-                  onPressed: () async {
-                    final shouldLogout =
-                        await showBaristaLogoutConfirmationDialog(context);
-                    if (shouldLogout == true && context.mounted) {
-                      await _performLogout();
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
           Column(
             children: [
-              const SizedBox(height: 70),
+              _buildAppBar(context),
               Expanded(
-                flex: 4,
-                child: Stack(
-                  children: [
-                    // Full screen scanner
-                    MobileScanner(
-                      controller: controller!,
-                      onDetect: _onQRDetect,
-                    ),
-                    // Dim area outside scan frame only (no full-screen blur — that blurred the camera + UI).
-                    CustomPaint(
-                      painter: _ScannerOutsideDimPainter(
-                        holeSize: AppConstants.scanningBoxSize,
-                        borderRadius: 20,
-                        dimColor: Colors.black.withValues(alpha: 0.45),
-                      ),
-                      child: const SizedBox.expand(),
-                    ),
-                    // Clean scanning frame overlay
-                    Center(
-                      child: Container(
-                        width: AppConstants.scanningBoxSize,
-                        height: AppConstants.scanningBoxSize,
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Stack(
-                          children: [
-                            // Corner indicators
-                            ..._buildCornerIndicators(),
-                            // Scanning animation
-                            if (!isCameraPaused && qrResult == null)
-                              _buildScanningAnimation(),
-                            // Center QR icon
-                            Center(
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(25),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.qr_code_scanner,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
+                child: OrientationBuilder(
+                  builder: (context, orientation) {
+                    final scanSize = _scanBoxSize(context);
+                    final isLandscape = orientation == Orientation.landscape;
+
+                    if (isLandscape) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: _buildScannerStack(
+                              context,
+                              scanSize,
+                              compactInstructions: true,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (isCameraPaused) _buildResumeScanButton(context),
+                                  _buildStatusCard(context, compact: true),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Instructions overlay
-                    Positioned(
-                      top: 50,
-                      left: MediaQuery.of(context).size.width * 0.05,
-                      right: MediaQuery.of(context).size.width * 0.05,
-                      child: Container(
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.9,
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: MediaQuery.of(context).size.width * 0.06,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.8),
-                              Colors.black.withValues(alpha: 0.6),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.4),
-                              blurRadius: 15,
-                              spreadRadius: 3,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.qr_code_scanner,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                        child: Text(
-                          AppConstants.positionQRCodeMessage,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                          textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isCameraPaused)
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width * 0.05,
-                    vertical: 16,
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.9,
-                    ),
-                  child: ElevatedButton.icon(
-                      icon: const Icon(Icons.camera_alt, size: 20),
-                      label: Text(
-                        AppConstants.resumeScanningButton,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 4,
-                      ),
-                    onPressed: () async {
-                      await controller?.start();
-                      setState(() {
-                        isCameraPaused = false;
-                        qrResult = null;
-                      });
-                    },
-                    ),
-                  ),
-                ),
-              Expanded(
-                flex: 1,
-                child: Center(
-                  child: Container(
-                    margin: EdgeInsets.symmetric(
-                      horizontal: MediaQuery.of(context).size.width * 0.05,
-                      vertical: 12,
-                    ),
-                    padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.05),
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.9,
-                      minHeight: 100,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 15,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (qrResult != null) ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(50),
-                              ),
-                              child: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                                size: 32,
-                          ),
-                            ),
-                            const SizedBox(height: 12),
-                          Text(
-                            AppConstants.qrCodeScannedMessage,
-                            style: const TextStyle(
-                              color: Colors.green,
-                                fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                            ),
-                            textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                          ),
-                            const SizedBox(height: 6),
-                          Text(
-                            AppConstants.processingOrderMessage,
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                            ),
-                            textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                          ),
-                        ] else ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(50),
-                              ),
-                              child: const Icon(
-                            Icons.qr_code_scanner,
-                            color: Colors.blue,
-                                size: 32,
-                          ),
-                            ),
-                            const SizedBox(height: 12),
-                          Text(
-                            AppConstants.scanQRCodeMessage,
-                            style: const TextStyle(
-                              color: Colors.black,
-                                fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                            ),
-                            textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                          ),
-                            const SizedBox(height: 6),
-                          Text(
-                            AppConstants.pointCameraMessage,
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                            ),
-                            textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                           ),
                         ],
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: _buildScannerStack(context, scanSize),
+                        ),
+                        if (isCameraPaused) _buildResumeScanButton(context),
+                        _buildStatusCard(context),
                       ],
-                      ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -986,6 +1087,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
     setState(() {
       qrResult = scannedCode;
       isCameraPaused = true;
+      _identifiedViaManualLookup = false;
     });
     
     // Show drink selection dialog
@@ -1736,20 +1838,19 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
   }
 
   // Build scanning animation
-  Widget _buildScanningAnimation() {
+  Widget _buildScanningAnimation(double scanSize) {
     return Positioned.fill(
       child: StatefulBuilder(
         builder: (context, setState) {
-          // Start animation timer if not already started
           _animationTimer ??= Timer.periodic(const Duration(milliseconds: 50), (timer) {
             if (mounted) {
               setState(() {});
             }
           });
-          
+
           return CustomPaint(
             painter: ScanningLinePainter(),
-            size: const Size(AppConstants.scanningBoxSize, AppConstants.scanningBoxSize),
+            size: Size(scanSize, scanSize),
           );
         },
       ),
@@ -2434,6 +2535,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage> {
       isCameraPaused = false;
       qrResult = null;
       isProcessing = false;
+      _identifiedViaManualLookup = false;
     });
     
     // Clear processed codes to allow re-scanning after resume

@@ -1312,68 +1312,7 @@ function minStampsForRewardBucket(rewardBucket) {
   return 5;
 }
 
-function rewardBucketFromClaimType(claim) {
-  const t = String(claim?.type || '').toLowerCase();
-  if (t === 'donut') return 'donut';
-  if (t === 'pastry') return 'pastry';
-  if (t === 'coffee' || t === 'drink') return 'drink';
-  if (t === 'pizza') return 'pizza';
-  const tier = Number(claim?.loyaltyStampTier);
-  if (tier === 10) return 'drink';
-  if (tier === 5) return 'donut';
-  return null;
-}
-
-function isRewardPickupWindowOpen(claim, now = new Date()) {
-  if (!claim) return false;
-  if (claim.pickupDeadline && new Date(claim.pickupDeadline) > now) return true;
-  if (claim.date) {
-    const end = new Date(new Date(claim.date).getTime() + LOYALTY_PICKUP_AFTER_CLAIM_MS);
-    return end > now;
-  }
-  return false;
-}
-
-/** Open pickup rows: match by user + reward type + 24h window only (not currentCycle). */
-async function findOpenRewardPickupClaim(user, rewardBucket) {
-  if (!rewardHistoryTypesForBucket(rewardBucket).length) return null;
-  const now = new Date();
-  return RewardClaim.findOne({
-    $and: [
-      { userId: user._id },
-      rewardClaimTypeMatchForBucket(rewardBucket),
-      ...rewardClaimPickupWindowAndOpenFilter(now).$and
-    ]
-  })
-    .sort({ date: -1 })
-    .lean();
-}
-
-async function buildRewardPickupNotClaimedMessage(user, rewardBucket) {
-  const now = new Date();
-  const anyOpen = await RewardClaim.findOne({
-    $and: [{ userId: user._id }, ...rewardClaimPickupWindowAndOpenFilter(now).$and]
-  })
-    .sort({ date: -1 })
-    .lean();
-
-  if (anyOpen) {
-    const openBucket = rewardBucketFromClaimType(anyOpen);
-    const requested = String(rewardBucket || '').toLowerCase();
-    const tier = Number(anyOpen.loyaltyStampTier);
-    const tierLabel = tier === 10 ? '10-stamp' : tier === 5 ? '5-stamp' : 'loyalty';
-    if (openBucket && openBucket !== requested) {
-      return (
-        `This customer has an open ${tierLabel} reward pickup for ${openBucket}, not ${requested}. ` +
-        'Use the matching free item button for their claimed reward.'
-      );
-    }
-    return (
-      `This customer already claimed a ${tierLabel} reward in the app and is within the 24-hour pickup window. ` +
-      'Use the correct free reward line—their stamp count shown now is for the new loyalty cycle.'
-    );
-  }
-
+function buildRewardPickupNotClaimedMessage(user, rewardBucket) {
   const pts = Math.max(0, Math.floor(Number(user.points) || 0));
   const need = minStampsForRewardBucket(rewardBucket);
   if (pts < need) {
@@ -1385,31 +1324,6 @@ async function buildRewardPickupNotClaimedMessage(user, rewardBucket) {
   return (
     'The customer must tap Claim in the Nomu app first. After Claim, pickup at the barista is valid for 24 hours only.'
   );
-}
-
-/** Whether a fulfilled claim row belongs to an older loyalty cycle (for denial messaging only). */
-async function findRecentClaimForTierExpiry(user, tier) {
-  const uid = user._id;
-  if (tier === 5) {
-    return RewardClaim.findOne({
-      userId: uid,
-      $or: [
-        { type: { $in: ['donut', 'pastry'] } },
-        { type: 'bonus', loyaltyStampTier: 5 }
-      ]
-    })
-      .sort({ date: -1 })
-      .lean();
-  }
-  return RewardClaim.findOne({
-    userId: uid,
-    $or: [
-      { type: { $in: ['coffee', 'drink', 'pizza'] } },
-      { type: 'bonus', loyaltyStampTier: 10 }
-    ]
-  })
-    .sort({ date: -1 })
-    .lean();
 }
 
 /**
@@ -1581,7 +1495,14 @@ async function applyLoyaltyTierExpiry(user) {
   const uid = user._id;
 
   if (w.tier5ClaimBy && now > new Date(w.tier5ClaimBy)) {
-    const claimed5 = await findRecentClaimForTierExpiry(user, 5);
+    const claimed5 = await RewardClaim.findOne({
+      userId: uid,
+      ...rewardClaimCycleMatchForPickup(user),
+      $or: [
+        { type: { $in: ['donut', 'pastry'] } },
+        { type: 'bonus', loyaltyStampTier: 5 }
+      ]
+    }).lean();
     if (!claimed5) {
       const nw = { ...w };
       delete nw.tier5ClaimBy;
@@ -1596,7 +1517,14 @@ async function applyLoyaltyTierExpiry(user) {
   }
 
   if (w.tier10ClaimBy && now > new Date(w.tier10ClaimBy)) {
-    const claimed10 = await findRecentClaimForTierExpiry(user, 10);
+    const claimed10 = await RewardClaim.findOne({
+      userId: uid,
+      ...rewardClaimCycleMatchForPickup(user),
+      $or: [
+        { type: { $in: ['coffee', 'pizza'] } },
+        { type: 'bonus', loyaltyStampTier: 10 }
+      ]
+    }).lean();
     if (!claimed10) {
       const pts = user.points || 0;
       if (pts >= 10) {
@@ -1675,7 +1603,21 @@ function rewardClaimPickupWindowAndOpenFilter(now) {
 
 /** Barista pickup: open RewardClaim with pickup still valid (24h after Claim; legacy rows use claim date + 24h). */
 async function userHasOpenRewardPickupForBucket(user, rewardBucket) {
-  return !!(await findOpenRewardPickupClaim(user, rewardBucket));
+  if (!rewardHistoryTypesForBucket(rewardBucket).length) return false;
+  const now = new Date();
+
+  const claim = await RewardClaim.findOne({
+    $and: [
+      { userId: user._id },
+      rewardClaimCycleMatchForPickup(user),
+      rewardClaimTypeMatchForBucket(rewardBucket),
+      ...rewardClaimPickupWindowAndOpenFilter(now).$and
+    ]
+  })
+    .sort({ date: -1 })
+    .lean();
+
+  return !!claim;
 }
 
 /**
@@ -1698,17 +1640,9 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
    * Do NOT use a *fulfilled* claim from an earlier cycle than [currentCycle] for messaging:
    * otherwise a new cycle shows "Already picked up" from last cycle's pickup.
    */
-  const openForBucket = await findOpenRewardPickupClaim(user, rewardBucket);
-  if (openForBucket) {
-    return {
-      code: 'REWARD_READY_FOR_PICKUP',
-      message:
-        'Customer already claimed this reward in the app. Add the matching free item and scan again—their stamp count is for the new loyalty cycle.'
-    };
-  }
-
   const claims = await RewardClaim.find({
     userId: user._id,
+    ...rewardClaimCycleMatchForPickup(user),
     ...rewardClaimTypeMatchForBucket(rewardBucket)
   })
     .sort({ date: -1 })
@@ -1722,7 +1656,7 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
   if (!latest) {
     return {
       code: 'REWARD_NOT_CLAIMED',
-      message: await buildRewardPickupNotClaimedMessage(user, rewardBucket)
+      message: buildRewardPickupNotClaimedMessage(user, rewardBucket)
     };
   }
   const bonusExhausted =
@@ -1753,16 +1687,9 @@ async function rewardPickupDenialInfo(user, rewardBucket) {
       };
     }
   }
-  if (isRewardPickupWindowOpen(latest, now)) {
-    return {
-      code: 'REWARD_READY_FOR_PICKUP',
-      message:
-        'Customer already claimed this reward in the app. Add the matching free item and scan again—their stamp count is for the new loyalty cycle.'
-    };
-  }
   return {
     code: 'REWARD_NOT_CLAIMED',
-    message: await buildRewardPickupNotClaimedMessage(user, rewardBucket)
+    message: buildRewardPickupNotClaimedMessage(user, rewardBucket)
   };
 }
 
@@ -1772,7 +1699,15 @@ async function markRewardPickupsFulfilled(user, enrichedItems) {
     if (!item.excludeFromAnalytics || !item.rewardBucket) continue;
     const b = String(item.rewardBucket).toLowerCase();
     if (!rewardHistoryTypesForBucket(b).length) continue;
-    const claim = await findOpenRewardPickupClaim(user, b);
+    const filter = {
+      $and: [
+        { userId: user._id },
+        rewardClaimCycleMatchForPickup(user),
+        rewardClaimTypeMatchForBucket(b),
+        ...rewardClaimPickupWindowAndOpenFilter(now).$and
+      ]
+    };
+    const claim = await RewardClaim.findOne(filter).sort({ date: -1 });
     if (!claim) continue;
     if (String(claim.type || '').toLowerCase() === 'bonus') {
       const rem =
@@ -5572,6 +5507,95 @@ app.patch('/api/customer/qr/:qrToken', async (req, res) => {
 });
 
 // ==================== BARISTA APP: inventory + customer lookup + analytics (shared mobile-backend) ====================
+
+/** Escape user input for safe use inside RegExp. */
+function escapeRegExp(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Manual customer lookup when QR scan fails (barista app fallback).
+ * Query params: query (required), type = email | username | id
+ */
+app.get('/api/customer/search', async (req, res) => {
+  try {
+    const rawQuery = req.query.query;
+    const rawType = (req.query.type || 'email').toString().toLowerCase().trim();
+
+    if (!rawQuery || !String(rawQuery).trim()) {
+      return res.status(400).json({ success: false, error: 'Search query is required' });
+    }
+
+    const q = String(rawQuery).trim();
+    const allowedTypes = ['email', 'username', 'id'];
+    if (!allowedTypes.includes(rawType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid search type. Use email, username, or id',
+      });
+    }
+
+    let user = null;
+
+    if (rawType === 'email') {
+      user = await User.findOne({
+        email: q.toLowerCase(),
+        role: 'Customer',
+      }).select('-password');
+    } else if (rawType === 'username') {
+      user = await User.findOne({
+        username: { $regex: new RegExp(`^${escapeRegExp(q)}$`, 'i') },
+        role: 'Customer',
+      }).select('-password');
+    } else if (rawType === 'id') {
+      if (mongoose.Types.ObjectId.isValid(q)) {
+        user = await User.findById(q).select('-password');
+        if (user && user.role !== 'Customer') {
+          user = null;
+        }
+      }
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Customer not found' });
+    }
+
+    if (!user.qrToken) {
+      return res.status(404).json({
+        success: false,
+        error: 'Customer has no loyalty QR token. Ask them to open the Nomu app first.',
+      });
+    }
+
+    try {
+      const loyaltyChanged = await refreshLoyaltyStateForUserDoc(user);
+      if (loyaltyChanged || user.isModified()) {
+        await user.save();
+        user = await User.findById(user._id).select('-password');
+      }
+    } catch (loyEx) {
+      _log('⚠️ [CUSTOMER SEARCH] refreshLoyaltyStateForUserDoc:', (loyEx && loyEx.message) || loyEx);
+    }
+
+    const displayName = user.fullName || user.name || user.username || 'Customer';
+
+    res.json({
+      success: true,
+      customer: {
+        id: user._id,
+        fullName: displayName,
+        name: displayName,
+        email: user.email,
+        username: user.username,
+        points: user.points ?? 0,
+        qrToken: user.qrToken,
+      },
+    });
+  } catch (err) {
+    console.error('❌ [CUSTOMER SEARCH] Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.get('/api/inventory', async (req, res) => {
   try {
