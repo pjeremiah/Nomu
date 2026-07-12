@@ -15,7 +15,6 @@ const {
   recordEmployeeScan, 
   checkCustomerLimits, 
   recordCustomerScan, 
-  detectAbuse, 
   generateQrToken, 
   validateJwtToken, 
   securityHeaders, 
@@ -25,6 +24,9 @@ const {
   notifyAbuseDetection,
   notifyAbuseEscalation
 } = require('./middleware/securityMiddleware');
+const employeeScanBlock = require('./services/employeeScanBlockService');
+const { enforceEmployeeScanSecurity } = require('./middleware/employeeScanSecurity');
+employeeScanBlock.initModel(mongoose);
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -178,7 +180,12 @@ const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/nomu_cafe';
 console.log('🔗 Attempting to connect to MongoDB:', mongoUri);
 
 mongoose.connect(mongoUri)
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+    employeeScanBlock.loadBlockedEmployees().catch((err) => {
+      console.error('❌ Failed to load employee scan blocks:', err.message);
+    });
+  })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err);
     console.log('💡 Please make sure MongoDB is running or update MONGO_URI in .env file');
@@ -1216,6 +1223,53 @@ app.post('/api/mobile/admin/resend-otp', async (req, res) => {
   }
 });
 
+// Manager/owner unlock for abuse-blocked barista scanners
+app.post('/api/security/unlock-barista-scanner', async (req, res) => {
+  try {
+    const { blockedEmployeeId, supervisorEmail, supervisorPassword } = req.body;
+
+    if (!blockedEmployeeId || !supervisorEmail || !supervisorPassword) {
+      return res.status(400).json({ message: 'Employee ID, supervisor email, and password are required' });
+    }
+
+    if (!employeeScanBlock.isEmployeeScanBlocked(blockedEmployeeId)) {
+      return res.status(400).json({ message: 'This scanner is not currently blocked' });
+    }
+
+    const admin = await Admin.findOne({
+      email: { $regex: new RegExp(`^${String(supervisorEmail).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid supervisor credentials' });
+    }
+
+    if (!['superadmin', 'manager'].includes(admin.role)) {
+      return res.status(403).json({ message: 'Only a manager or owner can unlock a blocked scanner' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(supervisorPassword, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid supervisor credentials' });
+    }
+
+    await employeeScanBlock.unblockEmployeeScan(blockedEmployeeId, {
+      adminId: admin._id.toString(),
+      email: admin.email,
+      role: admin.role,
+      fullName: admin.fullName,
+    });
+
+    res.json({
+      success: true,
+      message: 'Scanner unlocked successfully. You can continue scanning.',
+    });
+  } catch (err) {
+    console.error('[UNLOCK SCANNER] error:', err);
+    res.status(500).json({ message: err.message || 'Failed to unlock scanner' });
+  }
+});
+
 // ==================== LOGOUT ENDPOINTS ====================
 
 // Admin logout endpoint
@@ -1570,24 +1624,8 @@ app.post('/api/loyalty/scan', async (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    // High-volume security checks
     try {
-      // Check customer limits
       checkCustomerLimits(customer._id.toString());
-      
-      // Check employee limits if employeeId is provided
-      if (employeeId) {
-        checkEmployeeLimits(employeeId);
-        
-        // Detect abuse patterns
-        if (detectAbuse(employeeId, customer._id.toString())) {
-          console.log('🚨 [SECURITY] Abuse detected, blocking scan');
-          return res.status(429).json({ 
-            error: 'Suspicious activity detected. Scan blocked for security.',
-            code: 'ABUSE_DETECTED'
-          });
-        }
-      }
     } catch (securityError) {
       console.log('🚨 [SECURITY] Security check failed:', securityError.message);
       return res.status(429).json({ 
@@ -1596,6 +1634,11 @@ app.post('/api/loyalty/scan', async (req, res) => {
         maxScansPerDay: config.customerMaxScansPerDay,
         maxPointsPerDay: config.customerMaxPointsPerDay
       });
+    }
+
+    if (employeeId) {
+      const allowed = await enforceEmployeeScanSecurity(employeeId, customer._id.toString(), res);
+      if (!allowed) return;
     }
     
     console.log('🔍 [DEBUG] Found customer in database:', {

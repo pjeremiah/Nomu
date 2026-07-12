@@ -372,57 +372,61 @@ function recordCustomerScan(customerId, pointsEarned = 1, countTowardDailyScan =
   customerData.daily = customerData.daily.filter(scan => scan.timestamp > oneWeekAgo);
 }
 
-// Abuse detection functions
+// Abuse detection functions — returns { abuseType, message } when blocked, else null
 function detectAbuse(employeeId, customerId) {
-  if (!config.enableSuspiciousPatternDetection) return false;
-  
-  const now = Date.now();
+  if (!config.enableSuspiciousPatternDetection) return null;
+
   const patterns = {
     sameCustomerMultipleTimes: checkRepeatedScans(employeeId, customerId),
     rapidFireScans: checkRapidScans(employeeId),
     unusualHours: checkScanHours(employeeId)
   };
-  
-  // Check for suspicious patterns and send notifications
+
   if (patterns.sameCustomerMultipleTimes > config.abuseThresholdSameCustomer) {
     console.log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning same customer ${customerId} repeatedly (${patterns.sameCustomerMultipleTimes} times)`);
-    
-    // Send abuse notification to managers
+
     notifyAbuseDetection(employeeId, customerId, 'repeated_scans', {
       count: patterns.sameCustomerMultipleTimes,
       threshold: config.abuseThresholdSameCustomer,
       timeWindow: '1 hour'
     });
-    
-    return true;
+
+    return {
+      abuseType: 'repeated_scans',
+      message: 'Suspicious activity detected: the same customer was scanned too many times in a short period.',
+    };
   }
-  
+
   if (patterns.rapidFireScans > config.abuseThresholdRapidScans) {
     console.log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning too rapidly (${patterns.rapidFireScans} scans)`);
-    
-    // Send abuse notification to managers
+
     notifyAbuseDetection(employeeId, customerId, 'rapid_fire', {
       count: patterns.rapidFireScans,
       threshold: config.abuseThresholdRapidScans,
       timeWindow: '1 minute'
     });
-    
-    return true;
+
+    return {
+      abuseType: 'rapid_fire',
+      message: 'Suspicious activity detected: scans are happening too quickly.',
+    };
   }
-  
+
   if (patterns.unusualHours) {
     console.log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning during unusual hours`);
-    
-    // Send abuse notification to managers
+
     notifyAbuseDetection(employeeId, customerId, 'unusual_hours', {
       currentHour: new Date().getHours(),
       timeWindow: '11 PM - 5 AM'
     });
-    
-    return true;
+
+    return {
+      abuseType: 'unusual_hours',
+      message: 'Suspicious activity detected: scanning during unusual hours.',
+    };
   }
-  
-  return false;
+
+  return null;
 }
 
 function checkRepeatedScans(employeeId, customerId) {

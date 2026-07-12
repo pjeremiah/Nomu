@@ -11,6 +11,7 @@ class Config {
   static Future<String> get mobileAdminLoginUrl async => '${await dynamicApiBaseUrl}/mobile/admin/login';
   static Future<String> get mobileAdminVerifyOTPUrl async => '${await dynamicApiBaseUrl}/mobile/admin/verify-otp';
   static Future<String> get mobileAdminResendOTPUrl async => '${await dynamicApiBaseUrl}/mobile/admin/resend-otp';
+  static Future<String> get unlockBaristaScannerUrl async => '${await dynamicApiBaseUrl}/security/unlock-barista-scanner';
   static Future<String> get apiBaseUrl async => await dynamicApiBaseUrl;
   
   // Health check endpoint

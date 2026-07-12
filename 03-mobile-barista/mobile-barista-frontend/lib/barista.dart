@@ -13,6 +13,7 @@ import 'widgets/barista_camera_scanner.dart';
 import 'widgets/custom_toast.dart';
 import 'widgets/manual_lookup_dialog.dart';
 import 'widgets/nomu_modal.dart';
+import 'widgets/supervisor_unlock_dialog.dart';
 import 'widgets/notification_banner.dart';
 import 'theme/nomu_app_theme.dart';
 import 'utils/qr_validation_utils.dart';
@@ -1897,6 +1898,37 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
       onPrimary: _resumeScanning,
     );
   }
+
+  Future<void> _showAbuseBlockedDialog(String message) async {
+    final prefs = await SharedPreferences.getInstance();
+    final employeeId = prefs.getString('user_id');
+
+    if (employeeId == null || employeeId.isEmpty) {
+      if (!mounted) return;
+      _showErrorDialog(
+        'Scan blocked',
+        'Could not identify your account. Please log in again.',
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    final success = await SupervisorUnlockDialog.show(
+      context,
+      blockedEmployeeId: employeeId,
+      message: message,
+    );
+
+    if (success && mounted) {
+      CustomToast.showSuccess(
+        context,
+        message: 'Scanner unlocked. You can continue scanning.',
+        duration: const Duration(seconds: 3),
+      );
+      _resumeScanning();
+    }
+  }
   
   // Start new transaction
   void _startNewTransaction(String qrCode) {
@@ -2034,7 +2066,7 @@ class _BaristaScannerPageState extends State<BaristaScannerPage>
         Logger.error('Error response detected: $err (code: $code)', 'TRANSACTION');
 
         if (code == 'ABUSE_DETECTED') {
-          _showErrorDialog('Scan blocked', err);
+          await _showAbuseBlockedDialog(err);
         } else if (code == 'RATE_LIMIT_EXCEEDED' || statusCode == 429) {
           Logger.error('Rate limit exceeded - customer has reached daily scan limit', 'TRANSACTION');
           await _showRateLimitDialog(result);

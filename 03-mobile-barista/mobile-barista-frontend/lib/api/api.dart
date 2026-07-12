@@ -666,4 +666,43 @@ class ApiService {
       return {'error': 'Failed to update inventory stock: ${e.toString()}'};
     }
   }
+
+  /// Unlock a barista scanner paused by abuse detection (manager/owner credentials required).
+  static Future<Map<String, dynamic>?> unlockBaristaScanner({
+    required String blockedEmployeeId,
+    required String supervisorEmail,
+    required String supervisorPassword,
+  }) async {
+    try {
+      final url = await Config.unlockBaristaScannerUrl;
+      Logger.api('Unlock barista scanner for employee: $blockedEmployeeId', 'SECURITY');
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: _headers,
+            body: jsonEncode({
+              'blockedEmployeeId': blockedEmployeeId,
+              'supervisorEmail': supervisorEmail.trim(),
+              'supervisorPassword': supervisorPassword,
+            }),
+          )
+          .timeout(AppConstants.apiTimeout);
+
+      Logger.api('Unlock scanner response status: ${response.statusCode}');
+      Logger.api('Unlock scanner response body: ${response.body}');
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) {
+        return data;
+      }
+
+      return {
+        'error': data['message'] ?? 'Failed to unlock scanner',
+      };
+    } catch (e) {
+      Logger.exception('Unlock scanner exception', e, 'SECURITY');
+      return {'error': 'Could not reach the server. Try again.'};
+    }
+  }
 }

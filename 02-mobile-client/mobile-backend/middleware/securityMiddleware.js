@@ -277,29 +277,33 @@ function recordCustomerScan(customerId, pointsEarned = 1, countTowardDailyScan =
   customerData.daily = customerData.daily.filter(scan => scan.timestamp > oneWeekAgo);
 }
 
-// Abuse detection functions
+// Abuse detection functions — returns { abuseType, message } when blocked, else null
 function detectAbuse(employeeId, customerId) {
-  if (!config.enableSuspiciousPatternDetection) return false;
-  
-  const now = Date.now();
+  if (!config.enableSuspiciousPatternDetection) return null;
+
   const patterns = {
     sameCustomerMultipleTimes: checkRepeatedScans(employeeId, customerId),
     rapidFireScans: checkRapidScans(employeeId),
     unusualHours: checkScanHours(employeeId)
   };
-  
-  // Check for suspicious patterns
+
   if (patterns.sameCustomerMultipleTimes > config.abuseThresholdSameCustomer) {
     _log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning same customer ${customerId} repeatedly (${patterns.sameCustomerMultipleTimes} times)`);
-    return true;
+    return {
+      abuseType: 'repeated_scans',
+      message: 'Suspicious activity detected: the same customer was scanned too many times in a short period.',
+    };
   }
-  
+
   if (patterns.rapidFireScans > config.abuseThresholdRapidScans) {
     _log(`🚨 [ABUSE DETECTION] Employee ${employeeId} scanning too rapidly (${patterns.rapidFireScans} scans)`);
-    return true;
+    return {
+      abuseType: 'rapid_fire',
+      message: 'Suspicious activity detected: scans are happening too quickly.',
+    };
   }
-  
-  return false;
+
+  return null;
 }
 
 function checkRepeatedScans(employeeId, customerId) {

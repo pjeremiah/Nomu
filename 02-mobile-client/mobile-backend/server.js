@@ -42,7 +42,6 @@ const {
   recordEmployeeScan, 
   checkCustomerLimits, 
   recordCustomerScan, 
-  detectAbuse, 
   generateQrToken,
   generateScanToken,
   validateJwtToken, 
@@ -53,6 +52,9 @@ const {
   notifyCustomerScanLimit,
   notifyCustomerApproachingLimit
 } = require('./middleware/securityMiddleware');
+const employeeScanBlock = require('./services/employeeScanBlockService');
+const { enforceEmployeeScanSecurity } = require('./middleware/employeeScanSecurity');
+employeeScanBlock.initModel(mongoose);
 
 // Real-time notifications are handled via Socket.IO
 
@@ -965,6 +967,9 @@ function connectMongo() {
   mongoose.connect(process.env.MONGO_URI, mongoOptions)
     .then(() => {
       initGridFS();
+      employeeScanBlock.loadBlockedEmployees().catch((err) => {
+        console.error('❌ Failed to load employee scan blocks:', err.message);
+      });
     })
     .catch(err => {
       console.error('❌ MongoDB connection error:', err.message);
@@ -983,6 +988,9 @@ mongoose.connection.on('error', (err) => {
 
 mongoose.connection.on('reconnected', () => {
   initGridFS();
+  employeeScanBlock.loadBlockedEmployees().catch((err) => {
+    console.error('❌ Failed to reload employee scan blocks:', err.message);
+  });
 });
 
 // User Schema
@@ -2946,6 +2954,53 @@ app.post('/api/admin/logout', async (req, res) => {
   }
 });
 
+// Manager/owner unlock for abuse-blocked barista scanners
+app.post('/api/security/unlock-barista-scanner', async (req, res) => {
+  try {
+    const { blockedEmployeeId, supervisorEmail, supervisorPassword } = req.body;
+
+    if (!blockedEmployeeId || !supervisorEmail || !supervisorPassword) {
+      return res.status(400).json({ message: 'Employee ID, supervisor email, and password are required' });
+    }
+
+    if (!employeeScanBlock.isEmployeeScanBlocked(blockedEmployeeId)) {
+      return res.status(400).json({ message: 'This scanner is not currently blocked' });
+    }
+
+    const admin = await Admin.findOne({
+      email: { $regex: new RegExp(`^${String(supervisorEmail).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid supervisor credentials' });
+    }
+
+    if (!['superadmin', 'manager'].includes(admin.role)) {
+      return res.status(403).json({ message: 'Only a manager or owner can unlock a blocked scanner' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(supervisorPassword, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid supervisor credentials' });
+    }
+
+    await employeeScanBlock.unblockEmployeeScan(blockedEmployeeId, {
+      adminId: admin._id.toString(),
+      email: admin.email,
+      role: admin.role,
+      fullName: admin.fullName,
+    });
+
+    res.json({
+      success: true,
+      message: 'Scanner unlocked successfully. You can continue scanning.',
+    });
+  } catch (err) {
+    console.error('[UNLOCK SCANNER] error:', err);
+    res.status(500).json({ message: err.message || 'Failed to unlock scanner' });
+  }
+});
+
 app.post('/api/mobile/admin/verify-otp', handleMobileAdminVerifyOtp);
 app.post('/api/admin/verify-login-otp', handleMobileAdminVerifyOtp);
 
@@ -4692,24 +4747,8 @@ app.post('/api/loyalty/scan', async (req, res) => {
       }
     }
 
-    // High-volume security checks
     try {
-      // Check customer limits
       checkCustomerLimits(user._id.toString());
-      
-      // Check employee limits if employeeId is provided
-      if (employeeId) {
-        checkEmployeeLimits(employeeId);
-        
-        // Detect abuse patterns
-        if (detectAbuse(employeeId, user._id.toString())) {
-          _log('🚨 [SECURITY] Abuse detected, blocking scan');
-          return res.status(429).json({ 
-            error: 'Suspicious activity detected. Scan blocked for security.',
-            code: 'ABUSE_DETECTED'
-          });
-        }
-      }
     } catch (securityError) {
       _log('🚨 [SECURITY] Security check failed:', securityError.message);
       return res.status(429).json({ 
@@ -4718,6 +4757,11 @@ app.post('/api/loyalty/scan', async (req, res) => {
         maxScansPerDay: config.customerMaxScansPerDay,
         maxPointsPerDay: config.customerMaxPointsPerDay
       });
+    }
+
+    if (employeeId) {
+      const allowed = await enforceEmployeeScanSecurity(employeeId, user._id.toString(), res);
+      if (!allowed) return;
     }
     
     // Check minimum spending requirement (100 pesos)
@@ -5010,15 +5054,7 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
     }
 
     try {
-      if (employeeId) {
-        checkEmployeeLimits(employeeId);
-        if (detectAbuse(employeeId, user._id.toString())) {
-          return res.status(429).json({
-            error: 'Suspicious activity detected. Scan blocked for security.',
-            code: 'ABUSE_DETECTED'
-          });
-        }
-      }
+      checkCustomerLimits(user._id.toString());
     } catch (securityError) {
       return res.status(429).json({
         error: securityError.message,
@@ -5026,6 +5062,11 @@ app.post('/api/loyalty/scan-multiple', async (req, res) => {
         maxScansPerDay: config.customerMaxScansPerDay,
         maxPointsPerDay: config.customerMaxPointsPerDay
       });
+    }
+
+    if (employeeId) {
+      const allowed = await enforceEmployeeScanSecurity(employeeId, user._id.toString(), res);
+      if (!allowed) return;
     }
 
     for (const raw of items) {
