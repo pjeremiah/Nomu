@@ -16,6 +16,8 @@ This document compares how the **web application** (admin + client) and the **mo
 - If the mobile backend uses a different `MONGO_URI` (e.g. `nomu_cafe_mobile` or another Atlas DB), then they use **different databases**.  
 - **Action:** Compare the two backends’ `.env` files and ensure `MONGO_URI` is identical if you want one shared database.
 
+**Full schema reference:** [05-database/DATABASE-SCHEMA.md](./05-database/DATABASE-SCHEMA.md)
+
 ---
 
 ## 2. API URL (where the frontends send requests)

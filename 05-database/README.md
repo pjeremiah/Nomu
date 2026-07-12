@@ -1,189 +1,68 @@
-# 🗄️ Database
+# Database (`05-database`)
 
-Database schemas, models, and migration scripts for the Nomu Cafe management system.
+Database documentation and (future) migration/seed scripts for the Nomu Cafe system.
 
-## 📁 Database Structure
-
-```
-05-database/
-├── schemas/              # Database schemas and models
-├── migrations/           # Database migration scripts
-├── seeds/               # Sample data and test data
-├── backups/             # Database backup scripts
-└── README.md           # This file
-```
-
-## 🗄️ Database Information
-
-- **Type**: MongoDB (NoSQL)
-- **Hosting**: MongoDB Atlas (Cloud)
-- **Collections**: 12 main collections
-- **Indexes**: Optimized for performance
-- **Backup**: Automated daily backups
-
-## 📊 Collections Overview
-
-### User Management
-- `users` - Customer accounts
-- `admins` - Staff and admin accounts
-- `temp_signups` - Temporary signup data
-
-### Authentication
-- `otps` - OTP verification codes
-- `failed_attempts` - Security tracking
-
-### Business Data
-- `menu_items` - Menu products
-- `inventory_items` - Stock management
-- `stock_movements` - Inventory tracking
-- `promos` - Promotional campaigns
-- `rewards` - Loyalty rewards
-
-### Operations
-- `feedback` - Customer feedback
-- `admin_activities` - Admin action logs
-
-## 🔧 Schema Files
-
-### User Schema
-```javascript
-{
-  fullName: String,
-  username: String,
-  email: String,
-  password: String,
-  birthday: Date,
-  gender: String,
-  role: String,
-  pastOrders: [Object],
-  loyaltyPoints: Number,
-  // ... other fields
-}
-```
-
-### Menu Item Schema
-```javascript
-{
-  name: String,
-  category: String,
-  price: Number,
-  description: String,
-  image: String,
-  availability: Boolean,
-  // ... other fields
-}
-```
-
-## 🚀 Migration Scripts
-
-### Available Migrations
-- User data migration
-- Menu item updates
-- Inventory system migration
-- Order data restructuring
-
-### Running Migrations
-```bash
-# Run all migrations
-node migrations/run-all.js
-
-# Run specific migration
-node migrations/migrate-orders.js
-```
-
-## 🌱 Seed Data
-
-### Sample Data
-- Test users (customers and admins)
-- Sample menu items
-- Inventory data
-- Promotional campaigns
-
-### Loading Seed Data
-```bash
-# Load all seed data
-node seeds/load-all.js
-
-# Load specific data
-node seeds/load-menu.js
-```
-
-## 🔐 Security
-
-### Data Protection
-- Encrypted sensitive fields
-- Secure password hashing
-- Input validation
-- Access control
-
-### Backup Strategy
-- Daily automated backups
-- Point-in-time recovery
-- Cross-region replication
-- Retention policies
-
-## 📈 Performance
-
-### Indexes
-- User email and username
-- Menu item categories
-- Order timestamps
-- Inventory tracking
-
-### Optimization
-- Query optimization
-- Connection pooling
-- Caching strategies
-- Monitoring
-
-## 🚀 Setup Instructions
-
-### Development
-1. Set up MongoDB Atlas account
-2. Create database cluster
-3. Configure connection string
-4. Run migration scripts
-5. Load seed data
-
-### Production
-1. Configure production cluster
-2. Set up monitoring
-3. Configure backups
-4. Implement security measures
-5. Performance tuning
-
-## 📊 Monitoring
-
-### Metrics Tracked
-- Database performance
-- Query execution times
-- Connection usage
-- Storage utilization
-- Error rates
-
-### Tools Used
-- MongoDB Atlas monitoring
-- Custom performance scripts
-- Alert configurations
-- Regular health checks
-
-## 🔄 Maintenance
-
-### Regular Tasks
-- Index optimization
-- Data cleanup
-- Performance monitoring
-- Security updates
-- Backup verification
-
-### Troubleshooting
-- Common issues guide
-- Performance tuning
-- Error resolution
-- Recovery procedures
+**Live data** is stored in **MongoDB Atlas** (e.g. database `nomucafephdb`).  
+**Mongoose models** (code) live in the app backends — this folder holds **schema reference docs**, not the running database.
 
 ---
 
-**Database Version**: 1.0  
-**Last Updated**: December 2024  
-**Maintainer**: Development Team
+## What belongs here vs other folders
+
+| Folder | Purpose |
+|--------|---------|
+| **`05-database/`** (this folder) | Schema reference, ER diagrams, collection fields, future seeds/migrations |
+| **`01-web-application/backend/models/`** | Web API Mongoose model **source code** |
+| **`02-mobile-client/mobile-backend/`** | Mobile API models + `services/employeeScanBlockService.js` |
+| **`04-documentation/`** | User manuals, app guides, rate limits, deploy docs — **not** primary home for schema |
+
+---
+
+## Main document
+
+| File | Description |
+|------|-------------|
+| **[DATABASE-SCHEMA.md](./DATABASE-SCHEMA.md)** | Full MongoDB schema — all collections, fields, relationships, indexes, source file index |
+
+**21 production collections** documented (+ legacy `customers` noted separately).
+
+---
+
+## Database facts
+
+| Item | Detail |
+|------|--------|
+| **Type** | MongoDB (NoSQL) |
+| **Production** | MongoDB Atlas |
+| **Shared by** | `nomu-backend` + `nomu-mobile-backend` (same `MONGO_URI`) |
+| **ODM** | Mongoose (Node.js) |
+| **Files** | GridFS for images (profiles, promos, gallery) |
+
+---
+
+## Planned subfolders (not yet in repo)
+
+```
+05-database/
+├── DATABASE-SCHEMA.md    ← schema reference (current)
+├── migrations/           ← future: DB upgrade scripts
+├── seeds/                ← future: sample/test data loaders
+└── backups/              ← future: backup/restore notes or scripts
+```
+
+Seed scripts that already exist elsewhere today:
+
+- `01-web-application/backend/scripts/seed-analytics-demo-data.js` — analytics demo data
+
+---
+
+## Related documentation
+
+- [Web + mobile database check](../WEB_AND_MOBILE_API_DATABASE_CHECK.md) — same `MONGO_URI` checklist
+- [Applications overview](../04-documentation/APPLICATIONS-OVERVIEW.md) — which app uses which API
+- [Rate limits](../04-documentation/RATE-LIMITS.md) — limits (mostly in-memory; `employeescanblocks` is in MongoDB)
+- [Abuse block collection](../04-documentation/ABUSE-BLOCK-SUPERVISOR-UNLOCK.md) — `employeescanblocks` feature guide
+
+---
+
+**Last updated:** June 2026

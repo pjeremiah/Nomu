@@ -22,6 +22,7 @@ Step-by-step guides for each application:
 
 | Document | Description |
 |----------|-------------|
+| [DATABASE-SCHEMA.md](../05-database/DATABASE-SCHEMA.md) | **MongoDB schema** — collections, fields, relationships (in `05-database/`) |
 | [APPLICATIONS-OVERVIEW.md](./APPLICATIONS-OVERVIEW.md) | How the three apps connect — backends, APKs, roles |
 | [ABUSE-BLOCK-SUPERVISOR-UNLOCK.md](./ABUSE-BLOCK-SUPERVISOR-UNLOCK.md) | Barista abuse block, unlock API, production deploy |
 | [RATE-LIMITS.md](./RATE-LIMITS.md) | Daily/hourly limits, 12/day PHT, abuse thresholds |
@@ -54,6 +55,14 @@ Step-by-step guides for each application:
 3. [Barista Application Guide](./user-manuals/BARISTA-APPLICATION.md) — counter operations  
 4. [Web Application Guide](./user-manuals/WEB-APPLICATION.md) — admin & public site  
 5. [Abuse block & supervisor unlock](./ABUSE-BLOCK-SUPERVISOR-UNLOCK.md) + [Rate limits](./RATE-LIMITS.md) — appendix  
+6. [Database schema](../05-database/DATABASE-SCHEMA.md) — MongoDB reference (`05-database/`)  
+
+---
+
+## 📁 Folder note
+
+**`04-documentation`** = user manuals and system guides (how to use Nomu).  
+**`05-database`** = database schema and future migrations/seeds. Mongoose model **code** stays in each backend’s `models/` folder.
 
 ---
 
