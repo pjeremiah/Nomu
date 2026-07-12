@@ -192,13 +192,19 @@ This implementation is designed to handle:
 }
 ```
 
-### Abuse Detected
+### Abuse Detected (persistent — supervisor unlock in barista app)
+
+Production barista app calls **nomu-mobile-backend**, not this local server. See `04-documentation/ABUSE-BLOCK-SUPERVISOR-UNLOCK.md`.
+
 ```json
 {
-  "error": "Suspicious activity detected. Scan blocked for security.",
-  "code": "ABUSE_DETECTED"
+  "error": "Suspicious activity detected: ...",
+  "code": "ABUSE_DETECTED",
+  "requiresSupervisorUnlock": true
 }
 ```
+
+Barista app v1.0.23+24 shows block message + manager/owner email/password + **Confirm**.
 
 ### Security Check Failed
 ```json

@@ -1,94 +1,61 @@
-# 📚 Documentation
+# 📚 Nomu Documentation
 
-Complete documentation for the Nomu Cafe management system.
-
-## 📁 Documentation Structure
-
-```
-04-documentation/
-├── api-documentation/     # API reference and guides
-├── setup-guides/          # Installation and setup instructions
-├── user-manuals/          # User guides for different roles
-├── technical-specs/       # Technical specifications
-├── deployment/            # Deployment guides
-└── README.md             # This file
-```
-
-## 📋 Available Documentation
-
-### API Documentation
-- Complete API reference
-- Authentication guide
-- Endpoint specifications
-- Request/response examples
-- Error handling
-
-### Setup Guides
-- Development environment setup
-- Database configuration
-- Environment variables
-- Dependencies installation
-- Testing setup
-
-### User Manuals
-- Customer user guide
-- Admin dashboard guide
-- Barista app guide
-- Mobile app tutorials
-- Troubleshooting
-
-### Technical Specifications
-- System architecture
-- Database schema
-- Security implementation
-- Performance requirements
-- Integration details
-
-### Deployment
-- Production deployment
-- Environment configuration
-- Security hardening
-- Monitoring setup
-- Backup procedures
-
-## 🚀 Quick Links
-
-### For Developers
-- [API Documentation](./api-documentation/)
-- [Setup Guide](./setup-guides/)
-- [Technical Specifications](./technical-specs/)
-
-### For Users
-- [Customer Guide](./user-manuals/customer/)
-- [Admin Guide](./user-manuals/admin/)
-- [Barista Guide](./user-manuals/barista/)
-
-### For Deployment
-- [Production Setup](./deployment/)
-- [Environment Configuration](./deployment/environment/)
-- [Security Hardening](./deployment/security/)
-
-## 📝 Documentation Standards
-
-- Clear, concise language
-- Step-by-step instructions
-- Code examples where applicable
-- Screenshots for UI guides
-- Regular updates with code changes
-
-## 🔄 Maintenance
-
-This documentation is maintained alongside the codebase. Please update documentation when making significant changes to the system.
-
-## 📞 Support
-
-For questions about the documentation or system:
-- Check the troubleshooting guides
-- Review the FAQ section
-- Contact the development team
+Documentation for the Nomu Cafe integrated system: **web app**, **barista app**, and **mobile client (customer) app**.
 
 ---
 
-**Last Updated**: December 2024  
-**Version**: 1.0  
-**Maintainer**: Development Team
+## 📱 Application user manuals
+
+Step-by-step guides for each application:
+
+| Manual | File | For |
+|--------|------|-----|
+| **Web Application** | [user-manuals/WEB-APPLICATION.md](./user-manuals/WEB-APPLICATION.md) | Owner, Manager, Staff, public visitors |
+| **Barista Application** | [user-manuals/BARISTA-APPLICATION.md](./user-manuals/BARISTA-APPLICATION.md) | Counter staff — scan, manual lookup, supervisor unlock |
+| **Mobile Client Application** | [user-manuals/MOBILE-CLIENT-APPLICATION.md](./user-manuals/MOBILE-CLIENT-APPLICATION.md) | Customers — loyalty QR, stamps, rewards |
+
+**Index:** [user-manuals/README.md](./user-manuals/README.md)
+
+---
+
+## 🏗 System & technical docs
+
+| Document | Description |
+|----------|-------------|
+| [APPLICATIONS-OVERVIEW.md](./APPLICATIONS-OVERVIEW.md) | How the three apps connect — backends, APKs, roles |
+| [ABUSE-BLOCK-SUPERVISOR-UNLOCK.md](./ABUSE-BLOCK-SUPERVISOR-UNLOCK.md) | Barista abuse block, unlock API, production deploy |
+| [RATE-LIMITS.md](./RATE-LIMITS.md) | Daily/hourly limits, 12/day PHT, abuse thresholds |
+| [BEST-SELLER-ANALYTICS-RECOMMENDATIONS.md](./BEST-SELLER-ANALYTICS-RECOMMENDATIONS.md) | Analytics recommendations |
+
+---
+
+## 🚀 Deployment
+
+| Document | Description |
+|----------|-------------|
+| [RENDER_AND_GITHUB.md](../RENDER_AND_GITHUB.md) | Render services, env vars, APK hosting, GitHub deploy |
+| [MOBILE_DEPLOYMENT.md](../02-mobile-client/MOBILE_DEPLOYMENT.md) | Customer APK build and backend URL |
+
+---
+
+## 🔒 Security references
+
+| Document | Description |
+|----------|-------------|
+| [mobile-backend SECURITY_IMPLEMENTATION.md](../02-mobile-client/mobile-backend/SECURITY_IMPLEMENTATION.md) | Production mobile API security |
+| [barista-backend SECURITY_IMPLEMENTATION.md](../03-mobile-barista/mobile-barista-backend/SECURITY_IMPLEMENTATION.md) | Local barista backend (dev) |
+
+---
+
+## 📋 Suggested reading order (capstone / training)
+
+1. [Applications overview](./APPLICATIONS-OVERVIEW.md) — big picture  
+2. [Mobile Client Application Guide](./user-manuals/MOBILE-CLIENT-APPLICATION.md) — customer journey  
+3. [Barista Application Guide](./user-manuals/BARISTA-APPLICATION.md) — counter operations  
+4. [Web Application Guide](./user-manuals/WEB-APPLICATION.md) — admin & public site  
+5. [Abuse block & supervisor unlock](./ABUSE-BLOCK-SUPERVISOR-UNLOCK.md) + [Rate limits](./RATE-LIMITS.md) — appendix  
+
+---
+
+**Last updated:** June 2026  
+**Barista APK:** v1.0.23+24 · **Customer APK:** v1.0.14+15  

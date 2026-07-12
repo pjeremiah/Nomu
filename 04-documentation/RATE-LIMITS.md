@@ -109,14 +109,18 @@ All rate limits used across the Nomu application (web backend, mobile client bac
 - **File:** `middleware/securityMiddleware.js` → `checkCustomerLimits`, `recordCustomerScan`
 - **Daily reset:** Limits use the **calendar day in Asia/Manila (PHT, UTC+8)** — counters reset at **12:00 AM Philippines time**, not server UTC midnight.
 
-### 2.4 Abuse detection (block scan, not rate limit window)
+### 2.4 Abuse detection (persistent block until supervisor unlock)
 | Setting | Default | Env override | Effect |
 |--------|---------|-------------|--------|
-| Same customer scans (trigger) | 5 | `ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER` | Block + alert |
-| Rapid scans in 1 min (trigger) | 20 | `ABUSE_DETECTION_THRESHOLD_RAPID_SCANS` | Block + alert |
-| Unusual hours (11 PM–5 AM) | — | — | Block + alert |
+| Same customer scans (trigger) | 8 | `ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER` | Persistent block + alert |
+| Rapid scans in 1 min (trigger) | 10 | `ABUSE_DETECTION_THRESHOLD_RAPID_SCANS` | Persistent block + alert |
+| Unusual hours (11 PM–5 AM) | — | — | Persistent block + alert (barista-backend only) |
+| Enable detection | off unless `true` | `ENABLE_SUSPICIOUS_PATTERN_DETECTION=true` | Required in production |
 
 - **File:** `middleware/securityMiddleware.js` → `detectAbuse`, `checkRepeatedScans`, `checkRapidScans`, `checkScanHours`
+- **Persistent block:** `services/employeeScanBlockService.js` → MongoDB `EmployeeScanBlock`
+- **Unlock:** `POST /api/security/unlock-barista-scanner` (manager/owner password + role only)
+- **Full guide:** [ABUSE-BLOCK-SUPERVISOR-UNLOCK.md](./ABUSE-BLOCK-SUPERVISOR-UNLOCK.md)
 
 ---
 
@@ -147,11 +151,16 @@ All rate limits used across the Nomu application (web backend, mobile client bac
 - **File:** `middleware/securityMiddleware.js` → `checkCustomerLimits`  
 - **Note:** 80% of daily scan/points limit triggers “approaching limit” notification.
 
-### 3.4 Abuse detection
+### 3.4 Abuse detection (persistent block until supervisor unlock)
 | Setting | Default | Env override |
 |--------|---------|-------------|
-| Same customer threshold | 5 | `ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER` |
-| Rapid scans threshold | 20 | `ABUSE_DETECTION_THRESHOLD_RAPID_SCANS` |
+| Enable detection | off unless `true` | `ENABLE_SUSPICIOUS_PATTERN_DETECTION=true` |
+| Same customer threshold | 8 | `ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER` |
+| Rapid scans threshold | 10 | `ABUSE_DETECTION_THRESHOLD_RAPID_SCANS` |
+
+- **Production service:** `nomu-mobile-backend` (`02-mobile-client/mobile-backend`)
+- **Unlock API:** `POST /api/security/unlock-barista-scanner`
+- **Full guide:** [ABUSE-BLOCK-SUPERVISOR-UNLOCK.md](./ABUSE-BLOCK-SUPERVISOR-UNLOCK.md)
 
 ---
 
@@ -193,4 +202,4 @@ All rate limits used across the Nomu application (web backend, mobile client bac
 | Employee cooldown (scan) | 5 seconds |
 | Employee hourly/daily | Next hour / next day (daily = 12:00 AM **Philippines time**) |
 | Customer daily scans/points | Next day (12:00 AM **Philippines time**) |
-| Abuse block | No automatic reset (pattern-based) |
+| Abuse block | No automatic reset — manager/owner unlock via barista app (see [ABUSE-BLOCK-SUPERVISOR-UNLOCK.md](./ABUSE-BLOCK-SUPERVISOR-UNLOCK.md)) |

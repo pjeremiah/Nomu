@@ -23,12 +23,13 @@ This document outlines the high-volume security features implemented for the Nom
   - `EMPLOYEE_COOLDOWN_BETWEEN_SCANS=5`
 
 ### 3. Customer Rate Limiting (Mobile Client)
-- **Daily Scan Limit**: 10 scans per day per customer
-- **Daily Points Limit**: 50 points per day per customer
+- **Daily Scan Limit**: 12 scans per day per customer
+- **Daily Points Limit**: 12 points per day per customer
+- **Daily reset**: Midnight **Asia/Manila (PHT)**, not server UTC
 - **Purpose**: Prevents individual customer abuse
 - **Environment Variables**:
-  - `CUSTOMER_MAX_SCANS_PER_DAY=10`
-  - `CUSTOMER_MAX_POINTS_PER_DAY=50`
+  - `CUSTOMER_MAX_SCANS_PER_DAY=12`
+  - `CUSTOMER_MAX_POINTS_PER_DAY=12`
 
 ### 4. JWT-Based QR Token Security
 - **Token Type**: JWT with 24-hour expiry
@@ -41,17 +42,19 @@ This document outlines the high-volume security features implemented for the Nom
   - `JWT_QR_EXPIRY=24h`
   - `JWT_ADMIN_EXPIRY=24h`
 
-### 5. Abuse Detection & Monitoring
+### 5. Abuse Detection, Persistent Block & Supervisor Unlock
 - **Suspicious Pattern Detection**:
   - Same customer scanned multiple times by same employee
   - Rapid-fire scanning (too many scans in short time)
-  - Unusual scanning hours (11 PM - 5 AM)
-- **Real-time Alerts**: Enabled by default
+- **Persistent block**: Stored in MongoDB (`EmployeeScanBlock`); barista cannot scan until unlocked
+- **Supervisor unlock**: Manager or owner (superadmin) enters web admin email + password in barista app → **Confirm**
+- **Unlock API**: `POST /api/security/unlock-barista-scanner` on **nomu-mobile-backend**
+- **Full documentation**: `04-documentation/ABUSE-BLOCK-SUPERVISOR-UNLOCK.md`
 - **Environment Variables**:
   - `ENABLE_REAL_TIME_ALERTS=true`
-  - `ENABLE_SUSPICIOUS_PATTERN_DETECTION=true`
-  - `ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER=5`
-  - `ABUSE_DETECTION_THRESHOLD_RAPID_SCANS=20`
+  - `ENABLE_SUSPICIOUS_PATTERN_DETECTION=true` (**required in production**)
+  - `ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER=8`
+  - `ABUSE_DETECTION_THRESHOLD_RAPID_SCANS=10`
 
 ### 6. Security Headers
 - **X-Content-Type-Options**: nosniff
@@ -111,14 +114,14 @@ RATE_LIMIT_MAX_REQUESTS=100
 EMPLOYEE_MAX_SCANS_PER_HOUR=100
 EMPLOYEE_MAX_SCANS_PER_DAY=500
 EMPLOYEE_COOLDOWN_BETWEEN_SCANS=5
-CUSTOMER_MAX_SCANS_PER_DAY=10
-CUSTOMER_MAX_POINTS_PER_DAY=50
+CUSTOMER_MAX_SCANS_PER_DAY=12
+CUSTOMER_MAX_POINTS_PER_DAY=12
 JWT_QR_EXPIRY=24h
 JWT_ADMIN_EXPIRY=24h
 ENABLE_REAL_TIME_ALERTS=true
 ENABLE_SUSPICIOUS_PATTERN_DETECTION=true
-ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER=5
-ABUSE_DETECTION_THRESHOLD_RAPID_SCANS=20
+ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER=8
+ABUSE_DETECTION_THRESHOLD_RAPID_SCANS=10
 ENABLE_SECURITY_HEADERS=true
 ENABLE_CORS_SECURITY=true
 ```
@@ -152,8 +155,10 @@ ENABLE_CORS_SECURITY=true
 ### Mobile Barista App
 - Employee authentication
 - Scan rate monitoring
-- Abuse detection alerts
+- Abuse detection → **Scan blocked** modal with manager/owner credentials + **Confirm**
 - Real-time security feedback
+
+See `04-documentation/ABUSE-BLOCK-SUPERVISOR-UNLOCK.md` for the full operator and developer guide.
 
 ## 🔄 Backward Compatibility
 
@@ -181,13 +186,16 @@ This implementation is designed to handle:
 }
 ```
 
-### Abuse Detected
+### Abuse Detected (persistent — requires supervisor unlock)
 ```json
 {
-  "error": "Suspicious activity detected. Scan blocked for security.",
-  "code": "ABUSE_DETECTED"
+  "error": "Suspicious activity detected: the same customer was scanned too many times in a short period.",
+  "code": "ABUSE_DETECTED",
+  "requiresSupervisorUnlock": true
 }
 ```
+
+Unlock: `POST /api/security/unlock-barista-scanner` with `blockedEmployeeId`, `supervisorEmail`, `supervisorPassword`.
 
 ### Security Check Failed
 ```json

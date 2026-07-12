@@ -53,6 +53,24 @@ Configured in repo:
 - Same MongoDB as web if you want shared data: `MONGO_URI` → `nomucafephdb` Atlas URI
 - `JWT_SECRET`, `EMAIL_USER`, `EMAIL_PASS` (same as web if users/admins are shared)
 - `WEB_BACKEND_URL=https://nomu-backend.onrender.com` (abuse alerts / cross-service calls)
+- **Abuse block (required for barista supervisor unlock):**
+  ```
+  ENABLE_SUSPICIOUS_PATTERN_DETECTION=true
+  ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER=8
+  ABUSE_DETECTION_THRESHOLD_RAPID_SCANS=10
+  CUSTOMER_MAX_SCANS_PER_DAY=12
+  CUSTOMER_MAX_POINTS_PER_DAY=12
+  ```
+- See [04-documentation/ABUSE-BLOCK-SUPERVISOR-UNLOCK.md](./04-documentation/ABUSE-BLOCK-SUPERVISOR-UNLOCK.md)
+
+## Mobile APK releases (hosted on NomuCafe static site)
+
+| App | Version | Download path | Cache bust |
+|-----|---------|---------------|------------|
+| Customer | v1.0.14+15 | `/Nomu-Mobile-Application.apk` | `?v=1016` |
+| Barista | v1.0.23+24 | `/Nomu-Barista-Application.apk` | `?v=1024` |
+
+APK files: `01-web-application/frontend/public/`. After rebuilding APKs, bump version in `pubspec.yaml`, update `?v=` in `NomuApp.jsx`, `AdminLayout.jsx`, and `download-apk.html`, commit, push — NomuCafe redeploy serves new files.
 
 ## GitHub → Render flow
 
@@ -67,6 +85,9 @@ Configured in repo:
 | **Failed to fetch** on `localhost:3000` | CORS: Render API does not allow `http://localhost:3000` | Sign in at **https://nomucafe.onrender.com** or add localhost to `ALLOWED_ORIGINS` on nomu-backend |
 | **Failed to fetch** on nomucafe.onrender.com | Wrong `REACT_APP_API_URL` in NomuCafe build | Set env on NomuCafe service and redeploy |
 | Barista app cannot log in | App pointed at nomu-backend instead of nomu-mobile-backend | Rebuild APK after pulling; host = `nomu-mobile-backend.onrender.com` |
+| Abuse block modal missing credential fields | Old barista APK | Download barista APK `?v=1024` (v1.0.23+24) |
+| Abuse never triggers | `ENABLE_SUSPICIOUS_PATTERN_DETECTION` not `true` on nomu-mobile-backend | Set on Render, redeploy |
+| Supervisor unlock fails | Wrong role (staff) or wrong password | Use manager/owner web admin credentials |
 
 ## Health checks
 
