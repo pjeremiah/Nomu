@@ -36,7 +36,7 @@ Database documentation and (future) migration/seed scripts for the Nomu Cafe sys
 | **Production** | MongoDB Atlas |
 | **Shared by** | `nomu-backend` + `nomu-mobile-backend` (same `MONGO_URI`) |
 | **ODM** | Mongoose (Node.js) |
-| **Files** | GridFS for images (profiles, promos, gallery) |
+| **Files** | GridFS for images (profiles, promos, menu, inventory, gallery) |
 
 ---
 

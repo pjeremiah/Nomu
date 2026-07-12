@@ -16,7 +16,7 @@ MongoDB schema reference for the Nomu Cafe system.
 | **Primary DB name** | `nomucafephdb` (typical production) |
 | **Web API** | `01-web-application/backend` → most admin/content models |
 | **Mobile API** | `02-mobile-client/mobile-backend` → loyalty-extended `User`, `Chat`, `RewardClaim`, `EmployeeScanBlock` |
-| **Binary files** | GridFS (`fs.files` / `fs.chunks`, plus named buckets for profile images and promos) |
+| **Binary files** | GridFS — buckets: `profile_images`, `promo_images`, `menu_images`, `inventory_images`, `gallery_media` (+ default `fs`) |
 
 ### Collection summary
 
@@ -193,9 +193,29 @@ Legend: **PK** = primary key (`_id`), **UK** = unique key, **FK** = foreign key 
 | `lastOrder` | String | — | Last order summary text |
 | `loyaltyWindows` | Object | — | **Mobile only** — tier claim/pickup windows (see below) |
 | `pastOrders` | Array | — | Order history — **web:** `{ drink, quantity, date }`; **mobile:** `{ orderId, cycle, items[], totalPrice, date }` |
-| `rewardsHistory` | Array | — | Claimed rewards history |
+| `rewardsHistory` | Array | — | Claimed rewards history — shape differs by backend (see below) |
 | `createdAt` | Date | — | Registration time |
 | `updatedAt` | Date | — | Last profile update |
+
+**`rewardsHistory[]` (web — `User.js`)**
+
+| Subfield | Type | Description |
+|----------|------|-------------|
+| `reward` | String | Reward label |
+| `pointsUsed` | Number | Stamps/points consumed |
+| `date` | Date | Claim time |
+| `type` | String | Reward category |
+| `cycle` | Number | Loyalty cycle |
+
+**`rewardsHistory[]` (mobile — `server.js`)**
+
+| Subfield | Type | Description |
+|----------|------|-------------|
+| `type` | String | e.g. `donut`, `coffee`, `pastry`, `bonus` |
+| `description` | String | Display text |
+| `date` | Date | Claim time |
+| `cycle` | Number | Loyalty cycle |
+| `loyaltyStampTier` | Number | 5 or 10 — stamp tier at claim |
 
 **`loyaltyWindows` (mobile backend)**
 
@@ -331,6 +351,7 @@ Legend: **PK** = primary key (`_id`), **UK** = unique key, **FK** = foreign key 
 | `usageLimit` / `currentUsage` | Number | |
 | `status` | String | `Active`, `Inactive`, `Scheduled`, `Expired` |
 | `createdBy` / `updatedBy` | ObjectId → Admin | |
+| `createdAt` / `updatedAt` | Date | Mongoose timestamps |
 
 **Mobile (`Rewards` in server.js)** — customer app banners:
 
@@ -343,6 +364,10 @@ Legend: **PK** = primary key (`_id`), **UK** = unique key, **FK** = foreign key 
 | `isActive` / `priority` | Boolean / Number | Display order |
 | `maxClaimsPerUser` | Number | |
 | `startDate` / `endDate` | Date | |
+| `status` | String | `Active` (default) |
+| `usageLimit` / `currentUsage` | Number | Usage tracking (may mirror web admin rewards) |
+| `createdBy` / `updatedBy` | ObjectId → User | |
+| `createdAt` / `updatedAt` | Date | Timestamps |
 
 ---
 
@@ -392,13 +417,26 @@ Legend: **PK** = primary key (`_id`), **UK** = unique key, **FK** = foreign key 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` / `description` | String | |
-| `media[]` | Array | `type`, `url`, `filename`, `gridfsId`, `mimetype`, `size` |
+| `title` / `description` | String | max 100 / 500 chars |
+| `media[]` | Array | See subfields below (1–5 items per post) |
 | `isActive` | Boolean | |
 | `featured` | Boolean | Star / featured on gallery |
 | `order` | Number | Sort order |
 | `createdBy` | ObjectId → Admin | |
-| `tags[]` | String | |
+| `tags[]` | String | max 20 chars each |
+| `createdAt` / `updatedAt` | Date | Mongoose timestamps |
+
+**`media[]` subfields**
+
+| Subfield | Type | Description |
+|----------|------|-------------|
+| `type` | String | `image` \| `video` |
+| `url` | String | Served URL |
+| `filename` | String | Stored filename |
+| `originalName` | String | Original upload name |
+| `gridfsId` | ObjectId | Reference to `gallery_media` GridFS bucket |
+| `mimetype` | String | MIME type |
+| `size` | Number | File size in bytes |
 
 ### 4.2 `likes`
 
@@ -406,6 +444,8 @@ Legend: **PK** = primary key (`_id`), **UK** = unique key, **FK** = foreign key 
 |-------|------|-------------|
 | `user` | ObjectId → User | |
 | `post` | ObjectId → GalleryPost | |
+| `createdAt` | Date | Like time |
+| `updatedAt` | Date | Mongoose timestamp |
 | Unique index | | `(user, post)` |
 
 ### 4.3 `comments`
@@ -415,6 +455,8 @@ Legend: **PK** = primary key (`_id`), **UK** = unique key, **FK** = foreign key 
 | `user` | ObjectId → User | |
 | `post` | ObjectId → GalleryPost | |
 | `content` | String | max 500 chars |
+| `createdAt` | Date | Comment time |
+| `updatedAt` | Date | Mongoose timestamp |
 
 ### 4.4 `feedbacks`
 
@@ -520,6 +562,9 @@ Persistent barista scanner pause until manager/owner unlocks on device.
 | `expiresAt` | Date | TTL index — auto-delete |
 | `attempts` | Number | max 3 |
 | `isUsed` | Boolean | |
+| `createdAt` | Date | When OTP was issued |
+
+**Indexes:** `expiresAt` (TTL), `(email, type, isUsed)`
 
 ---
 
@@ -543,10 +588,15 @@ Login brute-force tracking. **TTL: 24 hours.**
 |-------|------|-------------|
 | `email` | String | |
 | `ipAddress` | String | |
-| `attemptCount` | Number | |
-| `lockedUntil` | Date | |
+| `userAgent` | String | Browser/client identifier |
+| `attemptCount` | Number | Failed attempts in window |
+| `lastAttemptAt` | Date | Most recent failed attempt |
+| `lockedUntil` | Date | Lockout expiry (15 min after threshold) |
 | `isLocked` | Boolean | |
 | `type` | String | `login`, `signup`, `otp` |
+| `createdAt` | Date | First attempt in this record |
+
+**Indexes:** `(email, ipAddress)`, `lockedUntil`, `createdAt` (TTL 24 h)
 
 ---
 
@@ -561,43 +611,59 @@ Legacy schema used only if you run the **local** barista backend against MongoDB
 
 ---
 
-## 7. Mobile-only collections
+## 7. Additional collections
 
-### 7.1 `chats` — Customer chatbot
+### 7.1 `chats` — Customer chatbot (mobile)
+
+**Model:** `Chat`  
+**Source:** `02-mobile-client/mobile-backend/server.js`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `userId` | ObjectId → User | |
 | `messages[]` | Array | `sender` (`user` \| `ai`), `text`, `timestamp` |
-| `createdAt` | Date | |
+| `createdAt` | Date | Thread start time |
 
 ---
 
 ### 7.2 `orders` — Analytics orders (web)
 
+**Model:** `Order`  
+**Source:** `01-web-application/backend/models/Order.js`
+
+Used by the web admin analytics dashboard (separate from loyalty `pastOrders` embedded on `users`).
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` / `customerId` | ObjectId → User | |
+| `userId` / `customerId` | ObjectId → User | Either may be set |
 | `employmentStatus` | String | For analytics segmentation |
 | `items[]` | Array | `name`, `quantity`, `price` |
-| `totalAmount` / `transactionTotal` | Number | |
+| `totalAmount` / `transactionTotal` | Number | Order total (PHP) |
 | `status` | String | `pending`, `completed`, `cancelled` |
-| `orderDate` | Date | |
+| `orderDate` | Date | Transaction date |
+| `notes` | String | Optional admin/note text |
+| `createdAt` / `updatedAt` | Date | Mongoose timestamps |
+
+**Indexes:** `userId`, `orderDate`, `status`, `employmentStatus`
 
 ---
 
 ## 8. GridFS (file storage)
 
-Large files stored outside normal collections:
+Large binary files are stored in **GridFS buckets** — each bucket creates two MongoDB collections: `{bucketName}.files` and `{bucketName}.chunks`.
 
-| Bucket / usage | Content |
-|----------------|---------|
-| Default `fs` | General uploads |
-| Profile images | Customer `profilePicture` |
-| Promo images | `imageId` on promos |
-| Gallery media | `gridfsId` on gallery `media[]` |
+| Bucket name | Used by | Referenced from |
+|-------------|---------|-----------------|
+| `profile_images` | Web + mobile backend | `users.profilePicture`, profile upload API |
+| `promo_images` | Web + mobile backend | `promos.imageId` |
+| `menu_images` | Web backend only | `menuitems.imageUrl` (`/api/images/menu/:id`) |
+| `inventory_images` | Web backend only | `inventoryitems.imageUrl` (`/api/images/inventory/:id`) |
+| `gallery_media` | Web backend only | `galleryposts.media[].gridfsId` |
+| `fs` (default) | Legacy / fallback | General uploads if no named bucket |
 
-Collections: `*.files` and `*.chunks` per bucket.
+**Source:** `01-web-application/backend/config/gridfs.js` (web); mobile backend uses `profile_images` and `promo_images` buckets directly.
+
+**Metadata on upload:** `originalName`, `uploadDate`, `contentType` (stored in GridFS file document metadata).
 
 ---
 
@@ -654,6 +720,9 @@ These are **in-memory** on the mobile backend (reset on server restart unless pe
 | **`adminactivities` vs `activitylogs`** | Two collections — do not merge |
 | **`customers` collection** | Legacy local barista backend only; production uses `users` |
 | **In-memory limits** | Employee/customer rate counters are not MongoDB documents |
+| **GridFS buckets** | Five named buckets + default `fs`; each has `.files` and `.chunks` collections |
+| **`orders` vs `users.pastOrders`** | `orders` = web analytics collection; `pastOrders` = embedded loyalty history on `users` |
+| **`rewardsHistory` shape** | Web and mobile backends use different subdocument fields on the same `users` collection |
 | **Mongoose code** | This file describes stored data; always verify against `models/` if code changes |
 
 ---
