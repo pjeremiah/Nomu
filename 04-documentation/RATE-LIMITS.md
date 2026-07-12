@@ -103,10 +103,11 @@ All rate limits used across the Nomu application (web backend, mobile client bac
 ### 2.3 Customer (loyalty scan) limits
 | Setting | Default | Env override | Try again after |
 |--------|---------|-------------|------------------|
-| Max scans per day | 10 | `CUSTOMER_MAX_SCANS_PER_DAY` | Next day |
-| Max points per day | 50 | `CUSTOMER_MAX_POINTS_PER_DAY` | Next day |
+| Max scans per day | 12 | `CUSTOMER_MAX_SCANS_PER_DAY` | Next day |
+| Max points per day | 12 | `CUSTOMER_MAX_POINTS_PER_DAY` | Next day |
 
 - **File:** `middleware/securityMiddleware.js` → `checkCustomerLimits`, `recordCustomerScan`
+- **Daily reset:** Limits use the **calendar day in Asia/Manila (PHT, UTC+8)** — counters reset at **12:00 AM Philippines time**, not server UTC midnight.
 
 ### 2.4 Abuse detection (block scan, not rate limit window)
 | Setting | Default | Env override | Effect |
@@ -140,8 +141,8 @@ All rate limits used across the Nomu application (web backend, mobile client bac
 ### 3.3 Customer (loyalty) limits
 | Setting | Default | Env override | Try again after |
 |--------|---------|-------------|------------------|
-| Max scans per day | 10 | `CUSTOMER_MAX_SCANS_PER_DAY` | Next day |
-| Max points per day | 50 | `CUSTOMER_MAX_POINTS_PER_DAY` | Next day |
+| Max scans per day | 12 | `CUSTOMER_MAX_SCANS_PER_DAY` | Next day |
+| Max points per day | 12 | `CUSTOMER_MAX_POINTS_PER_DAY` | Next day |
 
 - **File:** `middleware/securityMiddleware.js` → `checkCustomerLimits`  
 - **Note:** 80% of daily scan/points limit triggers “approaching limit” notification.
@@ -166,8 +167,8 @@ All rate limits used across the Nomu application (web backend, mobile client bac
 - `EMPLOYEE_MAX_SCANS_PER_HOUR` — default 100  
 - `EMPLOYEE_MAX_SCANS_PER_DAY` — default 500  
 - `EMPLOYEE_COOLDOWN_BETWEEN_SCANS` — seconds, default 5  
-- `CUSTOMER_MAX_SCANS_PER_DAY` — default 10  
-- `CUSTOMER_MAX_POINTS_PER_DAY` — default 50  
+- `CUSTOMER_MAX_SCANS_PER_DAY` — default 12  
+- `CUSTOMER_MAX_POINTS_PER_DAY` — default 12  
 - `ABUSE_DETECTION_THRESHOLD_SAME_CUSTOMER` — default 5  
 - `ABUSE_DETECTION_THRESHOLD_RAPID_SCANS` — default 20  
 
@@ -190,6 +191,6 @@ All rate limits used across the Nomu application (web backend, mobile client bac
 | Admin list/update/password reset | 15 minutes |
 | Admin create/delete | 1 hour |
 | Employee cooldown (scan) | 5 seconds |
-| Employee hourly/daily | Next hour / next day |
-| Customer daily scans/points | Next day |
+| Employee hourly/daily | Next hour / next day (daily = 12:00 AM **Philippines time**) |
+| Customer daily scans/points | Next day (12:00 AM **Philippines time**) |
 | Abuse block | No automatic reset (pattern-based) |

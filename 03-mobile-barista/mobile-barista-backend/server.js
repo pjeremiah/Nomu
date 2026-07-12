@@ -1592,7 +1592,9 @@ app.post('/api/loyalty/scan', async (req, res) => {
       console.log('🚨 [SECURITY] Security check failed:', securityError.message);
       return res.status(429).json({ 
         error: securityError.message,
-        code: 'RATE_LIMIT_EXCEEDED'
+        code: 'RATE_LIMIT_EXCEEDED',
+        maxScansPerDay: config.customerMaxScansPerDay,
+        maxPointsPerDay: config.customerMaxPointsPerDay
       });
     }
     

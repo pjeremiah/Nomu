@@ -5,6 +5,14 @@ const { v4: uuidv4 } = require('uuid');
 
 const _log = () => {}; // verbose logs disabled
 
+/** Daily scan/points limits reset at midnight Philippines time (PHT, UTC+8). */
+const PH_TIMEZONE = 'Asia/Manila';
+
+/** Calendar date key for daily limit buckets (YYYY-MM-DD in Asia/Manila). */
+function getDailyLimitDateKey(now = new Date()) {
+  return now.toLocaleDateString('en-CA', { timeZone: PH_TIMEZONE });
+}
+
 // In-memory stores for rate limiting and abuse detection
 // In production, use Redis for better performance and persistence
 const employeeScans = new Map(); // employeeId -> { hourly: [], daily: [], lastScan: timestamp }
@@ -101,8 +109,8 @@ const config = {
   employeeCooldownBetweenScans: parseInt(process.env.EMPLOYEE_COOLDOWN_BETWEEN_SCANS) || 5, // seconds
   
   // Customer limits
-  customerMaxScansPerDay: parseInt(process.env.CUSTOMER_MAX_SCANS_PER_DAY) || 10,
-  customerMaxPointsPerDay: parseInt(process.env.CUSTOMER_MAX_POINTS_PER_DAY) || 50,
+  customerMaxScansPerDay: parseInt(process.env.CUSTOMER_MAX_SCANS_PER_DAY, 10) || 12,
+  customerMaxPointsPerDay: parseInt(process.env.CUSTOMER_MAX_POINTS_PER_DAY, 10) || 12,
   
   // JWT configuration
   jwtQrExpiry: process.env.JWT_QR_EXPIRY || '24h',
@@ -160,7 +168,7 @@ function checkEmployeeLimits(employeeId) {
   }
   
   // Check daily limit
-  const today = new Date().toDateString();
+  const today = getDailyLimitDateKey();
   const dailyScans = employeeData.daily.filter(scan => scan.date === today);
   if (dailyScans.length >= config.employeeMaxScansPerDay) {
     throw new Error('Daily scan limit exceeded');
@@ -172,7 +180,7 @@ function checkEmployeeLimits(employeeId) {
 function recordEmployeeScan(employeeId, customerId) {
   const now = Date.now();
   const hour = Math.floor(now / (1000 * 60 * 60));
-  const today = new Date().toDateString();
+  const today = getDailyLimitDateKey(new Date(now));
   
   if (!employeeScans.has(employeeId)) {
     employeeScans.set(employeeId, {
@@ -200,7 +208,7 @@ function recordEmployeeScan(employeeId, customerId) {
 // Customer rate limiting functions
 function checkCustomerLimits(customerId) {
   const now = Date.now();
-  const today = new Date().toDateString();
+  const today = getDailyLimitDateKey(new Date(now));
   
   if (!customerScans.has(customerId)) {
     customerScans.set(customerId, {
@@ -246,7 +254,7 @@ function checkCustomerLimits(customerId) {
 
 function recordCustomerScan(customerId, pointsEarned = 1, countTowardDailyScan = true) {
   const now = Date.now();
-  const today = new Date().toDateString();
+  const today = getDailyLimitDateKey(new Date(now));
   
   if (!customerScans.has(customerId)) {
     customerScans.set(customerId, {

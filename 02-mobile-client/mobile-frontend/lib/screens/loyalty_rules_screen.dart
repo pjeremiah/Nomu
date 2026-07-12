@@ -20,13 +20,13 @@ class LoyaltyRulesScreen extends StatelessWidget {
 
   /// Matches `CUSTOMER_MAX_POINTS_PER_DAY` on mobile-backend (1 stamp earned = 1 point).
 
-  static const int maxStampsPerDay = 10;
+  static const int maxStampsPerDay = 12;
 
 
 
   /// Matches `CUSTOMER_MAX_SCANS_PER_DAY` on mobile-backend.
 
-  static const int maxQrScansPerDay = 10;
+  static const int maxQrScansPerDay = 12;
 
 
 
@@ -120,7 +120,7 @@ class LoyaltyRulesScreen extends StatelessWidget {
 
               'You can earn up to $maxStampsPerDay stamps per day from qualifying purchases (at most 1 stamp per eligible order).',
 
-              'Your QR code can be scanned at checkout up to $maxQrScansPerDay times per day when earning stamps. Limits reset at the start of each calendar day.',
+              'Your QR code can be scanned at checkout up to $maxQrScansPerDay times per day when earning stamps. Limits reset at 12:00 AM Philippines time (each new calendar day).',
 
               'If you hit a daily limit, you will not earn more stamps until the next day, but you can still order as usual.',
 
