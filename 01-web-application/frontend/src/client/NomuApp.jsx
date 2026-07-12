@@ -7,7 +7,7 @@ import VirtualLoyaltyCardImg from '../utils/Images/NomuAppPage/VirtualLoyaltyCar
 import LoginImg from '../utils/Images/NomuAppPage/Login.png';
 import SplashArtImg from '../utils/Images/NomuAppPage/SplashArt.png';
 
-const DOWNLOAD_APP_URL = '/Nomu-Mobile-Application.apk?v=1014';
+const DOWNLOAD_APP_URL = '/Nomu-Mobile-Application.apk?v=1015';
 
 const fadeIn = keyframes`
   from { opacity: 0; }
